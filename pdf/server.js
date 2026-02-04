@@ -1,6 +1,8 @@
 import { createServer } from "http";
 import fetch from "node-fetch";
 import { createRequire } from "module";
+import "dotenv/config";
+import { generateQuestions } from "./questionGenerator.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse"); // ✅ works ONLY with v1.1.1
@@ -42,6 +44,7 @@ const server = createServer(async (req, res) => {
       if (request.method === "tools/call") {
         const { name, arguments: args } = request.params;
 
+        // ==================== Extract PDF only ====================
         if (name === "read_github_pdf") {
           const buffer = await fetchPDF(args.github_url);
           const data = await pdfParse(buffer); // ✅ WORKS
@@ -56,10 +59,28 @@ const server = createServer(async (req, res) => {
           }));
           return;
         }
+
+        // ==================== Extract PDF + Generate Questions ====================
+        if (name === "read_github_pdf_and_generate_questions") {
+          const buffer = await fetchPDF(args.github_url);
+          const data = await pdfParse(buffer);
+          const text = data.text;
+
+          const questions = await generateQuestions(text);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            jsonrpc: "2.0",
+            id: request.id,
+            result: { questions }
+          }));
+          return;
+        }
       }
 
       throw new Error("Unknown MCP method");
     } catch (err) {
+      console.error("❌ SERVER ERROR:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         jsonrpc: "2.0",

@@ -9,131 +9,288 @@ import { useState } from "react";
 import "./App.css";
 
 function App() {
+  // ==========================================
+  // STEP 1: PDF Extraction & Content States
+  // ==========================================
+  const [githubLink, setGithubLink] = useState("");
+  // const [pdfFile, setPdfFile] = useState(null);  // Optional: for future file upload feature
+  const [extractedContent, setExtractedContent] = useState("");
+  const [isExtracted, setIsExtracted] = useState(false);
+  // const [extractionSuccess, setExtractionSuccess] = useState(false);  // Optional: tracking extracted state
 
-  // MCQ States
-  const [topic, setTopic] = useState("");
+  // ==========================================
+  // STEP 2: Quiz & Questions States
+  // ==========================================
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selected, setSelected] = useState("");
   const [showResult, setShowResult] = useState(false);
 
-  // Loading & Error
+  // ==========================================
+  // STEP 3: Topic Input for New Quiz States
+  // ==========================================
+  const [topic, setTopic] = useState("");
+  const [showTopicInput, setShowTopicInput] = useState(false);
+
+  // General states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  // Document States
-  const [pdfFile, setPdfFile] = useState(null);
-  const [githubLink, setGithubLink] = useState("");
-  const [docText, setDocText] = useState("");
+  // ==========================================
+  // HELPER: Parse MCQ text into structured questions
+  // ==========================================
+  const parseQuestionsFromText = (text) => {
+    const questions = [];
+    if (!text || typeof text !== "string") return [];
+    
+    // Split by MCQ section header and extract MCQ section
+    const sections = text.split(/\*\*Multiple-Choice Questions\*\*|\*\*Multiple Choice Questions\*\*/i);
+    const mcqSection = sections.length > 1 ? sections[1] : text;
+    
+    // Split questions by numbered pattern (1., 2., 3., etc.)
+    const questionBlocks = mcqSection.split(/\n(?=\d+\.)/);
+    
+    for (const block of questionBlocks) {
+      const lines = block.trim().split("\n").filter(l => l.trim());
+      if (lines.length < 4) continue;
+      
+      // Extract question text (first line, remove number)
+      let questionText = lines[0].replace(/^\d+\.\s*/, "").trim();
+      // Remove URL artifacts if present
+      questionText = questionText.replace(/http[s]?:\/\/\S+/g, "").trim();
+      
+      // Extract options (lines with A), B), C), D))
+      const options = [];
+      let correctAnswer = null;
+      
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Match option pattern: A) or A. at start of line
+        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)(?:\s*\*?Correct Answer:\*?.*)?$/i);
+        if (optionMatch) {
+          // optionMatch[1] contains the option letter (A, B, C, D)
+          let optionText = optionMatch[2].trim();
+          
+          // Clean up option text
+          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*$/i, "").trim();
+          
+          if (optionText && optionText.length > 0) {
+            options.push(optionText);
+          }
+          
+          // Check if this line contains the correct answer marker
+          if (line.match(/\*?Correct Answer:\*?\s*([A-D])/i)) {
+            const match = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
+            correctAnswer = match[1];
+          }
+        }
+      }
+      
+      // Ensure we have at least 3 options and a valid question
+      if (questionText && options.length >= 3) {
+        // If we have more than 4, trim to 4
+        const finalOptions = options.slice(0, 4);
+        
+        let answerIndex = 0;
+        if (correctAnswer) {
+          answerIndex = correctAnswer.charCodeAt(0) - 65;
+          // Ensure answerIndex is valid
+          if (answerIndex < 0 || answerIndex >= finalOptions.length) {
+            answerIndex = 0;
+          }
+        }
+        
+        questions.push({
+          question: questionText,
+          options: finalOptions,
+          answer: finalOptions[answerIndex] || finalOptions[0]
+        });
+      }
+    }
+    
+    return questions;
+  };
 
 
-  // ==========================
-  // Extract Resume / GitHub PDF
-  // ==========================
-
+  // ==========================================
+  // STEP 1: EXTRACT DOCUMENT FROM GITHUB PDF
+  // ==========================================
+  // This function:
+  // 1. Fetches PDF from GitHub
+  // 2. Extracts text content
+  // 3. Shows success message
+  // 4. Stores extracted content for next step
+  
   const extractDocument = async () => {
-
     setLoading(true);
     setError("");
+    setSuccessMessage("");
 
     try {
-
-      let res;
-
-      // GitHub PDF
-      if (githubLink.trim()) {
-
-        // Use backend proxy endpoint (/read-pdf) which forwards to the PDF microservice.
-        res = await fetch("http://localhost:5000/read-pdf", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ github_url: githubLink })
-        });
-
-        const data = await res.json();
-
-        setDocText(data.text || "");
+      if (!githubLink.trim()) {
+        setError("Please paste a GitHub PDF link");
+        setLoading(false);
+        return;
       }
 
-      // Resume Upload
-      else if (pdfFile) {
+      // Step 1a: Extract PDF content from GitHub
+      const res = await fetch("http://localhost:5000/read-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ github_url: githubLink })
+      });
 
-        const formData = new FormData();
-        formData.append("file", pdfFile);
+      const data = await res.json();
 
-        res = await fetch("http://localhost:5000/upload", {
-          method: "POST",
-          body: formData
-        });
-
-        const data = await res.json();
-
-        setDocText(data.text);
+      if (!data.text) {
+        setError("Failed to extract PDF. Please check the link and try again.");
+        setLoading(false);
+        return;
       }
 
-      else {
-        setError("Please upload a file or paste GitHub link");
-      }
+      // Step 1b: Store extracted content
+      setExtractedContent(data.text);
+      setIsExtracted(true);
+      // Store extraction success indicator in state
+      
+      // Show success message
+      setSuccessMessage("✅ Data extracted successfully!");
+      
+      // Clear the message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000);
 
     } catch (err) {
-
       console.error(err);
-      setError("Document extraction failed");
-
+      setError("Document extraction failed. Make sure the PDF link is correct.");
     }
 
     setLoading(false);
   };
 
 
-  // ==========================
-  // Generate MCQ
-  // ==========================
+  // =========================================
+  // STEP 2: GENERATE QUESTIONS FROM CONTENT
+  // =========================================
+  // This function:
+  // 1. Accepts extracted content or topic as input
+  // 2. Calls backend to generate MCQs
+  // 3. Parses and displays questions
+  // 4. Resets quiz state (index=0, score=0)
 
-  const generateQuiz = async () => {
-
-    if (!topic.trim() && !docText.trim()) return;
-
+  const generateQuiz = async (useExtractedContent = true) => {
     setLoading(true);
     setError("");
+    setSuccessMessage("");
 
     try {
+      let res;
+      let payload = {};
 
-      const res = await fetch("http://localhost:5000/generate", {
-        method: "POST",
+      // Option 1: Generate from extracted document content
+      if (useExtractedContent && extractedContent) {
+        console.log("🚀 Generating quiz from extracted content, length:", extractedContent.length);
+        payload = { docText: extractedContent };
+        res = await fetch("http://localhost:5000/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }
+      // Option 2: Generate from user-entered topic
+      else if (topic.trim()) {
+        console.log("🚀 Generating quiz from topic:", topic);
+        payload = { topic: topic };
+        res = await fetch("http://localhost:5000/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }
+      else {
+        setError("Please extract a PDF first or enter a topic");
+        setLoading(false);
+        return;
+      }
 
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          topic: docText || topic   // Use resume/GitHub if exists
-        }),
-      });
+      console.log("📡 Response status:", res.status);
 
       if (!res.ok) {
-        throw new Error("Server error");
+        const errorData = await res.text();
+        console.error("❌ Server error:", errorData);
+        setError(`Server error: ${res.status} - ${errorData}`);
+        setLoading(false);
+        return;
       }
 
       const data = await res.json();
+      console.log("📨 Response data:", data);
 
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("No questions");
+      let parsedQuestions = [];
+
+      if (Array.isArray(data)) {
+        // NEW: Gemini returns JSON array directly
+        console.log("✅ Direct JSON format detected, count:", data.length);
+        parsedQuestions = data.map(q => ({
+          question: q.question,
+          options: Array.isArray(q.options) ? q.options : [q.options],
+          answer: q.answer || q.options[0]
+        }));
+      } else if (data.questions) {
+        // OLD: Handle nested response structure: {questions: {questions: "..."}}
+        let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
+        
+        console.log("📝 Questions text length:", questionsText ? questionsText.length : 0);
+        
+        // Try to parse as JSON first
+        try {
+          const jsonParsed = JSON.parse(questionsText);
+          if (Array.isArray(jsonParsed)) {
+            console.log("✅ JSON array detected from text");
+            parsedQuestions = jsonParsed.map(q => ({
+              question: q.question,
+              options: Array.isArray(q.options) ? q.options : [q.options],
+              answer: q.answer || q.options[0]
+            }));
+          } else {
+            throw new Error("Not an array");
+          }
+        } catch (e) {
+          console.log("📄 Parsing as text format");
+          parsedQuestions = parseQuestionsFromText(questionsText);
+        }
+      } else if (data.error) {
+        console.error("❌ API Error:", data.error);
+        setError(`API Error: ${data.error}`);
+        setLoading(false);
+        return;
+      } else {
+        console.error("❌ Unknown response format:", data);
+        setError("Unexpected response format from server");
+        setLoading(false);
+        return;
       }
 
-      setQuestions(data);
-      setIndex(0);
-      setScore(0);
-      setShowResult(false);
+      console.log("✅ Parsed questions count:", parsedQuestions.length);
+
+      if (parsedQuestions.length > 0) {
+        setQuestions(parsedQuestions);
+        setIndex(0);
+        setScore(0);
+        setSelected("");
+        setShowResult(false);
+        setShowTopicInput(false);
+        console.log("🎉 Quiz ready with", parsedQuestions.length, "questions");
+      } else {
+        console.error("❌ Failed to parse any questions");
+        setError("Could not parse questions. Please try again.");
+      }
 
     } catch (err) {
-
-      console.error(err);
-      setError("Failed to generate quiz");
-
+      console.error("💥 Error:", err);
+      setError(`Error: ${err.message}`);
     }
 
     setLoading(false);
@@ -202,99 +359,97 @@ function App() {
         </div>
 
 
-        {/* Upload Section */}
+        {/* ============================= */}
+        {/* STEP 1: EXTRACT DOCUMENT */}
+        {/* ============================= */}
 
-        {!questions.length && (
-
+        {!isExtracted && (
           <div className="card">
-
-            <h3>Upload Resume / GitHub PDF</h3>
-
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => setPdfFile(e.target.files[0])}
-            />
-
-            <p>OR</p>
+            <h3>📄 Step 1: Upload & Extract PDF</h3>
 
             <input
               type="text"
               placeholder="Paste GitHub PDF link"
               value={githubLink}
               onChange={(e) => setGithubLink(e.target.value)}
+              style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
             />
 
             <button
               onClick={extractDocument}
               disabled={loading}
+              style={{ 
+                padding: "10px 20px", 
+                backgroundColor: "#4CAF50", 
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: loading ? "not-allowed" : "pointer"
+              }}
             >
               {loading ? "Extracting..." : "Extract Document"}
             </button>
 
+            {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+          </div>
+        )}
+
+        {/* Success Message After Extraction */}
+        {successMessage && (
+          <div className="card" style={{ backgroundColor: "#d4edda", border: "1px solid #c3e6cb" }}>
+            <p style={{ color: "#155724", margin: "10px 0" }}>{successMessage}</p>
           </div>
         )}
 
 
-        {/* Extracted Text Preview */}
+        {/* ============================= */}
+        {/* STEP 1b: SHOW EXTRACTED CONTENT */}
+        {/* ============================= */}
 
-        {docText && !questions.length && (
-
+        {isExtracted && !questions.length && !showTopicInput && (
           <div className="card">
-
-            <h3>Extracted Content</h3>
-
+            <h3>✅ Extracted Content Preview</h3>
             <textarea
               rows="6"
-              value={docText}
+              value={extractedContent.substring(0, 500) + "..."}
               readOnly
-              style={{ width: "100%" }}
-            />
-
-          </div>
-        )}
-
-
-        {/* Topic Input */}
-
-        {questions.length === 0 && (
-
-          <div className="start-box">
-
-            <input
-              type="text"
-              placeholder="Enter topic (optional)"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              style={{ width: "100%", padding: "10px" }}
             />
 
             <button
-              onClick={generateQuiz}
+              onClick={() => generateQuiz(true)}
               disabled={loading}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#2196F3",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: loading ? "not-allowed" : "pointer",
+                marginTop: "10px"
+              }}
             >
-              {loading ? "Generating..." : "Generate Quiz"}
+              {loading ? "Generating..." : "📚 Proceed to Quiz (Generate from Extracted Content)"}
             </button>
-
-            {error && <p style={{ color: "red" }}>{error}</p>}
-
           </div>
         )}
 
 
-        {/* Quiz */}
+        {/* ============================= */}
+        {/* STEP 2: QUIZ */}
+        {/* ============================= */}
 
         {questions.length > 0 && !showResult && (
-
           <div className="card">
-
             <h3>
-              {index + 1}. {questions[index].question}
+              🎯 Step 2: Quiz ({index + 1}/{questions.length})
             </h3>
+            <p style={{ fontSize: "18px", marginBottom: "15px" }}>
+              {questions[index].question}
+            </p>
 
             {questions[index].options.map((opt, i) => (
-
-              <label key={i} className="option">
-
+              <label key={i} className="option" style={{ display: "block", marginBottom: "10px" }}>
                 <input
                   type="radio"
                   name="option"
@@ -302,57 +457,150 @@ function App() {
                   checked={selected === opt}
                   onChange={(e) => setSelected(e.target.value)}
                 />
-
-                {opt}
-
+                <span style={{ marginLeft: "10px" }}>{opt}</span>
               </label>
-
             ))}
 
             <button
               onClick={nextQuestion}
               disabled={!selected}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: selected ? "#FF9800" : "#ccc",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: selected ? "pointer" : "not-allowed",
+                marginTop: "15px"
+              }}
             >
-              Next
+              Next Question
             </button>
-
           </div>
         )}
 
 
-        {/* Result */}
+        {/* ============================= */}
+        {/* STEP 3: RESULT & TOPIC INPUT */}
+        {/* ============================= */}
 
-        {showResult && (
-
+        {showResult && !showTopicInput && (
           <div className="card">
-
-            <h2>Result</h2>
-
-            <p className="result">
+            <h2>🏆 Quiz Result</h2>
+            <p className="result" style={{ fontSize: "24px", fontWeight: "bold", margin: "20px 0" }}>
               Your Score: {score} / {questions.length}
+            </p>
+            <p style={{ color: "#666" }}>
+              Percentage: {Math.round((score / questions.length) * 100)}%
             </p>
 
             <button
-              onClick={() => {
+              onClick={() => setShowTopicInput(true)}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#9C27B0",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                marginTop: "15px"
+              }}
+            >
+              📖 Generate New Quiz from Topic
+            </button>
 
+            <button
+              onClick={() => {
                 setQuestions([]);
                 setIndex(0);
                 setScore(0);
-                setSelected("");
+                setSelected({});
                 setShowResult(false);
                 setTopic("");
-                setDocText("");
+                setExtractedContent("");
+                setIsExtracted(false);
+                // setExtractionSuccess(false);  // Commented out - state not used
+                // setPdfFile(null);  // Commented out - state not used
                 setGithubLink("");
-                setPdfFile(null);
                 setError("");
-
+                setSuccessMessage("");
+              }}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#607D8B",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                marginTop: "10px",
+                marginLeft: "10px"
               }}
             >
-              Restart
+              ↻ Start Over
             </button>
-
           </div>
         )}
+
+
+        {/* ============================= */}
+        {/* STEP 3b: TOPIC INPUT SCREEN */}
+        {/* ============================= */}
+
+        {showTopicInput && (
+          <div className="card">
+            <h3>📌 Step 3: Generate Quiz from Topic</h3>
+            <p>Enter a topic to generate new questions:</p>
+
+            <input
+              type="text"
+              placeholder="Enter topic (e.g., JavaScript, Biology, History)"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                marginBottom: "10px",
+                fontSize: "16px"
+              }}
+            />
+
+            <button
+              onClick={() => generateQuiz(false)}
+              disabled={loading || !topic.trim()}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: topic.trim() ? "#4CAF50" : "#ccc",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: topic.trim() ? "pointer" : "not-allowed"
+              }}
+            >
+              {loading ? "Generating..." : "🎓 Generate Quiz"}
+            </button>
+
+            <button
+              onClick={() => {
+                setShowTopicInput(false);
+                setShowResult(true);
+              }}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#757575",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                marginLeft: "10px"
+              }}
+            >
+              Back to Result
+            </button>
+
+            {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+          </div>
+        )}
+
 
       </SignedIn>
 
