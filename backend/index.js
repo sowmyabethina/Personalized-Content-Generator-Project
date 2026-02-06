@@ -110,7 +110,22 @@ app.post("/generate", async (req, res) => {
 
   } catch (err) {
     console.error("❌ /generate error:", err);
-    return res.status(500).json({ error: "Question generation failed", details: err.message });
+    const msg = err && err.message ? err.message : String(err);
+
+    // If request didn't include enough content, return 400
+    if (msg.toLowerCase().includes("not enough content")) {
+      return res.status(400).json({ error: "not_enough_content", message: "Document too short for question generation. Provide a longer document or topic." });
+    }
+
+    // If the underlying AI client returned a rate-limit / quota error, surface a 429
+    if (msg.includes("Too Many Requests") || msg.toLowerCase().includes("quota")) {
+      return res.status(429).json({
+        error: "rate_limit",
+        message: "External AI quota exceeded. Try again later or check usage and quotas: https://ai.dev/rate-limit"
+      });
+    }
+
+    return res.status(500).json({ error: "Question generation failed", details: msg });
   }
 });
 
