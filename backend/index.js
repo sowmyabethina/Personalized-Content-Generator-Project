@@ -560,4 +560,174 @@ app.listen(PORT, () => {
   console.log(" - POST /generate-level-test");
   console.log(" - POST /evaluate-level");
   console.log(" - POST /evaluate-quiz");
+  console.log(" - POST /generate-mistral-content");
+  console.log(" - POST /generate-combined-content");
+});
+
+// ===============================
+// GENERATE PERSONALIZED CONTENT USING GEMINI MODEL
+// ===============================
+app.post("/generate-mistral-content", async (req, res) => {
+  try {
+    const { topic, technicalLevel, learningStyle, quizScore, learningAnswers } = req.body;
+
+    if (!topic || !topic.trim()) {
+      return res.status(400).json({ error: "topic required" });
+    }
+
+    const prompt = `
+You are an expert personalized learning assistant. Generate customized learning content based on:
+
+TOPIC: ${topic}
+TECHNICAL LEVEL: ${technicalLevel || 'Beginner'}
+QUIZ SCORE: ${quizScore || 0}%
+LEARNING STYLE: ${learningStyle || 'Balanced Learner'}
+
+Generate a comprehensive, personalized learning guide in JSON format:
+
+{
+  "title": "Personalized Learning Guide for ${topic}",
+  "level": "[Beginner/Intermediate/Advanced]",
+  "estimatedTime": "X hours",
+  "overview": "A brief personalized overview",
+  "learningPath": ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5"],
+  "resources": [{"type": "Video", "title": "Resource", "description": "Why this matches their learning style"}],
+  "tips": ["Tip 1", "Tip 2", "Tip 3"],
+  "nextSteps": "Encouraging next step"
+}
+
+Tailored to ${learningStyle || 'their'} learning preferences, appropriate for ${technicalLevel || 'Beginner'} level.
+    `;
+
+    // Use Gemini API (already configured in backend)
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const contentText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!contentText) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(contentText);
+    } catch (e) {
+      const jsonMatch = contentText.match(/\{[\s\S]*\}/);
+      parsedContent = jsonMatch ? JSON.parse(jsonMatch[0]) : { title: "Learning Guide", overview: contentText };
+    }
+
+    parsedContent.topic = topic;
+    console.log("✅ Gemini content generated for:", topic);
+    return res.json(parsedContent);
+
+  } catch (err) {
+    console.error("❌ /generate-mistral-content error:", err);
+    return res.status(500).json({ error: "Content generation failed", details: err.message });
+  }
+});
+
+// ===============================
+// GENERATE COMBINED PERSONALIZED CONTENT
+// Combines technical assessment + learning style for personalized learning
+// ===============================
+app.post("/generate-combined-content", async (req, res) => {
+  try {
+    const {
+      topic,
+      technicalLevel,
+      technicalScore,
+      learningStyle,
+      learningScore,
+      combinedAnalysis
+    } = req.body;
+
+    if (!topic || !topic.trim()) {
+      return res.status(400).json({ error: "topic required" });
+    }
+
+    // Calculate combined learner profile
+    const learnerProfile = `Learner Profile:\n- Technical Knowledge: ${technicalLevel} (${technicalScore}%)\n- Learning Style: ${learningStyle} (${learningScore}%)\n- Combined Analysis: ${combinedAnalysis || 'N/A'}`;
+
+    const prompt = `
+You are an expert personalized learning coach. Create a customized learning path based on BOTH assessments:
+
+${learnerProfile}
+
+TOPIC TO LEARN: ${topic}
+
+Generate a comprehensive personalized learning guide in JSON format:
+
+{
+  "title": "Personalized Learning Guide for ${topic}",
+  "level": "${technicalLevel}",
+  "estimatedTime": "X hours",
+  "overview": "2-3 sentence personalized overview considering their ${technicalLevel} technical level and ${learningStyle} learning style",
+  "learningPath": [
+    "Step 1: [Action tailored to ${learningStyle}] - [Consider technical level: ${technicalLevel}]",
+    "Step 2: [Action matching their learning preference]",
+    "Step 3: [Progressive challenge based on current ${technicalLevel} level]",
+    "Step 4: [Hands-on or theory-based depending on ${learningStyle}]",
+    "Step 5: [Final milestone for ${topic}]"
+  ],
+  "resources": [
+    {
+      "type": "[Video/Article/Interactive/Project]",
+      "title": "[Resource title]",
+      "description": "[Why this matches ${learningStyle} - connects to their learning style assessment]"
+    }
+  ],
+  "tips": [
+    "[Tip specifically for ${technicalLevel} learners in ${topic}]",
+    "[Tip based on ${learningStyle} - e.g., hands-on tips for hands-on learners]",
+    "[Motivation tip considering both scores]"
+  ],
+  "nextSteps": "[Encouraging next step that bridges their technical level with learning style]"
+}
+
+Make the content:
+- Highly personalized to their ${learningStyle} learning preference
+- Appropriately challenging for ${technicalLevel} technical level
+- Practical and actionable
+- Use specific examples for ${topic}
+    `;
+
+    // Use Gemini API
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const contentText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!contentText) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(contentText);
+    } catch (e) {
+      const jsonMatch = contentText.match(/\{[\s\S]*\}/);
+      parsedContent = jsonMatch ? JSON.parse(jsonMatch[0]) : { title: "Learning Guide", overview: contentText };
+    }
+
+    parsedContent.topic = topic;
+    console.log("✅ Combined content generated:", { topic, technicalLevel, learningStyle });
+    return res.json(parsedContent);
+
+  } catch (err) {
+    console.error("❌ /generate-combined-content error:", err);
+    return res.status(500).json({ error: "Combined content generation failed", details: err.message });
+  }
 });

@@ -70,7 +70,7 @@ If PDF says "Git":
 
 RULES:
 
-1. Generate exactly 5 MCQs
+1. Generate exactly 10 MCQs
 2. Each question must test real knowledge
 3. No biography questions
 4. No resume-fact questions
