@@ -114,6 +114,109 @@ function ResultPage() {
     setLoadingMaterial(false);
   };
 
+  // Download learning material as text file
+  const downloadMaterial = () => {
+    if (!learningMaterial) return;
+
+    let content = `${learningMaterial.title || "Learning Material"}\n`;
+    content += `${"=".repeat(50)}\n\n`;
+    content += `Topic: ${learningMaterial.topic}\n`;
+    content += `Level: ${learningMaterial.level}\n`;
+    content += `Learning Style: ${learningMaterial.style}\n\n`;
+
+    if (learningMaterial.summary) {
+      content += `SUMMARY\n${"-".repeat(30)}\n${learningMaterial.summary}\n\n`;
+    }
+
+    if (learningMaterial.sections) {
+      learningMaterial.sections.forEach((section, idx) => {
+        content += `\n${idx + 1}. ${section.title}\n`;
+        content += `${"=".repeat(section.title.length)}\n\n`;
+        content += `${section.content}\n\n`;
+
+        if (section.keyPoints) {
+          content += `Key Points:\n`;
+          section.keyPoints.forEach(point => {
+            content += `  • ${point}\n`;
+          });
+          content += `\n`;
+        }
+
+        if (section.examples) {
+          section.examples.forEach((ex, exIdx) => {
+            content += `Example ${exIdx + 1}: ${ex.title}\n`;
+            content += `${ex.description}\n`;
+            if (ex.code) {
+              content += `${ex.code}\n`;
+            }
+            content += `\n`;
+          });
+        }
+
+        if (section.practiceQuestions) {
+          content += `Practice Questions:\n`;
+          section.practiceQuestions.forEach((q, qIdx) => {
+            content += `  ${qIdx + 1}. ${q}\n`;
+          });
+          content += `\n`;
+        }
+
+        content += `Estimated Time: ${section.estimatedTime}\n`;
+      });
+    }
+
+    if (learningMaterial.finalProject) {
+      content += `\n${"=".repeat(50)}\n`;
+      content += `FINAL PROJECT\n${"=".repeat(30)}\n\n`;
+      content += `${learningMaterial.finalProject.title}\n`;
+      content += `${learningMaterial.finalProject.description}\n\n`;
+      content += `Steps:\n`;
+      learningMaterial.finalProject.steps.forEach((step, idx) => {
+        content += `  ${idx + 1}. ${step}\n`;
+      });
+      content += `\nExpected Outcome: ${learningMaterial.finalProject.expectedOutcome}\n`;
+    }
+
+    if (learningMaterial.cheatsheet) {
+      content += `\n${"=".repeat(50)}\n`;
+      content += `QUICK REFERENCE CHEATSHEET\n${"=".repeat(30)}\n\n`;
+
+      if (learningMaterial.cheatsheet.commands) {
+        content += `Commands/Syntax:\n`;
+        learningMaterial.cheatsheet.commands.forEach(cmd => {
+          content += `  ${cmd}\n`;
+        });
+        content += `\n`;
+      }
+
+      if (learningMaterial.cheatsheet.definitions) {
+        content += `Definitions:\n`;
+        Object.entries(learningMaterial.cheatsheet.definitions).forEach(([term, def]) => {
+          content += `  ${term}: ${def}\n`;
+        });
+      }
+    }
+
+    if (learningMaterial.furtherReading) {
+      content += `\n${"=".repeat(50)}\n`;
+      content += `FURTHER READING\n${"=".repeat(30)}\n\n`;
+      learningMaterial.furtherReading.forEach((resource, idx) => {
+        content += `  ${idx + 1}. ${resource}\n`;
+      });
+    }
+
+    // Create blob and download
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Quiz score card
   const renderQuizScore = () => {
     if (mode === "quiz" && score !== undefined) {
@@ -345,8 +448,23 @@ function ResultPage() {
                     marginBottom: "15px"
                   }}
                 >
-                  {loadingMaterial ? "Generating..." : "📥 Download Complete Learning Material"}
+                  {loadingMaterial ? "Generating..." : "📚 Generate Full Learning Material"}
                 </button>
+
+                {learningMaterial && (
+                  <button
+                    onClick={downloadMaterial}
+                    style={{
+                      width: "100%",
+                      padding: "15px",
+                      fontSize: "16px",
+                      background: "#4CAF50",
+                      marginBottom: "15px"
+                    }}
+                  >
+                    📥 Download Learning Material
+                  </button>
+                )}
               </>
             )}
 
@@ -497,8 +615,8 @@ function ResultPage() {
             )}
 
             <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
-              <button onClick={() => { setShowMaterial(false); setShowContent(true); }} style={{ flex: "1", minWidth: "150px", background: "#4CAF50" }}>
-                ← Back to Learning Path
+              <button onClick={downloadMaterial} style={{ flex: "1", minWidth: "150px", background: "#4CAF50" }}>
+                📥 Download Material
               </button>
               <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
                 📄 PDF Chat
