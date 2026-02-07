@@ -7,12 +7,11 @@ export async function getEmbedding(text) {
     console.log("🔄 Loading embedding model...");
     extractor = await pipeline(
       "feature-extraction",
-      "Xenova/all-MiniLM-L6-v2" // ✅ SUPPORTED MODEL
+      "Xenova/all-MiniLM-L6-v2"
     );
     console.log("✅ Embedding model loaded");
   }
 
-  // 🔒 Safety: limit text length
   const safeText = text.slice(0, 2000);
 
   const output = await extractor(safeText, {
@@ -20,11 +19,5 @@ export async function getEmbedding(text) {
     normalize: true,
   });
 
-  // 🧠 Handle output safely
-  const embedding =
-    output.data instanceof Float32Array
-      ? Array.from(output.data)
-      : Array.from(output.data[0]);
-
-  return embedding;
+  return Array.from(output.data);
 }

@@ -1,63 +1,159 @@
 import fs from "fs";
-import pdf from "pdf-parse";
-import { addVector } from "./vectorStore.js";
 import { getEmbedding } from "./embeddings.js";
 
-/**
- * Split text into chunks with overlap
- * @param {string} text
- * @param {number} chunkSize
- * @param {number} overlap
- */
-function splitText(text, chunkSize = 800, overlap = 200) {
+function splitText(text, chunkSize = 500, overlap = 50) {
+  if (!text || typeof text !== "string") return [];
+  
   const chunks = [];
   let start = 0;
 
   while (start < text.length) {
     const end = start + chunkSize;
-    const chunk = text.slice(start, end);
-    chunks.push(chunk);
-
-    // Move start forward but keep overlap
+    chunks.push(text.slice(start, end));
     start = end - overlap;
-    if (start < 0) start = 0;
   }
 
   return chunks;
 }
 
-/**
- * Ingest PDF: read file, clean text, split, embed, and store
- * @param {string} filePath
- */
+async function extractTextFromPDF(filePath) {
+  // Use pdfjs-dist for better PDF parsing
+  try {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    
+    // Set worker path
+    pdfjsLib.GlobalWorkerOptions.workerSrc = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    
+    const data = fs.readFileSync(filePath);
+    const loadingTask = pdfjsLib.getDocument({ data });
+    const pdf = await loadingTask.promise;
+    
+    let fullText = "";
+    
+    // Extract text from each page
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      const pageText = textContent.items
+        .map((item) => item.str)
+        .join(" ");
+      
+      fullText += pageText + "\n\n";
+      
+      if (i % 5 === 0) {
+        console.log(`📄 Extracted page ${i}/${pdf.numPages}`);
+      }
+    }
+    
+    if (fullText.length < 50) {
+      throw new Error("Extracted text too short");
+    }
+    
+    console.log(`✅ Successfully extracted ${fullText.length} characters using pdfjs-dist`);
+    return fullText;
+    
+  } catch (pdfError) {
+    console.warn("⚠️ pdfjs-dist failed:", pdfError.message);
+    
+    // Fallback to pdf-parse
+    try {
+      const pdf = await import("pdf-parse");
+      const buffer = fs.readFileSync(filePath);
+      const data = await pdf.default(buffer);
+      
+      if (data.text && data.text.trim().length > 50) {
+        console.log("✅ Fallback to pdf-parse successful");
+        return data.text;
+      }
+    } catch (fallbackError) {
+      console.warn("⚠️ pdf-parse also failed");
+    }
+    
+    throw new Error("Could not extract text from PDF - file may be scanned image or encrypted");
+  }
+}
+
 export async function ingestPdf(filePath) {
   console.log("📄 Reading PDF:", filePath);
 
-  // Read the PDF file
-  const buffer = fs.readFileSync(filePath);
-  const pdfData = await pdf(buffer);
-
-  if (!pdfData.text || pdfData.text.trim().length === 0) {
-    throw new Error("❌ PDF has no extractable text");
+  if (!fs.existsSync(filePath)) {
+    throw new Error("PDF file not found");
   }
 
-  // Clean the text for better formatting
-  let text = pdfData.text;
-  text = text.replace(/\n+/g, " "); // remove line breaks
-  text = text.replace(/\s+/g, " ").trim(); // remove extra spaces
-
-  // Split text into chunks with overlap
-  const chunks = splitText(text, 800, 200);
-  console.log(`✂️ Total chunks created: ${chunks.length}`);
-
-  // Embed and store each chunk
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const embedding = await getEmbedding(chunk);
-    addVector(embedding, chunk);
-
-    console.log(`📌 Stored chunk ${i + 1}/${chunks.length}`);
+  const stats = fs.statSync(filePath);
+  if (stats.size < 100) {
+    throw new Error("PDF file is too small");
   }
 
-  console.log("✅ PDF successfully ingested using LOCAL embeddings with overlap");
+  try {
+    const text = await extractTextFromPDF(filePath);
+    
+    if (!text || !text.trim()) {
+      throw new Error("PDF has no readable text");
+    }
+
+    console.log(`📝 Total extracted: ${text.length} characters`);
+
+    const chunks = splitText(text);
+    console.log(`📌 Split into ${chunks.length} chunks`);
+
+    let count = 0;
+
+    for (const chunk of chunks) {
+      if (chunk.trim().length < 10) continue;
+      
+      try {
+        const embedding = await getEmbedding(chunk);
+        addVector(embedding, chunk);
+        count++;
+        
+        if (count % 5 === 0) {
+          console.log(`📌 Processed ${count}/${chunks.length} chunks`);
+        }
+      } catch (embError) {
+        console.warn("⚠️ Failed to embed chunk:", embError.message);
+      }
+    }
+
+    console.log(`✅ PDF successfully ingested: ${count} chunks stored`);
+
+  } catch (error) {
+    console.error("❌ Error processing PDF:", error.message);
+    throw error;
+  }
+}
+
+// Vector storage - in-memory
+const vectors = [];
+let dimension = null;
+
+export function addVector(embedding, text) {
+  if (!dimension) {
+    dimension = embedding.length;
+    console.log("✅ Vector dimension set:", dimension);
+  }
+  vectors.push({ embedding, text });
+}
+
+export function similaritySearch(queryEmbedding, topK = 5) {
+  return vectors
+    .map(v => ({
+      text: v.text,
+      score: cosineSimilarity(queryEmbedding, v.embedding),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+}
+
+function cosineSimilarity(a, b) {
+  let dot = 0, magA = 0, magB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }

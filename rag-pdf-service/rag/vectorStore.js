@@ -1,4 +1,4 @@
-// FAISS-style in-memory vector store (NO native FAISS)
+// Simple FAISS-style in-memory vector store
 
 export const vectors = [];
 let dimension = null;
@@ -6,11 +6,7 @@ let dimension = null;
 export function addVector(embedding, text) {
   if (!dimension) {
     dimension = embedding.length;
-    console.log("✅ Vector store initialized with dim:", dimension);
-  }
-
-  if (embedding.length !== dimension) {
-    throw new Error("Embedding dimension mismatch");
+    console.log("✅ Vector dimension set:", dimension);
   }
 
   vectors.push({ embedding, text });
@@ -27,9 +23,7 @@ export function similaritySearch(queryEmbedding, topK = 3) {
 }
 
 function cosineSimilarity(a, b) {
-  let dot = 0;
-  let magA = 0;
-  let magB = 0;
+  let dot = 0, magA = 0, magB = 0;
 
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
