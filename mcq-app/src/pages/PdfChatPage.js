@@ -33,7 +33,7 @@ function PdfChatPage() {
       formData.append("pdf", file);
 
       console.log("Uploading PDF to RAG service...");
-      const response = await fetch("http://localhost:5001/rag/upload-pdf", {
+      const response = await fetch("http://localhost:5001/upload-pdf", {
         method: "POST",
         body: formData,
       });
@@ -79,7 +79,7 @@ function PdfChatPage() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5001/rag/ask", {
+      const response = await fetch("http://localhost:5001/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

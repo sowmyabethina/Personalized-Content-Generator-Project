@@ -562,6 +562,7 @@ app.listen(PORT, () => {
   console.log(" - POST /evaluate-quiz");
   console.log(" - POST /generate-mistral-content");
   console.log(" - POST /generate-combined-content");
+  console.log(" - POST /generate-learning-material");
 });
 
 // ===============================
@@ -602,7 +603,7 @@ Tailored to ${learningStyle || 'their'} learning preferences, appropriate for ${
     // Use Gemini API (already configured in backend)
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -701,14 +702,20 @@ Make the content:
     // Use Gemini API
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
-
-    const contentText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log("🤖 Calling Gemini API for combined content...");
+    
+    let contentText;
+    try {
+      const result = await model.generateContent(prompt);
+      console.log("📝 Gemini API response received");
+      contentText = result?.response?.text();
+      console.log("📄 Content text length:", contentText?.length);
+    } catch (apiError) {
+      console.error("❌ Gemini API Error:", apiError);
+      throw new Error(`Gemini API failed: ${apiError.message}`);
+    }
 
     if (!contentText) {
       throw new Error("Empty response from Gemini API");
@@ -729,5 +736,152 @@ Make the content:
   } catch (err) {
     console.error("❌ /generate-combined-content error:", err);
     return res.status(500).json({ error: "Combined content generation failed", details: err.message });
+  }
+});
+
+// ===============================
+// GENERATE EXACT LEARNING MATERIAL
+// ===============================
+// Generates actual learning content/material based on topic, level, and learning style
+app.post("/generate-learning-material", async (req, res) => {
+  try {
+    const { topic, technicalLevel, learningStyle } = req.body;
+
+    if (!topic || !topic.trim()) {
+      return res.status(400).json({ error: "topic required" });
+    }
+
+    // Level mapping for content generation
+    const levelContent = {
+      "Beginner": "Foundational concepts, simple explanations, lots of examples",
+      "Intermediate": "Core concepts with practical applications, moderate complexity",
+      "Advanced": "Deep dive, advanced patterns, expert-level topics"
+    };
+
+    // Style mapping
+    const styleContent = {
+      "Hands-On Learner": "Include coding exercises, hands-on examples, practice problems",
+      "Theory-First Learner": "Focus on concepts, explanations, theory behind each topic",
+      "Balanced Learner": "Mix of theory and practice, balanced approach"
+    };
+
+    const prompt = `
+You are an expert educator creating comprehensive learning material.
+
+TOPIC: ${topic}
+TECHNICAL LEVEL: ${technicalLevel || "Beginner"} (${levelContent[technicalLevel] || levelContent["Beginner"]})
+LEARNING STYLE: ${learningStyle || "Balanced Learner"} (${styleContent[learningStyle] || styleContent["Balanced Learner"]})
+
+Generate detailed learning material in this exact JSON format:
+
+{
+  "title": "Complete ${topic} Learning Material",
+  "summary": "Brief 2-3 sentence overview of what learner will master",
+  "prerequisites": ["List of prerequisites if any"],
+  "sections": [
+    {
+      "title": "Section 1: Introduction to ${topic}",
+      "content": "Detailed explanation of the section - at least 300 words covering definitions, concepts, and key points",
+      "keyPoints": ["Point 1", "Point 2", "Point 3"],
+      "examples": [
+        {
+          "title": "Example Title",
+          "description": "Example description",
+          "code": "// Code example if applicable"
+        }
+      ],
+      "practiceQuestions": ["Question 1", "Question 2"],
+      "estimatedTime": "10-15 minutes"
+    },
+    {
+      "title": "Section 2: Core Concepts",
+      "content": "Detailed explanation - at least 400 words with in-depth coverage",
+      "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4"],
+      "examples": [{"title": "", "description": "", "code": ""}],
+      "practiceQuestions": ["Question 1", "Question 2", "Question 3"],
+      "estimatedTime": "20-25 minutes"
+    },
+    {
+      "title": "Section 3: Advanced Topics",
+      "content": "Advanced content - at least 400 words covering expert-level topics",
+      "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4"],
+      "examples": [{"title": "", "description": "", "code": ""}],
+      "practiceQuestions": ["Question 1", "Question 2"],
+      "estimatedTime": "25-30 minutes"
+    },
+    {
+      "title": "Section 4: Practical Application",
+      "content": "Hands-on section - at least 350 words with real-world applications",
+      "keyPoints": ["Point 1", "Point 2", "Point 3"],
+      "examples": [
+        {
+          "title": "Real-world Use Case",
+          "description": "How this is used in practice",
+          "code": "// Practical code example"
+        }
+      ],
+      "practiceQuestions": ["Question 1", "Question 2", "Question 3"],
+      "estimatedTime": "30-40 minutes"
+    }
+  ],
+  "finalProject": {
+    "title": "Build a ${topic} Project",
+    "description": "Step-by-step project description with requirements",
+    "steps": ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5"],
+    "expectedOutcome": "What learner will have built"
+  },
+  "cheatsheet": {
+    "title": "Quick Reference",
+    "commands": ["Quick syntax/reference 1", "Quick syntax/reference 2"],
+    "definitions": {
+      "term1": "Brief definition",
+      "term2": "Brief definition"
+    }
+  },
+  "furtherReading": [
+    "Resource 1 - description",
+    "Resource 2 - description",
+    "Resource 3 - description"
+  ]
+}
+
+Requirements:
+- Each section content must be at least 300 words
+- Include practical, actionable content
+- Adapt examples to the learning style
+- Make it comprehensive and learnable
+- Return ONLY valid JSON
+    `;
+
+    // Use Gemini API
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const result = await model.generateContent(prompt);
+    const contentText = result?.response?.text();
+
+    if (!contentText) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(contentText);
+    } catch (e) {
+      const jsonMatch = contentText.match(/\{[\s\S]*\}/);
+      parsedContent = jsonMatch ? JSON.parse(jsonMatch[0]) : { title: "Learning Material", content: contentText };
+    }
+
+    parsedContent.topic = topic;
+    parsedContent.level = technicalLevel || "Beginner";
+    parsedContent.style = learningStyle || "Balanced Learner";
+    
+    console.log("✅ Learning material generated:", { topic, technicalLevel, learningStyle });
+    return res.json(parsedContent);
+
+  } catch (err) {
+    console.error("❌ /generate-learning-material error:", err);
+    return res.status(500).json({ error: "Learning material generation failed", details: err.message });
   }
 });

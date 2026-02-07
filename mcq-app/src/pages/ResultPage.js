@@ -26,9 +26,12 @@ function ResultPage() {
   };
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
+  const [learningMaterial, setLearningMaterial] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMaterial, setLoadingMaterial] = useState(false);
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
+  const [showMaterial, setShowMaterial] = useState(false);
 
   // Determine levels
   const getTechnicalLevel = () => {
@@ -77,6 +80,38 @@ function ResultPage() {
     }
 
     setLoading(false);
+  };
+
+  // Generate exact learning material
+  const generateLearningMaterial = async () => {
+    setLoadingMaterial(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:5000/generate-learning-material", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: topic || "General Technology",
+          technicalLevel: getTechnicalLevel(),
+          learningStyle: getLearningStyle()
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server ${res.status}`);
+      }
+
+      const material = await res.json();
+      setLearningMaterial(material);
+      setShowMaterial(true);
+      setShowContent(false);
+    } catch (err) {
+      console.error("Learning material error:", err);
+      setError("Failed to generate learning material");
+    }
+
+    setLoadingMaterial(false);
   };
 
   // Quiz score card
@@ -176,7 +211,7 @@ function ResultPage() {
           </div>
         )}
 
-        {!showContent ? (
+        {!showContent && !showMaterial ? (
           <>
             <button
               onClick={generateContent}
@@ -190,6 +225,20 @@ function ResultPage() {
               }}
             >
               {loading ? "Generating..." : "🚀 Generate Personalized Learning Path"}
+            </button>
+
+            <button
+              onClick={generateLearningMaterial}
+              disabled={loadingMaterial}
+              style={{
+                width: "100%",
+                padding: "18px",
+                fontSize: "18px",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                marginBottom: "15px"
+              }}
+            >
+              {loadingMaterial ? "Generating..." : "📚 View Learning Material"}
             </button>
 
             <button
@@ -282,10 +331,175 @@ function ResultPage() {
                     </p>
                   </div>
                 )}
+
+                {/* Download Learning Material Button */}
+                <button
+                  onClick={generateLearningMaterial}
+                  disabled={loadingMaterial}
+                  style={{
+                    width: "100%",
+                    padding: "18px",
+                    fontSize: "18px",
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    marginTop: "20px",
+                    marginBottom: "15px"
+                  }}
+                >
+                  {loadingMaterial ? "Generating..." : "📥 Download Complete Learning Material"}
+                </button>
               </>
             )}
 
             <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
+              <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
+                📄 PDF Chat
+              </button>
+              <button onClick={() => navigate("/quiz")} style={{ flex: "1", minWidth: "150px", background: "#9C27B0" }}>
+                🔄 New Assessment
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Learning Material Display */}
+        {showMaterial && learningMaterial && (
+          <div style={{
+            background: "#f8f9fa",
+            borderRadius: "12px",
+            padding: "30px",
+            textAlign: "left"
+          }}>
+            <h2 style={{ color: "#2c3e50", marginBottom: "20px" }}>
+              📚 {learningMaterial.title || "Complete Learning Material"}
+            </h2>
+
+            <div style={{ marginBottom: "20px", padding: "15px", background: "#E3F2FD", borderRadius: "8px" }}>
+              <p style={{ margin: "0", color: "#1976D2", fontWeight: "bold" }}>
+                📌 Topic: {learningMaterial.topic} | Level: {learningMaterial.level} | Style: {learningMaterial.style}
+              </p>
+            </div>
+
+            {learningMaterial.summary && (
+              <div style={{ marginBottom: "25px" }}>
+                <h4 style={{ color: "#2c3e50" }}>📋 Summary</h4>
+                <p style={{ color: "#555", lineHeight: "1.6" }}>{learningMaterial.summary}</p>
+              </div>
+            )}
+
+            {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
+              <div key={idx} style={{ marginBottom: "30px", padding: "20px", background: "#fff", borderRadius: "8px", borderLeft: "4px solid #667eea" }}>
+                <h3 style={{ color: "#2c3e50", marginBottom: "15px" }}>
+                  📖 {section.title}
+                </h3>
+                <p style={{ color: "#555", lineHeight: "1.8", marginBottom: "15px" }}>
+                  {section.content}
+                </p>
+
+                {section.keyPoints && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>🔑 Key Points:</h5>
+                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
+                      {section.keyPoints.map((point, pIdx) => (
+                        <li key={pIdx} style={{ marginBottom: "5px" }}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {section.examples && section.examples.length > 0 && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>💻 Examples:</h5>
+                    {section.examples.map((ex, exIdx) => (
+                      <div key={exIdx} style={{ marginBottom: "10px", padding: "10px", background: "#f5f5f5", borderRadius: "4px" }}>
+                        <p style={{ margin: "0 0 5px 0", fontWeight: "bold", color: "#333" }}>{ex.title}</p>
+                        <p style={{ margin: "0 0 5px 0", color: "#666" }}>{ex.description}</p>
+                        {ex.code && (
+                          <pre style={{ margin: "10px 0 0 0", padding: "10px", background: "#2c3e50", borderRadius: "4px", overflow: "auto" }}>
+                            <code style={{ color: "#f8f8f2", fontSize: "13px" }}>{ex.code}</code>
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {section.practiceQuestions && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>❓ Practice Questions:</h5>
+                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
+                      {section.practiceQuestions.map((q, qIdx) => (
+                        <li key={qIdx} style={{ marginBottom: "5px" }}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "13px" }}>
+                  ⏱ Estimated Time: {section.estimatedTime}
+                </p>
+              </div>
+            ))}
+
+            {learningMaterial.finalProject && (
+              <div style={{ marginBottom: "30px", padding: "20px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: "8px", color: "white" }}>
+                <h3 style={{ marginBottom: "15px" }}>🎯 {learningMaterial.finalProject.title}</h3>
+                <p style={{ marginBottom: "15px" }}>{learningMaterial.finalProject.description}</p>
+                <h5 style={{ marginBottom: "10px" }}>Steps:</h5>
+                <ol style={{ paddingLeft: "20px" }}>
+                  {learningMaterial.finalProject.steps.map((step, idx) => (
+                    <li key={idx} style={{ marginBottom: "5px" }}>{step}</li>
+                  ))}
+                </ol>
+                <p style={{ marginTop: "15px", fontWeight: "bold" }}>
+                  ✅ {learningMaterial.finalProject.expectedOutcome}
+                </p>
+              </div>
+            )}
+
+            {learningMaterial.cheatsheet && (
+              <div style={{ marginBottom: "30px", padding: "20px", background: "#FFF3E0", borderRadius: "8px" }}>
+                <h3 style={{ color: "#E65100", marginBottom: "15px" }}>📝 Quick Reference</h3>
+                {learningMaterial.cheatsheet.commands && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <h5 style={{ color: "#E65100" }}>Commands/Syntax:</h5>
+                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
+                      {learningMaterial.cheatsheet.commands.map((cmd, idx) => (
+                        <li key={idx} style={{ marginBottom: "5px", fontFamily: "monospace" }}>{cmd}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {learningMaterial.cheatsheet.definitions && (
+                  <div>
+                    <h5 style={{ color: "#E65100" }}>Definitions:</h5>
+                    <dl style={{ paddingLeft: "20px", color: "#555" }}>
+                      {Object.entries(learningMaterial.cheatsheet.definitions).map(([term, def], idx) => (
+                        <div key={idx} style={{ marginBottom: "5px" }}>
+                          <dt style={{ fontWeight: "bold", display: "inline" }}>{term}:</dt>
+                          <dd style={{ display: "inline", marginLeft: "5px" }}>{def}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {learningMaterial.furtherReading && (
+              <div style={{ marginBottom: "25px" }}>
+                <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📖 Further Reading</h4>
+                <ul style={{ paddingLeft: "20px", color: "#555" }}>
+                  {learningMaterial.furtherReading.map((resource, idx) => (
+                    <li key={idx} style={{ marginBottom: "8px" }}>{resource}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
+              <button onClick={() => { setShowMaterial(false); setShowContent(true); }} style={{ flex: "1", minWidth: "150px", background: "#4CAF50" }}>
+                ← Back to Learning Path
+              </button>
               <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
                 📄 PDF Chat
               </button>
