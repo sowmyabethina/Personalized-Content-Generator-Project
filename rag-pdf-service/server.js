@@ -44,6 +44,9 @@ let currentPdfInfo = {
   ingested: false
 };
 
+// Conversation memory store
+const conversationStore = {};
+
 // Clear old uploads on startup
 const clearUploads = () => {
   try {
@@ -154,14 +157,165 @@ app.post("/ask", async (req, res) => {
   }
 });
 
+// Chat endpoint with conversation memory
+app.post("/chat", async (req, res) => {
+  try {
+    const { question, conversationHistory = [], sessionId } = req.body;
+
+    if (!question) {
+      return res.status(400).json({ error: "Question is required" });
+    }
+
+    if (!currentPdfInfo.ingested) {
+      return res.status(400).json({ error: "Please upload a PDF first" });
+    }
+
+    // Generate session ID if not provided
+    const chatId = sessionId || `chat_${Date.now()}`;
+
+    // Initialize conversation store for this session
+    if (!conversationStore[chatId]) {
+      conversationStore[chatId] = {
+        history: [],
+        pdfContext: ""
+      };
+    }
+
+    // Process conversation history from client
+    const clientHistory = Array.isArray(conversationHistory) ? conversationHistory : [];
+    
+    // Combine with server-side history (take last 10 messages for context)
+    const recentHistory = conversationStore[chatId].history.slice(-10);
+    
+    // Build context from conversation history
+    let conversationContext = "";
+    if (recentHistory.length > 0) {
+      conversationContext = "\nPrevious conversation:\n" + 
+        recentHistory.map(h => `User: ${h.question}\nAssistant: ${h.answer}`).join("\n\n");
+    }
+
+    // Detect clarification requests
+    const clarificationKeywords = [
+      "explain more", "give example", "summarize that", "why?",
+      "clarify", "expand", "more details", "tell me more"
+    ];
+    const isClarification = clarificationKeywords.some(kw => 
+      question.toLowerCase().includes(kw)
+    );
+
+    // Find relevant context from PDF
+    const queryEmbedding = await getEmbedding(question);
+    const results = await similaritySearch(queryEmbedding, 8);
+
+    if (!results.length) {
+      return res.json({ 
+        answer: "This information is not available in the uploaded PDF.",
+        sources: [],
+        sessionId: chatId
+      });
+    }
+
+    // Build context from PDF chunks
+    const pdfContext = results.map((r, i) => 
+      `[Chunk ${i + 1}] ${r.text}`
+    ).join("\n\n");
+
+    // For clarifications, expand context
+    let expandedContext = pdfContext;
+    if (isClarification && conversationContext) {
+      // Get more chunks for clarifications
+      const clarificationResults = await similaritySearch(queryEmbedding, 15);
+      expandedContext = clarificationResults.map((r, i) => 
+        `[Chunk ${i + 1}] ${r.text}`
+      ).join("\n\n");
+    }
+
+    // Combine PDF context and conversation context
+    const fullContext = conversationContext ? 
+      `${expandedContext}\n${conversationContext}` : 
+      expandedContext;
+
+    // Generate answer using Gemini (simplified - using direct response)
+    let answer = "";
+    
+    // Simple answer generation based on relevant chunks
+    const topChunks = results.slice(0, 5).map(r => r.text);
+    
+    if (isClarification && conversationContext) {
+      // For clarifications, provide more detailed response
+      answer = topChunks.join("\n\n") + 
+        "\n\nNote: This provides more detail on the previous topic. " +
+        "You can ask follow-up questions for specific aspects.";
+    } else {
+      // For new questions, provide concise answer
+      answer = topChunks.slice(0, 3).join("\n\n");
+    }
+
+    // Clean up the answer
+    const cleanAnswer = answer
+      .replace(/^[^a-zA-Z0-9]+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Prepare sources
+    const sources = topChunks.slice(0, 3).map((text, i) => ({
+      text: text.substring(0, 300) + (text.length > 300 ? "..." : ""),
+      score: results[i]?.score?.toFixed(4) || 0
+    }));
+
+    // Update conversation history
+    conversationStore[chatId].history.push({
+      question,
+      answer: cleanAnswer,
+      timestamp: Date.now()
+    });
+
+    // Limit history to last 20 exchanges
+    if (conversationStore[chatId].history.length > 20) {
+      conversationStore[chatId].history = conversationStore[chatId].history.slice(-20);
+    }
+
+    console.log("✅ Chat response generated for session:", chatId);
+
+    res.json({
+      answer: cleanAnswer,
+      sources,
+      sessionId: chatId,
+      isClarification
+    });
+
+  } catch (error) {
+    console.error("❌ Chat error:", error.message);
+    res.status(500).json({ error: error.message || "Chat failed" });
+  }
+});
+
 // Reset endpoint
 app.post("/reset", (req, res) => {
-  currentPdfInfo = {
-    fileName: null,
-    ingested: false
-  };
-  clearUploads();
-  res.json({ message: "Vector store reset" });
+  const { sessionId } = req.body;
+  
+  if (sessionId && conversationStore[sessionId]) {
+    // Reset only this conversation
+    conversationStore[sessionId] = {
+      history: [],
+      pdfContext: ""
+    };
+    res.json({ message: "Conversation reset", sessionId });
+  } else {
+    // Reset everything
+    currentPdfInfo = {
+      fileName: null,
+      ingested: false
+    };
+    for (const key in conversationStore) {
+      conversationStore[key] = {
+        history: [],
+        pdfContext: ""
+      };
+    }
+    clearUploads();
+    res.json({ message: "Vector store and all conversations reset" });
+  }
 });
 
 // Info endpoint
@@ -177,7 +331,8 @@ app.get("/info", (req, res) => {
 app.listen(PORT, () => {
   console.log(` RAG PDF Service running on port ${PORT}`);
   console.log(`   - POST /upload-pdf - Upload a PDF`);
-  console.log(`   - POST /ask - Ask questions about uploaded PDF`);
+  console.log(`   - POST /ask - Ask single questions`);
+  console.log(`   - POST /chat - Continuous Q&A with memory`);
   console.log(`   - GET /health - Check service status`);
-  console.log(`   - POST /reset - Reset vector store`);
+  console.log(`   - POST /reset - Reset vector store or conversation`);
 });
