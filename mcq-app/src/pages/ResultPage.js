@@ -54,6 +54,7 @@ function ResultPage() {
     setError("");
 
     try {
+      console.log("Fetching combined content...");
       const res = await fetch("http://localhost:5000/generate-combined-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,11 +68,14 @@ function ResultPage() {
         })
       });
 
+      console.log("Response status:", res.status);
+
       if (!res.ok) {
         throw new Error(`Server ${res.status}`);
       }
 
       const content = await res.json();
+      console.log("Content received:", content);
       setPersonalizedContent(content);
       setShowContent(true);
     } catch (err) {
@@ -257,6 +261,14 @@ function ResultPage() {
           🏆 Assessment Complete
         </h2>
 
+        {/* Back Button */}
+        <button
+          onClick={() => navigate("/quiz")}
+          style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ← Back to Assessment
+        </button>
+
         {topic && (
           <p style={{ textAlign: "center", color: "#667eea", fontSize: "18px", fontWeight: "600", marginBottom: "20px" }}>
             Topic: {topic}
@@ -323,39 +335,10 @@ function ResultPage() {
                 width: "100%",
                 padding: "18px",
                 fontSize: "18px",
-                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                marginBottom: "15px"
+                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
               }}
             >
               {loading ? "Generating..." : "🚀 Generate Personalized Learning Path"}
-            </button>
-
-            <button
-              onClick={generateLearningMaterial}
-              disabled={loadingMaterial}
-              style={{
-                width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                marginBottom: "15px"
-              }}
-            >
-              {loadingMaterial ? "Generating..." : "📚 View Learning Material"}
-            </button>
-
-            <button
-              onClick={() => navigate("/pdf-chat")}
-              style={{ width: "100%", padding: "15px", marginBottom: "15px" }}
-            >
-              📄 Chat with PDF Documents
-            </button>
-
-            <button
-              onClick={() => navigate("/quiz")}
-              style={{ width: "100%", padding: "15px", background: "#9C27B0" }}
-            >
-              🔄 Start New Assessment
             </button>
           </>
         ) : (

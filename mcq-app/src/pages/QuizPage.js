@@ -136,6 +136,18 @@ function QuizPage() {
         <button onClick={nextQuestion} disabled={!quizSelected} style={{ marginTop: "15px" }}>
           {quizIndex + 1 < questions.length ? "Next →" : "Complete Quiz"}
         </button>
+
+        <button
+          onClick={() => {
+            setQuizIndex(0);
+            setQuizAnswers([]);
+            setQuizSelected("");
+            setStage("score");
+          }}
+          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ← back
+        </button>
       </div>
     );
   }
@@ -181,6 +193,18 @@ function QuizPage() {
         >
           Continue to Learner Assessment →
         </button>
+
+        <button
+          onClick={() => {
+            setQuizIndex(0);
+            setQuizAnswers([]);
+            setQuizSelected("");
+            setStage("quiz");
+          }}
+          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ← back (Retake Quiz)
+        </button>
       </div>
     );
   }
@@ -224,7 +248,21 @@ function QuizPage() {
         <div className="card">
           <h2>📊 Learner Level Assessment</h2>
           <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
-          <button onClick={loadLearningQuestions} disabled={loading}>
+          
+          {/* Back Button */}
+          <button
+            onClick={() => {
+              setLearningIndex(0);
+              setLearningAnswers([]);
+              setLearningSelected("");
+              setStage("score");
+            }}
+            style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500", marginRight: "10px" }}
+          >
+            ← Back
+          </button>
+          
+          <button onClick={loadLearningQuestions} disabled={loading} style={{ padding: "12px 24px", fontSize: "14px", fontWeight: "600" }}>
             {loading ? "Loading..." : "Start Assessment →"}
           </button>
         </div>
@@ -301,6 +339,18 @@ function QuizPage() {
         <button onClick={nextQuestion} disabled={!learningSelected} style={{ marginTop: "15px" }}>
           {learningIndex + 1 < learningQuestions.length ? "Next →" : "Complete Assessment"}
         </button>
+
+        <button
+          onClick={() => {
+            setLearningIndex(0);
+            setLearningAnswers([]);
+            setLearningSelected("");
+            setStage("score");
+          }}
+          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ← Back to Quiz Score
+        </button>
       </div>
     );
   }
@@ -332,6 +382,19 @@ function QuizPage() {
       <div className="card">
         <h2>🚀 Step 4: Generate Your Content</h2>
         
+        {/* Back Button */}
+        <button
+          onClick={() => {
+            setLearningIndex(0);
+            setLearningAnswers([]);
+            setLearningSelected("");
+            setStage("learning");
+          }}
+          style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ← Back to Learning Assessment
+        </button>
+        
         {/* Assessment Summary */}
         <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
           <h4 style={{ margin: "0 0 10px 0" }}>📊 Your Assessment Profile:</h4>
@@ -353,47 +416,28 @@ function QuizPage() {
           ))}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
-          <button
-            onClick={() => navigate("/pdf-chat")}
-            style={{ padding: "20px", fontSize: "16px", textAlign: "left", display: "flex", alignItems: "center", gap: "15px" }}
-          >
-            <span style={{ fontSize: "30px" }}>📄</span>
-            <div>
-              <strong>PDF Chat</strong>
-              <p style={{ margin: "5px 0 0 0", fontSize: "13px", opacity: 0.8 }}>
-                Chat with your PDF documents and get personalized help
-              </p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate("/result", {
-              state: {
-                topic: storedTopic,
-                technicalScore: techScore,
-                learningScore: learnScore,
-                combinedData: storedCombined,
-                mode: "direct"
-              }
-            })}
-            style={{ padding: "20px", fontSize: "16px", textAlign: "left", display: "flex", alignItems: "center", gap: "15px" }}
-          >
-            <span style={{ fontSize: "30px" }}>⚡</span>
-            <div>
-              <strong>Direct Generation</strong>
-              <p style={{ margin: "5px 0 0 0", fontSize: "13px", opacity: 0.8 }}>
-                Get personalized content based on your profile
-              </p>
-            </div>
-          </button>
-        </div>
+        {/* Continue to Content Generation */}
+        <button
+          onClick={() => navigate("/result", {
+            state: {
+              topic: storedTopic,
+              technicalScore: techScore,
+              learningScore: learnScore,
+              combinedData: storedCombined,
+              mode: "direct"
+            }
+          })}
+          style={{ padding: "20px", fontSize: "16px", width: "100%" }}
+        >
+          <span style={{ fontSize: "30px" }}>⚡</span>
+          <strong>Continue to Content Generation</strong>
+        </button>
 
         <button
-          onClick={() => navigate("/")}
-          style={{ marginTop: "20px", background: "#607D8B" }}
+          onClick={() => navigate("/pdf-chat")}
+          style={{ marginTop: "15px", background: "transparent", border: "1px solid #ddd", padding: "12px", width: "100%" }}
         >
-          ← Start New Session
+          📄 Chat with PDF Instead
         </button>
       </div>
     );

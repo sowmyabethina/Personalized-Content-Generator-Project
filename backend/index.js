@@ -603,8 +603,16 @@ app.post("/generate-combined-content", async (req, res) => {
     // Generate combined content based on both technical proficiency and learning style
     const content = {
       title: `Personalized ${topic} Learning Path`,
-      summary: `A customized learning experience designed for a ${technicalLevel.toLowerCase()} learner with a ${learningStyle.toLowerCase()} approach.`,
+      overview: `A customized learning experience designed for a ${technicalLevel.toLowerCase()} learner with a ${learningStyle.toLowerCase()} approach. This path adapts to your ${learningStyle.toLowerCase()} learning style and ${technicalLevel.toLowerCase()} technical level.`,
       
+      learningPath: [
+        "Getting Started with Core Concepts",
+        "Hands-On Practice Exercises",
+        "Build Real-World Projects",
+        "Master Advanced Topics",
+        "Review and Reinforce"
+      ],
+
       sections: [
         {
           title: "Getting Started",
@@ -644,6 +652,23 @@ app.post("/generate-combined-content", async (req, res) => {
           ]
         }
       ],
+
+      resources: [
+        { type: "📖 Documentation", title: `Official ${topic} Docs`, description: "Comprehensive reference guide" },
+        { type: "🎓 Tutorial", title: `Step-by-Step ${topic} Guide`, description: "Hands-on learning path" },
+        { type: "💻 Practice", title: `Interactive ${topic} Exercises`, description: "Practice what you learn" },
+        { type: "🚀 Project", title: `Build a ${topic} Project`, description: "Apply skills in a real project" }
+      ],
+
+      tips: [
+        `Take your time with ${topic} - it's a foundational skill`,
+        "Practice coding along with examples, don't just read",
+        "Try modifying example code to understand deeply",
+        "Build small projects to solidify your understanding",
+        "Review and reinforce weak areas regularly"
+      ],
+
+      nextSteps: "Complete the exercises in order, build a personal project using these concepts, and review and reinforce weak areas",
 
       recommendations: {
         nextSteps: [
