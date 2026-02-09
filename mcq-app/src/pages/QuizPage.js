@@ -18,11 +18,13 @@ function QuizPage() {
   const [quizSelected, setQuizSelected] = useState("");
   const [quizAnswers, setQuizAnswers] = useState([]);
   const [technicalScore, setTechnicalScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
   
   // Learning questions state
   const [learningQuestions, setLearningQuestions] = useState([]);
   const [learningIndex, setLearningIndex] = useState(0);
   const [learningSelected, setLearningSelected] = useState("");
+  const [learningSelectedScore, setLearningSelectedScore] = useState(0);
   const [learningAnswers, setLearningAnswers] = useState([]);
 
   // Load learning questions when entering learning stage
@@ -55,15 +57,48 @@ function QuizPage() {
   // Stage: Quiz Questions (from extracted PDF)
   if (stage === "quiz" && questions && questions.length > 0) {
     const completeQuiz = async () => {
-      let correct = 0;
-      quizAnswers.forEach((ans, i) => {
-        const correctAnswer = questions[i]?.answer;
-        if (ans === correctAnswer) correct++;
-      });
-      const score = Math.round((correct / questions.length) * 100);
-      setTechnicalScore(score);
-      localStorage.setItem("technicalScore", score.toString());
-      setStage("score");
+      try {
+        const res = await fetch("http://localhost:5000/score-quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quizId,
+            answers: quizAnswers
+          })
+        });
+        
+        const data = await res.json();
+        
+        let correct = 0;
+        if (data.error) {
+          console.error("Scoring error:", data.error);
+          // Fallback to client-side scoring
+          quizAnswers.forEach((ans, i) => {
+            const correctAnswer = questions[i]?.answer;
+            if (ans === correctAnswer) correct++;
+          });
+        } else {
+          correct = data.correct || 0;
+        }
+        const score = Math.round((correct / questions.length) * 100);
+        setTechnicalScore(score);
+        setCorrectCount(correct);
+        localStorage.setItem("technicalScore", score.toString());
+        setStage("score");
+      } catch (err) {
+        console.error("Failed to score quiz:", err);
+        // Fallback to client-side scoring
+        let correct = 0;
+        quizAnswers.forEach((ans, i) => {
+          const correctAnswer = questions[i]?.answer;
+          if (ans === correctAnswer) correct++;
+        });
+        const score = Math.round((correct / questions.length) * 100);
+        setTechnicalScore(score);
+        setCorrectCount(correct);
+        localStorage.setItem("technicalScore", score.toString());
+        setStage("score");
+      }
     };
 
     const nextQuestion = () => {
@@ -121,7 +156,7 @@ function QuizPage() {
           <p style={{ fontSize: "14px", opacity: 0.9 }}>Technical Score</p>
           <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
           <p style={{ fontSize: "14px", opacity: 0.9 }}>
-            {quizAnswers.length}/{questions.length} correct
+            {correctCount}/{questions.length} correct
           </p>
         </div>
 
@@ -144,18 +179,42 @@ function QuizPage() {
           disabled={!topic.trim()}
           style={{ width: "100%", padding: "14px", fontSize: "16px" }}
         >
-          Continue to Learning Preferences →
+          Continue to Learner Assessment →
         </button>
       </div>
     );
   }
 
-  // Stage: Learning Preferences
+  // Helper function to analyze psychometric profile (must be defined before use)
+  const analyzePsychometricProfile = (answers, questions) => {
+    const levels = {};
+    const categories = ["technicalFamiliarity", "documentationSkill", "learningGoal", "applicationConfidence", "learningBehavior"];
+    
+    answers.forEach((score, idx) => {
+      const category = categories[idx];
+      if (score === 0) levels[category] = "Beginner";
+      else if (score === 1) levels[category] = "Intermediate";
+      else levels[category] = "Advanced";
+    });
+
+    // Calculate overall level
+    const totalScore = answers.reduce((a, b) => a + b, 0);
+    const maxScore = answers.length * 2;
+    const percentage = (totalScore / maxScore) * 100;
+
+    let overallLevel = "Beginner";
+    if (percentage >= 70) overallLevel = "Advanced";
+    else if (percentage >= 35) overallLevel = "Intermediate";
+
+    return { levels, overallLevel };
+  };
+
+  // Stage: Learner Level Assessment
   if (stage === "learning") {
     if (loading && learningQuestions.length === 0) {
       return (
         <div className="card">
-          <h2>📊 Loading Learning Questions...</h2>
+          <h2>📊 Loading Learner Level Assessment...</h2>
         </div>
       );
     }
@@ -163,39 +222,49 @@ function QuizPage() {
     if (learningQuestions.length === 0) {
       return (
         <div className="card">
-          <h2>📊 Learning Preferences</h2>
+          <h2>📊 Learner Level Assessment</h2>
+          <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
           <button onClick={loadLearningQuestions} disabled={loading}>
-            {loading ? "Loading..." : "Start Learning Assessment →"}
+            {loading ? "Loading..." : "Start Assessment →"}
           </button>
         </div>
       );
     }
 
     const completeLearningAssessment = () => {
-      const learnScore = learningAnswers.reduce((acc, val, idx) => acc + (val * 25), 0);
+      // Calculate psychometric score (0-100 scale)
+      // Each question has 3 options: Beginner (0), Intermediate (1), Advanced (2)
+      const totalPoints = learningAnswers.reduce((acc, val) => acc + val, 0);
+      const maxPoints = learningQuestions.length * 2;
+      const learnScore = Math.round((totalPoints / maxPoints) * 100);
+      
       localStorage.setItem("learningScore", learnScore.toString());
       
       const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
       const storedTopic = localStorage.getItem("quizTopic") || topic;
       const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
-      const learnStyle = learnScore >= 60 ? "Hands-On" : learnScore >= 40 ? "Balanced" : "Theory-First";
-
+      
+      // Analyze psychometric profile
+      const profile = analyzePsychometricProfile(learningAnswers, learningQuestions);
+      
       // Store combined data and navigate to options
       localStorage.setItem("combinedData", JSON.stringify({
         technicalLevel: techLevel,
         technicalScore: techScore,
-        learningStyle: learnStyle,
+        learnerLevel: profile.overallLevel,
         learningScore: learnScore,
-        combinedAnalysis: `Technical: ${techLevel} (${techScore}%), Learning: ${learnStyle} (${learnScore}%)`
+        psychometricProfile: profile.levels,
+        combinedAnalysis: `Technical: ${techLevel} (${techScore}%), Learner: ${profile.overallLevel} (${learnScore}%)`
       }));
       
       setStage("options");
     };
 
     const nextQuestion = () => {
-      const nextAnswers = [...learningAnswers, learningSelected];
+      const nextAnswers = [...learningAnswers, learningSelectedScore];
       setLearningAnswers(nextAnswers);
       setLearningSelected("");
+      setLearningSelectedScore(0);
 
       if (learningIndex + 1 < learningQuestions.length) {
         setLearningIndex(learningIndex + 1);
@@ -204,9 +273,14 @@ function QuizPage() {
       }
     };
 
+    const handleOptionChange = (option, index) => {
+      setLearningSelected(option);
+      setLearningSelectedScore(index); // 0 = Beginner, 1 = Intermediate, 2 = Advanced
+    };
+
     return (
       <div className="card">
-        <h2>📊 Learning Preferences</h2>
+        <h2>📊 Learner Level Assessment</h2>
         <p>Question {learningIndex + 1} of {learningQuestions.length}</p>
 
         <h3 style={{ margin: "20px 0" }}>{learningQuestions[learningIndex]?.question}</h3>
@@ -218,7 +292,7 @@ function QuizPage() {
               name="learning-option"
               value={opt}
               checked={learningSelected === opt}
-              onChange={(e) => setLearningSelected(opt)}
+              onChange={(e) => handleOptionChange(opt, i)}
             />
             <span>{opt}</span>
           </label>
@@ -237,9 +311,22 @@ function QuizPage() {
     const learnScore = parseInt(localStorage.getItem("learningScore") || "50");
     const storedTopic = localStorage.getItem("quizTopic") || topic;
     const storedCombined = JSON.parse(localStorage.getItem("combinedData") || "{}");
+    const psychometricProfile = storedCombined.psychometricProfile || {};
 
     const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
-    const learnStyle = learnScore >= 60 ? "Hands-On" : learnScore >= 40 ? "Balanced" : "Theory-First";
+    const learnerLevel = storedCombined.learnerLevel || "Beginner";
+
+    // Helper to get level badge color
+    const getLevelColor = (level) => {
+      if (level === "Advanced") return "#10b981";
+      if (level === "Intermediate") return "#f59e0b";
+      return "#ef4444";
+    };
+
+    // Format category name for display
+    const formatCategory = (key) => {
+      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+    };
 
     return (
       <div className="card">
@@ -247,10 +334,23 @@ function QuizPage() {
         
         {/* Assessment Summary */}
         <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
-          <h4 style={{ margin: "0 0 10px 0" }}>📊 Your Profile:</h4>
+          <h4 style={{ margin: "0 0 10px 0" }}>📊 Your Assessment Profile:</h4>
           <p>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
-          <p>Learning Style: <strong>{learnStyle}</strong></p>
+          <p>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
           <p>Topic: <strong>{storedTopic}</strong></p>
+          
+          <hr style={{ margin: "15px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
+          <h5 style={{ margin: "0 0 10px 0" }}>Psychometric Assessment:</h5>
+          
+          {Object.entries(psychometricProfile).map(([key, value]) => (
+            <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px" }}>
+              <span>{formatCategory(key)}:</span>
+              <span style={{ 
+                color: getLevelColor(value),
+                fontWeight: "bold"
+              }}>{value}</span>
+            </div>
+          ))}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>

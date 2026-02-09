@@ -43,8 +43,8 @@ function ResultPage() {
 
   const getLearningStyle = () => {
     const learnScore = learningScore || 50;
-    if (learnScore >= 60) return "Hands-On Learner";
-    if (learnScore >= 40) return "Balanced Learner";
+    if (learnScore >= 70) return "Hands-On Learner";
+    if (learnScore >= 35) return "Balanced Learner";
     return "Theory-First Learner";
   };
 
