@@ -9,8 +9,27 @@ import { similaritySearch } from "./rag/vectorStore.js";
 const app = express();
 const PORT = 5001;
 
+// Global error handlers to prevent crashes
+process.on("uncaughtException", (err) => {
+  console.error("💥 Uncaught Exception:", err.message);
+  console.error(err.stack);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("💥 Unhandled Rejection at:", promise, "reason:", reason);
+});
+
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoint - should be first
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok",
+    pdfLoaded: currentPdfInfo.ingested,
+    fileName: currentPdfInfo.fileName
+  });
+});
 
 // Ensure uploads directory exists
 if (!fs.existsSync("uploads/")) {
@@ -133,15 +152,6 @@ app.post("/ask", async (req, res) => {
     console.error("❌ Error answering question:", error.message);
     res.status(500).json({ error: error.message || "Failed to generate answer" });
   }
-});
-
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "ok",
-    pdfLoaded: currentPdfInfo.ingested,
-    fileName: currentPdfInfo.fileName
-  });
 });
 
 // Reset endpoint
