@@ -28,6 +28,7 @@ export async function getEmbedding(text) {
       pooling: "mean",
       normalize: true,
     });
+<<<<<<< HEAD
 
     return Array.from(output.data);
   } catch (embedError) {
@@ -35,3 +36,13 @@ export async function getEmbedding(text) {
     throw embedError;
   }
 }
+=======
+
+    return Array.from(output.data);
+  } catch (embedError) {
+    console.error("❌ Embedding generation failed:", embedError.message);
+    throw embedError;
+  }
+}
+
+>>>>>>> c7106d7 (resume added)

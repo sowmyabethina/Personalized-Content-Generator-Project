@@ -175,7 +175,7 @@ app.get("/info", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 RAG PDF Service running on port ${PORT}`);
+  console.log(` RAG PDF Service running on port ${PORT}`);
   console.log(`   - POST /upload-pdf - Upload a PDF`);
   console.log(`   - POST /ask - Ask questions about uploaded PDF`);
   console.log(`   - GET /health - Check service status`);

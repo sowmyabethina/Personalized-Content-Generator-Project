@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 function HomePage() {
   const navigate = useNavigate();
 
+  const [inputType, setInputType] = useState("github"); // "github" or "resume"
   const [githubLink, setGithubLink] = useState("");
+  const [resumeFile, setResumeFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [extractedContent, setExtractedContent] = useState("");
   const [isExtracted, setIsExtracted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,34 +78,66 @@ function HomePage() {
     setSuccessMessage("");
 
     try {
-      if (!githubLink.trim()) {
-        setError("Please paste a GitHub PDF link");
-        setLoading(false);
-        return;
+      // Priority: Resume PDF over GitHub URL
+      if (inputType === "resume") {
+        // Resume PDF upload path
+        if (!resumeFile) {
+          setError("Please upload a Resume PDF file");
+          setLoading(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("pdf", resumeFile);
+
+        const res = await fetch("http://localhost:5000/read-resume-pdf", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.text) {
+          setError(data.error || "Failed to extract text from Resume PDF");
+          setLoading(false);
+          return;
+        }
+
+        setExtractedContent(data.text);
+        setIsExtracted(true);
+        setSuccessMessage("✅ Resume PDF extracted successfully!");
+        setTimeout(() => setSuccessMessage(""), 3000);
+
+      } else {
+        // GitHub URL path (existing logic)
+        if (!githubLink.trim()) {
+          setError("Please paste a GitHub PDF link");
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch("http://localhost:5000/read-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ github_url: githubLink })
+        });
+
+        const data = await res.json();
+
+        if (!data.text) {
+          setError("Failed to extract PDF. Please check the link and try again.");
+          setLoading(false);
+          return;
+        }
+
+        setExtractedContent(data.text);
+        setIsExtracted(true);
+        setSuccessMessage("✅ PDF extracted successfully!");
+        setTimeout(() => setSuccessMessage(""), 3000);
       }
-
-      const res = await fetch("http://localhost:5000/read-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ github_url: githubLink })
-      });
-
-      const data = await res.json();
-
-      if (!data.text) {
-        setError("Failed to extract PDF. Please check the link and try again.");
-        setLoading(false);
-        return;
-      }
-
-      setExtractedContent(data.text);
-      setIsExtracted(true);
-      setSuccessMessage("✅ PDF extracted successfully!");
-
-      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error(err);
-      setError("Document extraction failed. Make sure the PDF link is correct.");
+      setError("Document extraction failed. Please try again.");
     }
 
     setLoading(false);
@@ -219,22 +254,93 @@ function HomePage() {
   if (!isExtracted) {
     return (
       <div className="card">
-        <h3>📄 Upload & Extract PDF</h3>
-
-        <input
-          type="text"
-          placeholder="Paste GitHub PDF link"
-          value={githubLink}
-          onChange={(e) => setGithubLink(e.target.value)}
-          style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-        />
+        <h3>📄 Upload & Extract Document</h3>
+        
+        {/* Input Type Toggle */}
+        <div style={{ 
+          display: "flex", 
+          gap: "10px", 
+          marginBottom: "20px",
+          justifyContent: "center"
+        }}>
+          <button
+            onClick={() => {
+              setInputType("github");
+              setResumeFile(null);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: inputType === "github" ? "#2563eb" : "#e5e7eb",
+              color: inputType === "github" ? "white" : "#374151",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "500"
+            }}
+          >
+            GitHub URL
+          </button>
+          <button
+            onClick={() => {
+              setInputType("resume");
+              setGithubLink("");
+            }}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: inputType === "resume" ? "#2563eb" : "#e5e7eb",
+              color: inputType === "resume" ? "white" : "#374151",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "500"
+            }}
+          >
+            Upload Resume
+          </button>
+        </div>
+        
+        {inputType === "github" ? (
+          <>
+            <input
+              type="text"
+              placeholder="Paste GitHub PDF link"
+              value={githubLink}
+              onChange={(e) => setGithubLink(e.target.value)}
+              style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+            />
+          </>
+        ) : (
+          <>
+            <input
+              type="file"
+              accept=".pdf"
+              ref={fileInputRef}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file && file.type === "application/pdf") {
+                  setResumeFile(file);
+                } else {
+                  setError("Please select a valid PDF file");
+                  setResumeFile(null);
+                }
+              }}
+              style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+            />
+            {resumeFile && (
+              <p style={{ color: "green", marginBottom: "10px" }}>
+                ✅ Selected: {resumeFile.name}
+              </p>
+            )}
+          </>
+        )}
 
         <button
           onClick={extractDocument}
-          disabled={loading}
+          disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#4CAF50",
+            backgroundColor: loading ? "#9ca3af" : "#4CAF50",
             color: "white",
             border: "none",
             borderRadius: "4px",
@@ -252,7 +358,10 @@ function HomePage() {
   // Extracted content preview
   return (
     <div className="card">
-      <h3>✅ PDF Content Extracted</h3>
+      <h3>✅ Content Extracted</h3>
+      <p style={{ color: "#6b7280", marginBottom: "10px" }}>
+        Source: {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
+      </p>
       <textarea
         rows="6"
         value={extractedContent.substring(0, 500) + "..."}
@@ -273,15 +382,17 @@ function HomePage() {
           marginTop: "10px"
         }}
       >
-        {loading ? "Generating..." : "📚 Start Quiz from PDF"}
+        {loading ? "Generating..." : "📚 Start Quiz"}
       </button>
 
       <button
         onClick={() => {
           setGithubLink("");
+          setResumeFile(null);
           setExtractedContent("");
           setIsExtracted(false);
           setError("");
+          if (fileInputRef.current) fileInputRef.current.value = "";
         }}
         style={{
           padding: "10px 20px",

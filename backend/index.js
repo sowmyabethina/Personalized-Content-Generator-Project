@@ -2,6 +2,9 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import fetch from "node-fetch";
+import multer from "multer";
+import fs from "fs";
+import pdf from "pdf-parse";
 
 import { generateQuestions } from "../pdf/questionGenerator.js";
 
@@ -14,6 +17,9 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Configure multer for file uploads
+const upload = multer({ dest: "uploads/" });
 
 // In-memory store for quizzes
 const answerStore = {};
@@ -54,6 +60,148 @@ app.post("/read-pdf", async (req, res) => {
     return res.status(500).json({ error: "PDF extraction failed", details: err.message });
   }
 });
+
+// ===============================
+// READ RESUME PDF FROM UPLOAD
+// ===============================
+app.post("/read-resume-pdf", upload.single("pdf"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No PDF file uploaded" });
+    }
+
+    const filePath = req.file.path;
+    console.log("📄 Processing Resume PDF:", req.file.originalname);
+
+    // Check file size
+    const stats = fs.statSync(filePath);
+    if (stats.size < 100) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: "PDF file is too small or empty" });
+    }
+
+    // Extract text from PDF
+    const buffer = fs.readFileSync(filePath);
+    const data = await pdf(buffer);
+
+    if (!data.text || data.text.trim().length < 50) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: "Could not extract text from PDF" });
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    // Filter technical content from resume
+    const technicalText = filterTechnicalContent(data.text);
+
+    if (technicalText.length < 100) {
+      return res.status(400).json({ 
+        error: "Not enough technical content to generate questions.",
+        details: "Resume appears to lack technical skills, experience, or projects."
+      });
+    }
+
+    console.log("✅ Resume PDF processed:", technicalText.length, "characters of technical content");
+
+    return res.json({ text: technicalText });
+
+  } catch (err) {
+    console.error("❌ /read-resume-pdf error:", err);
+    return res.status(500).json({ error: "Resume PDF extraction failed", details: err.message });
+  }
+});
+
+// ===============================
+// FILTER TECHNICAL CONTENT FROM RESUME
+// ===============================
+function filterTechnicalContent(text) {
+  const lines = text.split('\n');
+  const technicalLines = [];
+  
+  // Categories to keep (technical content)
+  const technicalKeywords = [
+    // Programming languages
+    'javascript', 'python', 'java', 'c++', 'c#', 'ruby', 'go', 'rust', 'typescript', 'php', 'swift', 'kotlin', 'scala', 'r',
+    // Web technologies
+    'html', 'css', 'react', 'angular', 'vue', 'node', 'express', 'django', 'flask', 'spring', 'jquery', 'ajax',
+    // Databases
+    'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch', 'oracle', 'sqlite', 'firebase',
+    // Cloud & DevOps
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'ci/cd', 'git', 'github', 'gitlab', 'terraform',
+    // Data Science & ML
+    'machine learning', 'deep learning', 'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit', 'nlp', 'computer vision',
+    // Frameworks & Libraries
+    'redux', 'graphql', 'rest api', 'microservices', 'agile', 'scrum', 'tdd', 'testing',
+    // Other technical terms
+    'algorithm', 'data structure', 'api', 'backend', 'frontend', 'fullstack', 'debugging', 'optimization'
+  ];
+  
+  // Personal info to remove
+  const personalInfoPatterns = [
+    /^email:\s*/i,
+    /^phone:\s*/i,
+    /^address:\s*/i,
+    /^linkedin:\s*/i,
+    /^github:\s*/i,
+    /^portfolio:\s*/i,
+    /^website:\s*/i,
+    /^dob:\s*/i,
+    /^date of birth/i,
+    /^gender:\s*/i,
+    /^marital status/i,
+    /^nationality/i,
+    /^visa status/i
+  ];
+  
+  // Section headers to keep
+  const sectionHeaders = [
+    /experience/i,
+    /education/i,
+    /skills/i,
+    /projects/i,
+    /certifications/i,
+    /publications/i,
+    /awards/i,
+    /technical/i
+  ];
+  
+  let inTechnicalSection = false;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (!trimmed) continue;
+    
+    // Skip personal information
+    let skipLine = false;
+    for (const pattern of personalInfoPatterns) {
+      if (pattern.test(trimmed)) {
+        skipLine = true;
+        break;
+      }
+    }
+    if (skipLine) continue;
+    
+    // Check if this is a section header
+    if (sectionHeaders.some(h => h.test(trimmed))) {
+      inTechnicalSection = /experience|education|skills|projects|certifications|technical/i.test(trimmed);
+      technicalLines.push(trimmed);
+      continue;
+    }
+    
+    // Check if line contains technical content
+    const lowerLine = trimmed.toLowerCase();
+    const hasTechnical = technicalKeywords.some(kw => lowerLine.includes(kw));
+    
+    // Keep lines in technical sections or with technical keywords
+    if (inTechnicalSection || hasTechnical || trimmed.length > 50) {
+      technicalLines.push(trimmed);
+    }
+  }
+  
+  return technicalLines.join('\n\n');
+}
 
 // ===============================
 // GENERATE MCQ QUESTIONS
@@ -551,6 +699,7 @@ app.listen(PORT, () => {
   console.log("✅ Backend running on http://localhost:" + PORT);
   console.log("Available routes:");
   console.log(" - POST /read-pdf");
+  console.log(" - POST /read-resume-pdf");
   console.log(" - POST /generate");
   console.log(" - POST /generate-from-pdf");
   console.log(" - POST /generate-learning-questions");
