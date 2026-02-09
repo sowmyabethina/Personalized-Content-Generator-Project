@@ -2,21 +2,30 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import fs from "fs";
+import dotenv from "dotenv";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
 import { similaritySearch } from "./rag/vectorStore.js";
 
+// Load environment variables
+dotenv.config();
+
 const app = express();
 const PORT = 5001;
 
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
 // Global error handlers to prevent crashes
 process.on("uncaughtException", (err) => {
-  console.error("💥 Uncaught Exception:", err.message);
+  console.error(" Uncaught Exception:", err.message);
   console.error(err.stack);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("💥 Unhandled Rejection at:", promise, "reason:", reason);
+  console.error(" Unhandled Rejection at:", promise, "reason:", reason);
 });
 
 app.use(cors());
@@ -235,19 +244,71 @@ app.post("/chat", async (req, res) => {
       `${expandedContext}\n${conversationContext}` : 
       expandedContext;
 
-    // Generate answer using Gemini (simplified - using direct response)
+    // Generate answer using Gemini
     let answer = "";
-    
-    // Simple answer generation based on relevant chunks
     const topChunks = results.slice(0, 5).map(r => r.text);
     
-    if (isClarification && conversationContext) {
-      // For clarifications, provide more detailed response
-      answer = topChunks.join("\n\n") + 
-        "\n\nNote: This provides more detail on the previous topic. " +
-        "You can ask follow-up questions for specific aspects.";
+    // Check if API key is available
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (apiKey && apiKey.length > 0) {
+      // Use Gemini to generate answer with strict no-copy rules
+      const prompt = `You are a question-answering assistant.
+
+IMPORTANT:
+You must NEVER copy sentences directly from the provided context.
+You must NEVER include headings, figure labels, chapter numbers, author names, or table of contents text.
+
+Your job is to:
+- Read the context silently
+- Understand the meaning
+- Generate a NEW answer in your own words
+
+STRICT RULES:
+- If your answer contains long continuous text from the context, it is WRONG.
+- If the answer looks like copied book text, it is WRONG.
+- If the answer includes irrelevant sections, it is WRONG.
+
+Answer style:
+- Clear explanation
+- Simple language
+- Short paragraphs
+- Human-like explanation (like ChatGPT)
+
+Answer structure:
+1. One-line definition
+2. Short explanation
+3. Optional example (only if useful)
+
+If the context is noisy:
+- Ignore noise
+- Pick only meaningful sentences
+- Rewrite them
+
+If the answer cannot be clearly derived:
+- Say: "The document does not clearly explain this topic."
+
+Context from PDF:
+${fullContext}
+
+${conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : ""}
+
+User's question: ${question}
+
+Please provide a clear, concise, and rewritten answer based on the context above.`;
+
+      try {
+        const result = await model.generateContent(prompt);
+        answer = result.response.text();
+        console.log("✅ Gemini generated answer");
+      } catch (geminiError) {
+        console.error("❌ Gemini error:", geminiError.message);
+        // Fallback to chunk-based answer
+        answer = topChunks.join("\n\n");
+      }
     } else {
-      // For new questions, provide concise answer
+      // No API key - use chunk-based answer (fallback)
+      console.log("⚠️ No Gemini API key - using fallback answer");
       answer = topChunks.slice(0, 3).join("\n\n");
     }
 
