@@ -1,20 +1,627 @@
-/* Light Beautiful Theme */
-
+/* Split Layout Login Page */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: "Segoe UI", sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f172a;
+  overflow-x: hidden;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+.app-wrapper {
+  width: 100%;
   min-height: 100vh;
 }
 
+/* Split Layout with Full-Screen Background */
+.split-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background-image: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Dark Blue Overlay */
+.split-layout::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.8) 50%, rgba(59, 130, 246, 0.6) 100%);
+  z-index: 1;
+}
+
+/* Hero Section (Left Side) */
+.hero-section {
+  flex: 1.6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+.hero-section::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 80%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-content {
+  max-width: 560px;
+  position: relative;
+  z-index: 3;
+}
+
+.hero-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 48px;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  color: #bfdbfe;
+}
+
+.hero-logo-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.hero-title {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 24px;
+  color: #ffffff;
+}
+
+.hero-description {
+  font-size: 17px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 40px;
+}
+
+.hero-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.feature-icon-wrapper {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+}
+
+.feature-icon {
+  width: 22px;
+  height: 22px;
+  color: #ffffff;
+}
+
+.feature-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+}
+
+.feature-info p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Login Section (Right Side) */
+.login-section {
+  flex: 1;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  position: relative;
+  z-index: 2;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 450px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 48px 40px;
+  box-shadow: 
+    0 4px 24px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 3;
+}
+
+/* Clerk Customization */
+.clerk-root-box {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.clerk-card {
+  box-shadow: none !important;
+  border: none !important;
+  background: #ffffff !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* All Clerk internal elements should have white background */
+.clerk-main,
+.clerk-content,
+.clerk-form,
+.clerk-header,
+.clerk-footer,
+.clerk-footer-action,
+.clerk-footer-item,
+.clerk-footer-actionText,
+.clerk-footer-supportText,
+.clerk-footer-branding,
+.clerk-footer-logoLink,
+.cl-footer,
+.cl-footer-inner,
+.cl-footer-content,
+.cl-footer-action,
+.cl-footer-item,
+.cl-footer-actionText,
+.cl-footer-supportText,
+.cl-footer-branding,
+.cl-footer-logoLink,
+div[class*="footer"],
+section[class*="footer"],
+div[class*="Footer"],
+section[class*="Footer"],
+div[class*="clerk-footer"],
+section[class*="clerk-footer"],
+div[class*="CLERK-FOOTER"] {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+/* Clerk Card Internal Elements */
+.clerk-card > *,
+.clerk-card > div,
+.clerk-card > section,
+.clerk-card > footer {
+  background-color: #ffffff !important;
+}
+
+/* SignIn Card Specific Fixes */
+.signIn-card,
+.cl-sign-in,
+.cl-signIn {
+  background-color: #ffffff !important;
+}
+
+/* Footer Links */
+.clerk-footer-action-text {
+  font-size: 14px !important;
+  color: #64748b !important;
+  background-color: #ffffff !important;
+}
+
+.clerk-footer-link {
+  color: #2563eb !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+}
+
+.clerk-footer-link:hover {
+  color: #1d4ed8 !important;
+  text-decoration: underline !important;
+}
+
+/* Additional Clerk Element Fixes */
+.clerk-alternative-methods,
+.clerk-alternative-methods-block,
+.clerk-single-sign-on {
+  background-color: #ffffff !important;
+}
+
+.clerk-header-title {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  color: #1e3a5f !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.clerk-header-subtitle {
+  font-size: 15px !important;
+  color: #64748b !important;
+  margin-bottom: 24px !important;
+}
+
+.clerk-divider {
+  margin: 16px 0 !important;
+}
+
+.clerk-divider::before {
+  border-top-color: transparent !important;
+}
+
+.clerk-divider::after {
+  border-top-color: transparent !important;
+}
+
+.clerk-field-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  margin-bottom: 10px !important;
+}
+
+.clerk-field-input {
+  border: 1.5px solid #d1d5db !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  color: #1f2937 !important;
+  background: #ffffff !important;
+  transition: all 0.2s ease !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.clerk-field-input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  outline: none !important;
+}
+
+.clerk-button {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 12px 24px !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+  width: 100% !important;
+  margin-top: 12px !important;
+  margin-bottom: 16px !important;
+}
+
+.clerk-button:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+}
+
+.clerk-button:active {
+  transform: translateY(0) !important;
+}
+
+
+/* Social Buttons - Side by Side Layout - Comprehensive Override */
+.clerk-social-buttons,
+.cl-socialButtonsBlockButton,
+.cl-socialButtonsBlock,
+.cl-alternativeMethods,
+.cl-alternative-methods,
+div[class*="socialButtons"],
+section[class*="socialButtons"] {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+  margin-top: 8px !important;
+  margin-bottom: 12px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Force buttons to be side by side */
+.clerk-social-buttons > *,
+.cl-socialButtonsBlockButton > *,
+.cl-socialButtonsBlock > *,
+.cl-alternativeMethods > *,
+.cl-alternative-methods > *,
+div[class*="socialButtons"] > *,
+section[class*="socialButtons"] > * {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 120px !important;
+  max-width: none !important;
+}
+
+.clerk-social-button {
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  min-width: 120px !important;
+  width: auto !important;
+  flex: 0 0 auto !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.clerk-social-button:hover {
+  border-color: #3b82f6 !important;
+  background: #f8fafc !important;
+  color: #1e40af !important;
+}
+
+.clerk-social-button-icon {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  flex-shrink: 0 !important;
+}
+
+.clerk-social-button-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* Button Text Styling - Target Clerk's inner button content */
+.clerk-social-button-inner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+/* Hide original Clerk text by making it transparent but keep space */
+.clerk-social-button-text {
+  font-size: 0 !important;
+  color: transparent !important;
+  position: absolute !important;
+}
+
+/* Add text using ::after on the inner container */
+.clerk-social-button-inner::after {
+  content: attr(data-provider) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  position: static !important;
+  display: block !important;
+}
+
+/* For Google */
+.clerk-social-buttons .clerk-social-button:nth-child(1) .clerk-social-button-inner::after {
+  content: "Google" !important;
+}
+
+/* For LinkedIn */
+.clerk-social-buttons .clerk-social-button:nth-child(2) .clerk-social-button-inner::after {
+  content: "LinkedIn" !important;
+}
+
+.clerk-socialButtonButtonInner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+}
+
+.clerk-socialButtonButtonInner svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.clerk-social-button:hover {
+  border-color: #3b82f6 !important;
+  background: #f8fafc !important;
+  color: #1e40af !important;
+}
+
+.clerk-identity-text {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.clerk-identity-edit {
+  color: #3b82f6 !important;
+}
+
+.clerk-social-buttons {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+  margin-bottom: 20px !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+}
+
+.clerk-social-button-text {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.clerk-socialButtonsBlockButtonIcon {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  transform: none !important;
+}
+
+.clerk-socialButtonsBlockButtonIcon svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  transform: none !important;
+}
+
+.cl-socialButtonsIcon {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex-shrink: 0 !important;
+  transform: none !important;
+  font-size: initial !important;
+}
+
+.cl-socialButtonsBlockButton svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex-shrink: 0 !important;
+  transform: none !important;
+}
+
+.cl-socialButtonsBlockButton img {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex-shrink: 0 !important;
+  transform: none !important;
+  object-fit: contain !important;
+}
+
+.clerk-socialButtonButtonInner {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: none !important;
+}
+
+.clerk-socialButtonButtonInner svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  transform: none !important;
+}
+
+.clerk-form-field-action {
+  margin-top: 4px !important;
+}
+
+.clerk-main {
+  width: 100% !important;
+  max-width: 320px !important;
+  margin: 0 auto !important;
+}
+
+.clerk-form-field-row {
+  margin-bottom: 20px !important;
+}
+
+.clerk-alert {
+  background: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+  border-radius: 10px !important;
+  color: #b91c1c !important;
+  font-size: 14px !important;
+  padding: 12px 16px !important;
+}
+
+/* Original App Styles - Used for authenticated pages */
 .container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
 }
 
 .header {
@@ -53,7 +660,7 @@ textarea {
 input[type="text"]:focus,
 textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #3b82f6;
   background: #ffffff;
 }
 
@@ -63,7 +670,7 @@ textarea {
 }
 
 button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   border: none;
   padding: 14px 28px;
@@ -72,12 +679,12 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 button:disabled {
@@ -102,14 +709,14 @@ button:disabled {
 }
 
 .option:hover {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .option input[type="radio"] {
   width: 20px;
   height: 20px;
-  accent-color: #667eea;
+  accent-color: #3b82f6;
 }
 
 .option span {
@@ -125,16 +732,6 @@ button:disabled {
   color: #333;
 }
 
-.login-box {
-  max-width: 450px;
-  margin: 100px auto;
-  padding: 40px;
-  background: #ffffff;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
 p {
   margin: 10px 0;
   color: #555;
@@ -142,26 +739,26 @@ p {
 }
 
 h2 {
-  color: #2c3e50;
+  color: #1e3a5f;
   margin-bottom: 20px;
 }
 
 h3 {
-  color: #2c3e50;
+  color: #1e3a5f;
   margin-bottom: 15px;
 }
 
 a {
-  color: #667eea;
+  color: #3b82f6;
   text-decoration: none;
 }
 
 a:hover {
-  color: #764ba2;
+  color: #1d4ed8;
 }
 
 .success-message {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
   color: white;
   padding: 15px 20px;
   border-radius: 10px;
@@ -169,9 +766,117 @@ a:hover {
 }
 
 .error-message {
-  background: #fee;
-  color: #e74c3c;
+  background: #fef2f2;
+  color: #dc2626;
   padding: 15px 20px;
   border-radius: 10px;
   margin: 15px 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .hero-section {
+    flex: 1.4;
+  }
+}
+
+@media (max-width: 1024px) {
+  .split-layout {
+    flex-direction: column;
+  }
+  
+  .split-layout::before {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.85) 50%, rgba(59, 130, 246, 0.7) 100%);
+  }
+  
+  .hero-section {
+    padding: 50px 40px;
+    min-height: auto;
+    flex: none;
+  }
+  
+  .hero-title {
+    font-size: 36px;
+  }
+  
+  .hero-features {
+    grid-template-columns: 1fr;
+  }
+  
+  .feature-card {
+    padding: 16px;
+  }
+  
+  .login-section {
+    padding: 50px 40px;
+    min-height: auto;
+    flex: none;
+  }
+  
+  .login-card {
+    padding: 40px 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .split-layout {
+    min-height: 100vh;
+  }
+  
+  .split-layout::before {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.88) 100%);
+  }
+  
+  .hero-section {
+    padding: 40px 24px;
+  }
+  
+  .hero-logo {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .hero-logo-text {
+    font-size: 18px;
+  }
+  
+  .hero-title {
+    font-size: 30px;
+    text-align: center;
+  }
+  
+  .hero-description {
+    font-size: 15px;
+    text-align: center;
+  }
+  
+  .hero-features {
+    gap: 12px;
+  }
+  
+  .feature-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px 16px;
+  }
+  
+  .feature-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .login-section {
+    padding: 40px 20px;
+  }
+  
+  .login-card {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+  
+  .clerk-header-title {
+    font-size: 24px !important;
+  }
 }
