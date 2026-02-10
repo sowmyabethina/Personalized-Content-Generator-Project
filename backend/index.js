@@ -601,85 +601,49 @@ app.post("/generate-combined-content", async (req, res) => {
       return res.status(400).json({ error: "topic required" });
     }
 
-    // Generate combined content based on both technical proficiency and learning style
+    // Generate concise combined content (minimal matter, clear bullet path, tips)
     const content = {
       title: `Personalized ${topic} Learning Path`,
-      overview: `A customized learning experience designed for a ${technicalLevel.toLowerCase()} learner with a ${learningStyle.toLowerCase()} approach. This path adapts to your ${learningStyle.toLowerCase()} learning style and ${technicalLevel.toLowerCase()} technical level.`,
-      
+      overview: `A concise learning path for a ${technicalLevel.toLowerCase()} ${learningStyle.toLowerCase()} learner. Focused steps, quick tips, and practical next actions.`,
+
+      // Clear, minimal bullet-style learning path
       learningPath: [
-        "Getting Started with Core Concepts",
-        "Hands-On Practice Exercises",
-        "Build Real-World Projects",
-        "Master Advanced Topics",
-        "Review and Reinforce"
+        `1) Core Concepts — Learn the essential ideas and terminology for ${topic}`,
+        `2) Practical Exercises — Complete short hands-on tasks to apply concepts`,
+        `3) Mini Project — Build a small project integrating the core concepts`,
+        `4) Advanced Patterns — Study 2-3 advanced topics or real-world patterns`,
+        `5) Review & Reinforce — Revisit weak areas and solidify understanding`
       ],
 
+      // Short sections presented as bullets (minimal text)
       sections: [
         {
-          title: "Getting Started",
-          content: `Based on your ${technicalLevel} technical level, we'll start with ${technicalLevel === 'Beginner' ? 'foundational concepts' : technicalLevel === 'Intermediate' ? 'key principles and best practices' : 'advanced techniques and expert patterns'}.`,
-          keyPoints: [
-            `Target level: ${technicalLevel}`,
-            `Learning approach: ${learningStyle}`,
-            `Technical score: ${technicalScore}%`,
-            `Learning score: ${learningScore}%`
+          title: "Plan",
+          bullets: [
+            `Duration: ~2-6 hours per major step depending on level`,
+            `Deliverable: small working project after step 3`,
+            `Assessment: quick quiz after each major step`
           ]
         },
         {
-          title: "Core Concepts",
-          content: `As a ${learningStyle}, you'll learn through ${learningStyle.includes('Hands-On') ? 'practical exercises and coding challenges' : learningStyle.includes('Theory') ? 'comprehensive explanations and documentation' : 'a balanced mix of theory and practice'}.`,
-          keyPoints: [
-            "Focus on practical application",
-            "Build real-world examples",
-            "Practice makes perfect"
-          ]
-        },
-        {
-          title: "Hands-On Practice",
-          content: "Apply what you've learned through guided exercises and projects.",
-          keyPoints: [
-            "Complete coding exercises",
-            "Build a sample project",
-            "Review and iterate on your work"
-          ]
-        },
-        {
-          title: "Advanced Topics",
-          content: `Once comfortable, explore advanced ${topic} patterns and best practices.`,
-          keyPoints: [
-            "Deep dive into complex concepts",
-            "Learn from real-world case studies",
-            "Optimize and improve your solutions"
+          title: "What to Practice",
+          bullets: [
+            "Focus on 3 core tasks related to the topic",
+            "Implement one end-to-end example",
+            "Write and run short tests or checks"
           ]
         }
       ],
 
-      resources: [
-        { type: "📖 Documentation", title: `Official ${topic} Docs`, description: "Comprehensive reference guide" },
-        { type: "🎓 Tutorial", title: `Step-by-Step ${topic} Guide`, description: "Hands-on learning path" },
-        { type: "💻 Practice", title: `Interactive ${topic} Exercises`, description: "Practice what you learn" },
-        { type: "🚀 Project", title: `Build a ${topic} Project`, description: "Apply skills in a real project" }
-      ],
-
+      // Tips & Tricks - short, actionable items
       tips: [
-        `Take your time with ${topic} - it's a foundational skill`,
-        "Practice coding along with examples, don't just read",
-        "Try modifying example code to understand deeply",
-        "Build small projects to solidify your understanding",
-        "Review and reinforce weak areas regularly"
+        `Start small: implement tiny examples before full projects`,
+        `Use deliberate practice: repeat a focused exercise until fluent`,
+        `Read code + modify it: change examples to see effects`,
+        `Timebox learning sessions (e.g., 45–90 minutes) and review briefly afterwards`
       ],
 
-      nextSteps: "Complete the exercises in order, build a personal project using these concepts, and review and reinforce weak areas",
-
-      recommendations: {
-        nextSteps: [
-          "Complete the exercises in order",
-          "Build a personal project using these concepts",
-          "Review and reinforce weak areas"
-        ],
-        estimatedTime: "2-4 weeks",
-        difficulty: technicalLevel.toLowerCase()
-      },
+      nextSteps: `Follow the 5-step path in order; after the mini project, take a short quiz to validate learning.`,
 
       combinedAnalysis: combinedAnalysis || `Technical: ${technicalLevel} (${technicalScore}%), Learner: ${learningStyle} (${learningScore}%)`
     };
