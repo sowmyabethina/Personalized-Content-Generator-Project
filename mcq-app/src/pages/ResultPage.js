@@ -26,12 +26,9 @@ function ResultPage() {
   };
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
-  const [learningMaterial, setLearningMaterial] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [loadingMaterial, setLoadingMaterial] = useState(false);
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
-  const [showMaterial, setShowMaterial] = useState(false);
 
   // Determine levels
   const getTechnicalLevel = () => {
@@ -88,7 +85,7 @@ function ResultPage() {
 
   // Generate exact learning material
   const generateLearningMaterial = async () => {
-    setLoadingMaterial(true);
+    setLoading(true);
     setError("");
 
     try {
@@ -107,118 +104,22 @@ function ResultPage() {
       }
 
       const material = await res.json();
-      setLearningMaterial(material);
-      setShowMaterial(true);
-      setShowContent(false);
+      
+      // Navigate to LearningMaterialPage instead of showing inline
+      navigate("/learning-material", {
+        state: {
+          learningMaterial: material,
+          topic: topic,
+          technicalLevel: getTechnicalLevel(),
+          learningStyle: getLearningStyle()
+        }
+      });
     } catch (err) {
       console.error("Learning material error:", err);
-      setError("Failed to generate learning material");
+      setError("Failed to generate learning material. Please try again.");
     }
 
-    setLoadingMaterial(false);
-  };
-
-  // Download learning material as text file
-  const downloadMaterial = () => {
-    if (!learningMaterial) return;
-
-    let content = `${learningMaterial.title || "Learning Material"}\n`;
-    content += `${"=".repeat(50)}\n\n`;
-    content += `Topic: ${learningMaterial.topic}\n`;
-    content += `Level: ${learningMaterial.level}\n`;
-    content += `Learning Style: ${learningMaterial.style}\n\n`;
-
-    if (learningMaterial.summary) {
-      content += `SUMMARY\n${"-".repeat(30)}\n${learningMaterial.summary}\n\n`;
-    }
-
-    if (learningMaterial.sections) {
-      learningMaterial.sections.forEach((section, idx) => {
-        content += `\n${idx + 1}. ${section.title}\n`;
-        content += `${"=".repeat(section.title.length)}\n\n`;
-        content += `${section.content}\n\n`;
-
-        if (section.keyPoints) {
-          content += `Key Points:\n`;
-          section.keyPoints.forEach(point => {
-            content += `  • ${point}\n`;
-          });
-          content += `\n`;
-        }
-
-        if (section.examples) {
-          section.examples.forEach((ex, exIdx) => {
-            content += `Example ${exIdx + 1}: ${ex.title}\n`;
-            content += `${ex.description}\n`;
-            if (ex.code) {
-              content += `${ex.code}\n`;
-            }
-            content += `\n`;
-          });
-        }
-
-        if (section.practiceQuestions) {
-          content += `Practice Questions:\n`;
-          section.practiceQuestions.forEach((q, qIdx) => {
-            content += `  ${qIdx + 1}. ${q}\n`;
-          });
-          content += `\n`;
-        }
-
-        content += `Estimated Time: ${section.estimatedTime}\n`;
-      });
-    }
-
-    if (learningMaterial.finalProject) {
-      content += `\n${"=".repeat(50)}\n`;
-      content += `FINAL PROJECT\n${"=".repeat(30)}\n\n`;
-      content += `${learningMaterial.finalProject.title}\n`;
-      content += `${learningMaterial.finalProject.description}\n\n`;
-      content += `Steps:\n`;
-      learningMaterial.finalProject.steps.forEach((step, idx) => {
-        content += `  ${idx + 1}. ${step}\n`;
-      });
-      content += `\nExpected Outcome: ${learningMaterial.finalProject.expectedOutcome}\n`;
-    }
-
-    if (learningMaterial.cheatsheet) {
-      content += `\n${"=".repeat(50)}\n`;
-      content += `QUICK REFERENCE CHEATSHEET\n${"=".repeat(30)}\n\n`;
-
-      if (learningMaterial.cheatsheet.commands) {
-        content += `Commands/Syntax:\n`;
-        learningMaterial.cheatsheet.commands.forEach(cmd => {
-          content += `  ${cmd}\n`;
-        });
-        content += `\n`;
-      }
-
-      if (learningMaterial.cheatsheet.definitions) {
-        content += `Definitions:\n`;
-        Object.entries(learningMaterial.cheatsheet.definitions).forEach(([term, def]) => {
-          content += `  ${term}: ${def}\n`;
-        });
-      }
-    }
-
-    if (learningMaterial.furtherReading) {
-      content += `\n${"=".repeat(50)}\n`;
-      content += `FURTHER READING\n${"=".repeat(30)}\n\n`;
-      learningMaterial.furtherReading.forEach((resource, idx) => {
-        content += `  ${idx + 1}. ${resource}\n`;
-      });
-    }
-
-    // Create blob and download
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setLoading(false);
   };
 
   // Quiz score card
@@ -326,7 +227,7 @@ function ResultPage() {
           </div>
         )}
 
-        {!showContent && !showMaterial ? (
+        {!showContent ? (
           <>
             <button
               onClick={generateContent}
@@ -418,10 +319,10 @@ function ResultPage() {
                   </div>
                 )}
 
-                {/* Download Learning Material Button */}
+                {/* Generate Full Learning Material Button */}
                 <button
                   onClick={generateLearningMaterial}
-                  disabled={loadingMaterial}
+                  disabled={loading}
                   style={{
                     width: "100%",
                     padding: "18px",
@@ -431,176 +332,12 @@ function ResultPage() {
                     marginBottom: "15px"
                   }}
                 >
-                  {loadingMaterial ? "Generating..." : "📚 Generate Full Learning Material"}
+                  {loading ? "Generating..." : "📚 Generate Full Learning Material"}
                 </button>
-
-                {learningMaterial && (
-                  <button
-                    onClick={downloadMaterial}
-                    style={{
-                      width: "100%",
-                      padding: "15px",
-                      fontSize: "16px",
-                      background: "#4CAF50",
-                      marginBottom: "15px"
-                    }}
-                  >
-                    📥 Download Learning Material
-                  </button>
-                )}
               </>
             )}
 
             <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
-              <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
-                📄 PDF Chat
-              </button>
-              <button onClick={() => navigate("/quiz")} style={{ flex: "1", minWidth: "150px", background: "#9C27B0" }}>
-                🔄 New Assessment
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Learning Material Display */}
-        {showMaterial && learningMaterial && (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "30px",
-            textAlign: "left"
-          }}>
-            <h2 style={{ color: "#2c3e50", marginBottom: "20px" }}>
-              📚 {learningMaterial.title || "Complete Learning Material"}
-            </h2>
-
-            <div style={{ marginBottom: "20px", padding: "15px", background: "#E3F2FD", borderRadius: "8px" }}>
-              <p style={{ margin: "0", color: "#1976D2", fontWeight: "bold" }}>
-                📌 Topic: {learningMaterial.topic} | Level: {learningMaterial.level} | Style: {learningMaterial.style}
-              </p>
-            </div>
-
-            {learningMaterial.summary && (
-              <div style={{ marginBottom: "25px" }}>
-                <h4 style={{ color: "#2c3e50" }}>📋 Summary</h4>
-                <p style={{ color: "#555", lineHeight: "1.6" }}>{learningMaterial.summary}</p>
-              </div>
-            )}
-
-            {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
-              <div key={idx} style={{ marginBottom: "30px", padding: "20px", background: "#fff", borderRadius: "8px", borderLeft: "4px solid #667eea" }}>
-                <h3 style={{ color: "#2c3e50", marginBottom: "15px" }}>
-                  📖 {section.title}
-                </h3>
-                <p style={{ color: "#555", lineHeight: "1.8", marginBottom: "15px" }}>
-                  {section.content}
-                </p>
-
-                {section.keyPoints && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>🔑 Key Points:</h5>
-                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
-                      {section.keyPoints.map((point, pIdx) => (
-                        <li key={pIdx} style={{ marginBottom: "5px" }}>{point}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {section.examples && section.examples.length > 0 && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>💻 Examples:</h5>
-                    {section.examples.map((ex, exIdx) => (
-                      <div key={exIdx} style={{ marginBottom: "10px", padding: "10px", background: "#f5f5f5", borderRadius: "4px" }}>
-                        <p style={{ margin: "0 0 5px 0", fontWeight: "bold", color: "#333" }}>{ex.title}</p>
-                        <p style={{ margin: "0 0 5px 0", color: "#666" }}>{ex.description}</p>
-                        {ex.code && (
-                          <pre style={{ margin: "10px 0 0 0", padding: "10px", background: "#2c3e50", borderRadius: "4px", overflow: "auto" }}>
-                            <code style={{ color: "#f8f8f2", fontSize: "13px" }}>{ex.code}</code>
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {section.practiceQuestions && (
-                  <div style={{ marginBottom: "10px" }}>
-                    <h5 style={{ color: "#667eea", marginBottom: "10px" }}>❓ Practice Questions:</h5>
-                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
-                      {section.practiceQuestions.map((q, qIdx) => (
-                        <li key={qIdx} style={{ marginBottom: "5px" }}>{q}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "13px" }}>
-                  ⏱ Estimated Time: {section.estimatedTime}
-                </p>
-              </div>
-            ))}
-
-            {learningMaterial.finalProject && (
-              <div style={{ marginBottom: "30px", padding: "20px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: "8px", color: "white" }}>
-                <h3 style={{ marginBottom: "15px" }}>🎯 {learningMaterial.finalProject.title}</h3>
-                <p style={{ marginBottom: "15px" }}>{learningMaterial.finalProject.description}</p>
-                <h5 style={{ marginBottom: "10px" }}>Steps:</h5>
-                <ol style={{ paddingLeft: "20px" }}>
-                  {learningMaterial.finalProject.steps.map((step, idx) => (
-                    <li key={idx} style={{ marginBottom: "5px" }}>{step}</li>
-                  ))}
-                </ol>
-                <p style={{ marginTop: "15px", fontWeight: "bold" }}>
-                  ✅ {learningMaterial.finalProject.expectedOutcome}
-                </p>
-              </div>
-            )}
-
-            {learningMaterial.cheatsheet && (
-              <div style={{ marginBottom: "30px", padding: "20px", background: "#FFF3E0", borderRadius: "8px" }}>
-                <h3 style={{ color: "#E65100", marginBottom: "15px" }}>📝 Quick Reference</h3>
-                {learningMaterial.cheatsheet.commands && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <h5 style={{ color: "#E65100" }}>Commands/Syntax:</h5>
-                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
-                      {learningMaterial.cheatsheet.commands.map((cmd, idx) => (
-                        <li key={idx} style={{ marginBottom: "5px", fontFamily: "monospace" }}>{cmd}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {learningMaterial.cheatsheet.definitions && (
-                  <div>
-                    <h5 style={{ color: "#E65100" }}>Definitions:</h5>
-                    <dl style={{ paddingLeft: "20px", color: "#555" }}>
-                      {Object.entries(learningMaterial.cheatsheet.definitions).map(([term, def], idx) => (
-                        <div key={idx} style={{ marginBottom: "5px" }}>
-                          <dt style={{ fontWeight: "bold", display: "inline" }}>{term}:</dt>
-                          <dd style={{ display: "inline", marginLeft: "5px" }}>{def}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {learningMaterial.furtherReading && (
-              <div style={{ marginBottom: "25px" }}>
-                <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📖 Further Reading</h4>
-                <ul style={{ paddingLeft: "20px", color: "#555" }}>
-                  {learningMaterial.furtherReading.map((resource, idx) => (
-                    <li key={idx} style={{ marginBottom: "8px" }}>{resource}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
-              <button onClick={downloadMaterial} style={{ flex: "1", minWidth: "150px", background: "#4CAF50" }}>
-                📥 Download Material
-              </button>
               <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
                 📄 PDF Chat
               </button>

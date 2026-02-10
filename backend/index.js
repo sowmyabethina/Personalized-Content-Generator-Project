@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import multer from "multer";
 import fs from "fs";
 import pdf from "pdf-parse";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { generateQuestions } from "../pdf/questionGenerator.js";
 
@@ -703,87 +704,200 @@ app.post("/generate-learning-material", async (req, res) => {
       return res.status(400).json({ error: "topic required" });
     }
 
-    // Generate learning material
-    const material = {
-      title: `${topic} - ${technicalLevel} Learning Guide`,
-      topic: topic,
-      level: technicalLevel,
-      style: learningStyle,
-      summary: `A ${learningStyle.toLowerCase()} approach to learning ${topic} at a ${technicalLevel.toLowerCase()} level.`,
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      sections: [
+    // Create a detailed prompt for learning material generation
+    const prompt = `You are an expert technical educator. Generate comprehensive, structured learning material for the following:
+
+Topic: ${topic}
+Technical Level: ${technicalLevel}
+Learning Style: ${learningStyle}
+
+Create detailed learning material with the following structure in JSON format:
+
+{
+  "title": "Complete ${topic} Learning Guide",
+  "topic": "${topic}",
+  "level": "${technicalLevel}",
+  "style": "${learningStyle}",
+  "summary": "A comprehensive overview tailored for ${learningStyle} learners at ${technicalLevel} level",
+  "sections": [
+    {
+      "title": "Section Title",
+      "content": "Detailed paragraph(s) explaining the concept with real-world applications and context (2-3 paragraphs)",
+      "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4"],
+      "examples": [
         {
-          title: `Introduction to ${topic}`,
-          content: `${topic} is an essential concept in modern technology. This guide will help you understand its fundamentals and advanced applications.`,
-          keyPoints: [
-            `Understand what ${topic} is and why it matters`,
-            "Learn the basic terminology",
-            "Get familiar with common use cases"
-          ],
-          examples: [
-            {
-              title: "Basic Example",
-              description: "A simple demonstration of core concepts",
-              code: `// Example of ${topic} basics\nconsole.log("Hello, ${topic}!");`
-            }
-          ]
-        },
-        {
-          title: "Core Principles",
-          content: `Master the fundamental principles of ${topic} that form the foundation of all advanced applications.`,
-          keyPoints: [
-            "Understand key principles",
-            "Learn best practices",
-            "Avoid common pitfalls"
-          ],
-          examples: [
-            {
-              title: "Practical Implementation",
-              description: "Implementing core principles in code",
-              code: `// Core principles example\nfunction example() {\n  // Implementation\n}`
-            }
-          ]
-        },
-        {
-          title: "Hands-On Practice",
-          content: "Apply your knowledge through practical exercises designed for your ${learningStyle} learning approach.",
-          keyPoints: [
-            "Complete exercises",
-            "Build small projects",
-            "Test your understanding"
-          ],
-          examples: [
-            {
-              title: "Practice Exercise",
-              description: "Apply what you've learned",
-              code: `// Practice exercise\n// Implement a function that...`
-            }
-          ]
-        },
-        {
-          title: "Advanced Techniques",
-          content: `Explore advanced ${topic} techniques and expert-level patterns.`,
-          keyPoints: [
-            "Learn advanced patterns",
-            "Optimize performance",
-            "Handle complex scenarios"
-          ],
-          examples: [
-            {
-              title: "Advanced Pattern",
-              description: "Complex implementation example",
-              code: `// Advanced pattern\nclass AdvancedExample {\n  // Implementation\n}`
-            }
-          ]
+          "title": "Example Title",
+          "description": "Detailed description of what this example demonstrates",
+          "code": "Code snippet or practical example"
         }
-      ]
-    };
+      ],
+      "applications": ["Real-world application 1", "Real-world application 2"],
+      "practiceQuestions": ["Question 1", "Question 2", "Question 3"],
+      "estimatedTime": "20 minutes"
+    }
+  ],
+  "finalProject": {
+    "title": "Capstone Project: [Project Name]",
+    "description": "A comprehensive project that combines all concepts learned",
+    "steps": ["Step 1", "Step 2", "Step 3"],
+    "expectedOutcome": "What learners will achieve after completing this project"
+  },
+  "cheatsheet": {
+    "commands": ["Command 1", "Command 2", "Command 3"],
+    "definitions": {
+      "Term 1": "Definition",
+      "Term 2": "Definition"
+    }
+  },
+  "furtherReading": ["Resource 1", "Resource 2", "Resource 3"],
+  "learningTips": ["Tip 1", "Tip 2", "Tip 3"]
+}
+
+Requirements:
+- Generate 4-5 comprehensive sections covering different aspects of ${topic}
+- Each section should have detailed explanations with practical applications
+- Include code examples where applicable
+- Provide multiple key points and practice questions per section
+- The content should be suitable for a ${learningStyle} learner at ${technicalLevel} level
+- Include real-world scenarios and use cases
+- Make it engaging and practical
+
+Return ONLY valid JSON, no additional text.`;
+
+    console.log("📚 Generating learning material for:", topic);
+
+    const result = await model.generateContent({
+      contents: [
+        { role: "user", parts: [{ text: prompt }] }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const rawText =
+      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) {
+      throw new Error("Empty Gemini output for learning material");
+    }
+
+    console.log("✅ Learning material generated successfully");
+
+    let material;
+    try {
+      material = JSON.parse(rawText);
+    } catch (e) {
+      console.error("❌ Failed to parse learning material JSON");
+      throw new Error("Invalid JSON response from AI");
+    }
 
     return res.json(material);
 
   } catch (err) {
     console.error("❌ /generate-learning-material error:", err);
     return res.status(500).json({ error: "Learning material generation failed", details: err.message });
+  }
+});
+
+// ===============================
+// GENERATE QUIZ FROM LEARNING MATERIAL
+// ===============================
+app.post("/generate-quiz-from-material", async (req, res) => {
+  try {
+    const { topic, material, technicalLevel, learningStyle } = req.body;
+
+    if (!topic || !material) {
+      return res.status(400).json({ error: "topic and material required" });
+    }
+
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    // Create a detailed material summary from sections
+    const materialSummary = material.sections
+      ?.map(s => `${s.title}: ${s.content}`)
+      .join("\n\n") || material.summary || "";
+
+    const prompt = `Based on this learning material about ${topic}, generate 10 comprehensive multiple-choice questions to test understanding:
+
+Learning Material Summary:
+${materialSummary}
+
+Generate questions that:
+1. Test understanding of key concepts covered
+2. Include practical application scenarios
+3. Range from basic to advanced difficulty
+4. Have clear, distinct options
+5. Are relevant to ${technicalLevel} level learners
+
+Return ONLY valid JSON in this format:
+[
+  {
+    "question": "Question text?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "Option A",
+    "explanation": "Why this is the correct answer and explanation"
+  }
+]
+
+No additional text, only JSON.`;
+
+    console.log("📝 Generating quiz from learning material...");
+
+    const result = await model.generateContent({
+      contents: [
+        { role: "user", parts: [{ text: prompt }] }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const rawText =
+      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) {
+      throw new Error("Empty Gemini output for quiz");
+    }
+
+    let questions;
+    try {
+      questions = JSON.parse(rawText);
+    } catch (e) {
+      console.error("❌ Failed to parse quiz JSON");
+      throw new Error("Invalid JSON response from AI");
+    }
+
+    const quizId = `material-quiz_${Date.now()}`;
+    
+    // Store quiz answers
+    const quizData = questions.map((q, idx) => ({
+      originalIndex: idx,
+      question: q.question,
+      options: q.options || [],
+      correctAnswer: q.answer || q.options[0],
+      explanation: q.explanation || ""
+    }));
+
+    answerStore[quizId] = {
+      quizData,
+      totalQuestions: questions.length
+    };
+
+    console.log("✅ Quiz generated successfully:", quizId);
+
+    res.setHeader("X-Quiz-Id", quizId);
+    return res.json(questions);
+
+  } catch (err) {
+    console.error("❌ /generate-quiz-from-material error:", err);
+    return res.status(500).json({ error: "Quiz generation failed", details: err.message });
   }
 });
 
