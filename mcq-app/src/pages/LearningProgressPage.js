@@ -5,7 +5,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 function LearningProgressPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId } = location.state || { userId: "anonymous" };
+  
+  // Get userId from location state - pass null if not logged in to get all analyses
+  const { userId: rawUserId } = location.state || {};
+  const userId = rawUserId && rawUserId !== "anonymous" ? rawUserId : null;
 
   const [analyses, setAnalyses] = useState([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
@@ -20,7 +23,13 @@ function LearningProgressPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`http://localhost:5000/analyses?userId=${encodeURIComponent(userId)}`);
+      // Build URL - only include userId if it's not null
+      let url = "http://localhost:5000/analyses";
+      if (userId) {
+        url += `?userId=${encodeURIComponent(userId)}`;
+      }
+      
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setAnalyses(data.analyses || []);
