@@ -237,7 +237,18 @@ function HomePage() {
 
         // Navigate to quiz page with questions
         navigate("/quiz", {
-          state: { questions: normalized, quizId: res.headers.get("X-Quiz-Id") }
+          state: { 
+            questions: normalized, 
+            quizId: res.headers.get("X-Quiz-Id"),
+            // Pass analysis data for later saving
+            userId: null,
+            sourceType: inputType,
+            sourceUrl: inputType === "github" ? githubLink : null,
+            extractedText: extractedContent.substring(0, 12000),
+            skills: [],
+            strengths: [],
+            weakAreas: []
+          }
         });
       } else {
         setError("Could not parse questions. Please try again.");

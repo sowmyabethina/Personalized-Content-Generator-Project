@@ -1,6 +1,6 @@
 import fs from "fs";
 import { getEmbedding } from "./embeddings.js";
-import { addVector, clearVectorStore } from "./vectorStore.js";
+import { addVectorsBatch, clearVectorStore, generatePdfId } from "./vectorStore.js";
 
 // Text splitter for semantic paragraphs (not fixed characters)
 function splitText(text, maxChunkSize = 800, minChunkSize = 100) {
@@ -268,7 +268,7 @@ async function extractTextFromPDF(filePath) {
   }
 }
 
-export async function ingestPdf(filePath) {
+export async function ingestPdf(filePath, pdfId = null) {
   console.log("📄 Starting PDF ingestion:", filePath);
 
   if (!fs.existsSync(filePath)) {
@@ -279,6 +279,10 @@ export async function ingestPdf(filePath) {
   if (stats.size < 100) {
     throw new Error("PDF file is too small");
   }
+
+  // Generate PDF ID if not provided
+  const fileName = filePath.split("/").pop().split("\\").pop();
+  const currentPdfId = pdfId || generatePdfId(fileName);
 
   try {
     // Extract text using layout-aware processing
@@ -294,29 +298,43 @@ export async function ingestPdf(filePath) {
     const chunks = splitText(text);
     console.log(`📌 Split into ${chunks.length} chunks`);
 
-    // Clear old vectors before re-indexing
+    // Clear old vectors for this PDF before re-indexing
     console.log("🗑️ Clearing old vector store...");
-    clearVectorStore();
+    await clearVectorStore();
 
     let count = 0;
+    const chunksWithEmbeddings = [];
 
+    // Generate embeddings for all chunks
     for (const chunk of chunks) {
       if (chunk.trim().length < 10) continue;
       
       try {
         const embedding = await getEmbedding(chunk);
-        addVector(embedding, chunk);
+        chunksWithEmbeddings.push({
+          text: chunk,
+          embedding: embedding,
+          pageNumber: null
+        });
         count++;
         
         if (count % 5 === 0) {
-          console.log(`📌 Processed ${count}/${chunks.length} chunks`);
+          console.log(`📌 Generated embeddings for ${count}/${chunks.length} chunks`);
         }
       } catch (embError) {
         console.warn("⚠️ Failed to embed chunk:", embError.message);
       }
     }
 
-    console.log(`✅ PDF successfully ingested: ${count} chunks stored`);
+    // Batch insert all chunks with embeddings to database
+    if (chunksWithEmbeddings.length > 0) {
+      console.log("💾 Saving chunks to PostgreSQL database...");
+      const pdfId = generatePdfId(fileName);
+      await addVectorsBatch(chunksWithEmbeddings, pdfId);
+    }
+
+    console.log(`✅ PDF successfully ingested: ${count} chunks stored in database`);
+    return { chunkCount: count };
 
   } catch (error) {
     console.error("❌ Error processing PDF:", error.message);

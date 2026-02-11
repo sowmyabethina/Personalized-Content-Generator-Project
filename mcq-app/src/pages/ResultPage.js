@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function ResultPage() {
@@ -13,7 +13,15 @@ function ResultPage() {
     technicalScore,
     learningScore,
     combinedAnalysis,
-    mode
+    mode,
+    // Analysis data passed from QuizPage/HomePage
+    userId,
+    sourceType,
+    sourceUrl,
+    extractedText,
+    skills,
+    strengths,
+    weakAreas
   } = location.state || {
     score: 0,
     correctCount: 0,
@@ -22,13 +30,25 @@ function ResultPage() {
     technicalScore: 0,
     learningScore: 0,
     combinedAnalysis: null,
-    mode: "direct"
+    mode: "direct",
+    userId: null,
+    sourceType: "resume",
+    sourceUrl: null,
+    extractedText: null,
+    skills: [],
+    strengths: [],
+    weakAreas: []
   };
 
+  // Handle backward compatibility (combinedData -> combinedAnalysis)
+  const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
+
   const [personalizedContent, setPersonalizedContent] = useState(null);
+  const [learningMaterial, setLearningMaterial] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
+  const [analysisId, setAnalysisId] = useState(null);
 
   // Determine levels
   const getTechnicalLevel = () => {
@@ -43,6 +63,40 @@ function ResultPage() {
     if (learnScore >= 70) return "Hands-On Learner";
     if (learnScore >= 35) return "Balanced Learner";
     return "Theory-First Learner";
+  };
+
+  // Save analysis to database
+  const saveAnalysisToDatabase = async (contentData, roadmapData) => {
+    try {
+      const analysisData = {
+        userId: userId || "anonymous",
+        sourceType: sourceType || "resume",
+        sourceUrl: sourceUrl || null,
+        extractedText: extractedText || null,
+        skills: skills || [],
+        strengths: strengths || [],
+        weakAreas: weakAreas || [],
+        aiRecommendations: contentData?.resources || contentData?.tips || [],
+        learningRoadmap: roadmapData || contentData?.learningPath || null,
+        technicalLevel: getTechnicalLevel(),
+        learningStyle: getLearningStyle(),
+        overallScore: technicalScore || score || 0
+      };
+
+      const saveRes = await fetch("http://localhost:5000/save-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(analysisData)
+      });
+
+      if (saveRes.ok) {
+        const saveData = await saveRes.json();
+        setAnalysisId(saveData.analysisId);
+        console.log("✅ Analysis saved with ID:", saveData.analysisId);
+      }
+    } catch (saveErr) {
+      console.error("Failed to save analysis:", saveErr);
+    }
   };
 
   // Generate personalized content using combined analysis
@@ -73,8 +127,12 @@ function ResultPage() {
 
       const content = await res.json();
       console.log("Content received:", content);
+      
       setPersonalizedContent(content);
       setShowContent(true);
+      
+      // Save analysis to database (background, doesn't block UI)
+      saveAnalysisToDatabase(content, content.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
       setError("Failed to generate personalized content");
@@ -104,6 +162,15 @@ function ResultPage() {
       }
 
       const material = await res.json();
+      setLearningMaterial(material);
+      
+      // Save analysis to database (background, doesn't block UI)
+      const roadmapData = {
+        learningPath: material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) || [],
+        tips: material.learningTips || [],
+        finalProject: material.finalProject
+      };
+      saveAnalysisToDatabase(material, roadmapData);
       
       // Navigate to LearningMaterialPage instead of showing inline
       navigate("/learning-material", {
@@ -111,7 +178,8 @@ function ResultPage() {
           learningMaterial: material,
           topic: topic,
           technicalLevel: getTechnicalLevel(),
-          learningStyle: getLearningStyle()
+          learningStyle: getLearningStyle(),
+          analysisId: analysisId
         }
       });
     } catch (err) {
