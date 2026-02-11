@@ -78,6 +78,12 @@ async function initDatabase() {
       )
     `);
     
+    // Add missing columns for learner assessment (safe migration)
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS topic TEXT`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS learning_score INTEGER`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS technical_score INTEGER`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS psychometric_profile JSONB`);
+    
     // Create indexes for user_analyses
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_created_at ON user_analyses(created_at)`);
@@ -233,11 +239,70 @@ async function saveUserAnalysis(analysisData) {
   }
 }
 
+async function updateUserAnalysis(analysisId, updateData) {
+  try {
+    const {
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      topic,
+      learningScore,
+      technicalScore,
+      psychometricProfile
+    } = updateData;
+
+    const result = await pool.query(
+      `UPDATE user_analyses SET
+        skills = COALESCE($2, skills),
+        strengths = COALESCE($3, strengths),
+        weak_areas = COALESCE($4, weak_areas),
+        ai_recommendations = COALESCE($5, ai_recommendations),
+        learning_roadmap = COALESCE($6, learning_roadmap),
+        technical_level = COALESCE($7, technical_level),
+        learning_style = COALESCE($8, learning_style),
+        topic = COALESCE($9, topic),
+        learning_score = COALESCE($10, learning_score),
+        technical_score = COALESCE($11, technical_score),
+        psychometric_profile = COALESCE($12, psychometric_profile),
+        updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [analysisId,
+       JSON.stringify(skills || null),
+       JSON.stringify(strengths || null),
+       JSON.stringify(weakAreas || null),
+       JSON.stringify(aiRecommendations || null),
+       JSON.stringify(learningRoadmap || null),
+       technicalLevel || null,
+       learningStyle || null,
+       topic || null,
+       learningScore || null,
+       technicalScore || null,
+       JSON.stringify(psychometricProfile || null)]
+    );
+
+    if (result.rows.length === 0) {
+      return { success: false, error: 'Analysis not found' };
+    }
+
+    console.log('✅ User analysis updated:', analysisId);
+    return { success: true, analysisId };
+  } catch (err) {
+    console.error('❌ Error updating user analysis:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 async function getUserAnalysis(analysisId) {
   try {
     const result = await pool.query(
       `SELECT id, user_id, source_type, source_url, extracted_text, skills, strengths, weak_areas,
               ai_recommendations, learning_roadmap, technical_level, learning_style, overall_score,
+              topic, learning_score, technical_score, psychometric_profile,
               created_at, updated_at
        FROM user_analyses WHERE id = $1`,
       [analysisId]
@@ -260,6 +325,10 @@ async function getUserAnalysis(analysisId) {
       technicalLevel: row.technical_level,
       learningStyle: row.learning_style,
       overallScore: row.overall_score,
+      topic: row.topic,
+      learningScore: row.learning_score,
+      technicalScore: row.technical_score,
+      psychometricProfile: row.psychometric_profile,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -271,14 +340,29 @@ async function getUserAnalysis(analysisId) {
 
 async function getUserAnalyses(userId) {
   try {
-    const result = await pool.query(
-      `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
-              created_at, updated_at
-       FROM user_analyses 
-       WHERE user_id = $1 OR $1 IS NULL
-       ORDER BY created_at DESC`,
-      [userId || null]
-    );
+    let query;
+    let params;
+    
+    if (userId) {
+      // If userId is provided, get analyses for that user
+      query = `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
+               topic, learning_score, technical_score, psychometric_profile,
+               created_at, updated_at
+        FROM user_analyses 
+        WHERE user_id = $1
+        ORDER BY created_at DESC`;
+      params = [userId];
+    } else {
+      // If no userId, get all analyses (for demo/anonymous users)
+      query = `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
+               topic, learning_score, technical_score, psychometric_profile,
+               created_at, updated_at
+        FROM user_analyses 
+        ORDER BY created_at DESC`;
+      params = [];
+    }
+    
+    const result = await pool.query(query, params);
 
     return result.rows.map(row => ({
       id: row.id,
@@ -288,6 +372,10 @@ async function getUserAnalyses(userId) {
       technicalLevel: row.technical_level,
       learningStyle: row.learning_style,
       overallScore: row.overall_score,
+      topic: row.topic,
+      learningScore: row.learning_score,
+      technicalScore: row.technical_score,
+      psychometricProfile: row.psychometric_profile,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -1244,6 +1332,53 @@ app.get("/analysis/:id", async (req, res) => {
   } catch (err) {
     console.error("❌ /analysis/:id error:", err);
     return res.status(500).json({ error: "Failed to fetch analysis", details: err.message });
+  }
+});
+
+// Update analysis with learner assessment data
+app.put("/analysis/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      topic,
+      learningScore,
+      technicalScore,
+      psychometricProfile
+    } = req.body;
+
+    const result = await updateUserAnalysis(id, {
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      topic,
+      learningScore,
+      technicalScore,
+      psychometricProfile
+    });
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        analysisId: id,
+        message: "Analysis updated successfully"
+      });
+    } else {
+      return res.status(404).json({ error: result.error || "Failed to update analysis" });
+    }
+  } catch (err) {
+    console.error("❌ /analysis/:id PUT error:", err);
+    return res.status(500).json({ error: "Analysis update failed", details: err.message });
   }
 });
 

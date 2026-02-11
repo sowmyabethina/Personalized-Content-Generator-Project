@@ -236,18 +236,17 @@ function HomePage() {
         setTimeout(() => setSuccessMessage(""), 3000);
 
         // Navigate to quiz page with questions
+        // Analysis will be saved after content generation in ResultPage
+        // to avoid duplicate/empty inserts
         navigate("/quiz", {
           state: { 
             questions: normalized, 
             quizId: res.headers.get("X-Quiz-Id"),
-            // Pass analysis data for later saving
+            // Pass analysis data for saving later
             userId: null,
             sourceType: inputType,
             sourceUrl: inputType === "github" ? githubLink : null,
-            extractedText: extractedContent.substring(0, 12000),
-            skills: [],
-            strengths: [],
-            weakAreas: []
+            extractedText: extractedContent.substring(0, 12000)
           }
         });
       } else {

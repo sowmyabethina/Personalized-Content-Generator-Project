@@ -7,6 +7,7 @@ import ResultPage from "./pages/ResultPage";
 import LearningPage from "./pages/LearningPage";
 import LearningMaterialPage from "./pages/LearningMaterialPage";
 import PdfChatPage from "./pages/PdfChatPage";
+import LearningProgressPage from "./pages/LearningProgressPage";
 import "./App.css";
 
 function App() {
@@ -153,6 +154,7 @@ function App() {
             <Route path="/assessment" element={<LearningPage />} />
             <Route path="/learning-material" element={<LearningMaterialPage />} />
             <Route path="/pdf-chat" element={<PdfChatPage />} />
+            <Route path="/progress" element={<LearningProgressPage />} />
           </Routes>
         </Layout>
       </SignedIn>

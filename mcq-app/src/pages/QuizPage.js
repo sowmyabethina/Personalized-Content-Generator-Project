@@ -356,7 +356,7 @@ function QuizPage() {
       );
     }
 
-    const completeLearningAssessment = () => {
+    const completeLearningAssessment = async () => {
       // Calculate psychometric score (0-100 scale)
       // Each question has 3 options: Beginner (0), Intermediate (1), Advanced (2)
       const totalPoints = learningAnswers.reduce((acc, val) => acc + val, 0);
@@ -371,6 +371,62 @@ function QuizPage() {
       
       // Analyze psychometric profile
       const profile = analyzePsychometricProfile(learningAnswers, learningQuestions);
+      
+      // Save/update analysis in database
+      let analysisId = localStorage.getItem("currentAnalysisId");
+      
+      if (!analysisId) {
+        // Create new analysis if none exists
+        try {
+          const saveRes = await fetch("http://localhost:5000/save-analysis", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: null,
+              sourceType: location.state?.sourceType || "resume",
+              sourceUrl: location.state?.sourceUrl || null,
+              extractedText: location.state?.extractedText || null,
+              skills: [],
+              strengths: [],
+              weakAreas: [],
+              technicalLevel: techLevel,
+              learningStyle: profile.overallLevel,
+              overallScore: techScore,
+              topic: storedTopic,
+              learningScore: learnScore,
+              technicalScore: techScore,
+              psychometricProfile: profile.levels
+            })
+          });
+          
+          if (saveRes.ok) {
+            const saveData = await saveRes.json();
+            analysisId = saveData.analysisId;
+            localStorage.setItem("currentAnalysisId", analysisId);
+            console.log("✅ Analysis created:", analysisId);
+          }
+        } catch (saveErr) {
+          console.error("Failed to create analysis:", saveErr);
+        }
+      } else {
+        // Update existing analysis
+        try {
+          await fetch(`http://localhost:5000/analysis/${analysisId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              learningStyle: profile.overallLevel,
+              topic: storedTopic,
+              learningScore: learnScore,
+              technicalScore: techScore,
+              psychometricProfile: profile.levels
+            })
+          });
+          console.log("✅ Analysis updated with learner assessment data");
+        } catch (updateErr) {
+          console.error("Failed to update analysis:", updateErr);
+        }
+      }
       
       // Store combined data and navigate to options
       localStorage.setItem("combinedData", JSON.stringify({

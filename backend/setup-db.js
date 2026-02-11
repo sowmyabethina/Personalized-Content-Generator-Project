@@ -81,6 +81,13 @@ async function setupDatabase() {
     `);
     console.log('✅ Created/verified: user_analyses table');
 
+    // Add missing columns for learner assessment (safe migration)
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS topic TEXT`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS learning_score INTEGER`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS technical_score INTEGER`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS psychometric_profile JSONB`);
+    console.log('✅ Added/verified: learner assessment columns');
+
     // Create indexes for better query performance
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_quizzes_created_at ON quizzes(created_at)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz_id ON quiz_questions(quiz_id)`);

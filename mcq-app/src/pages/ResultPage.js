@@ -68,6 +68,8 @@ function ResultPage() {
   // Save analysis to database
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
+      const existingAnalysisId = localStorage.getItem("currentAnalysisId");
+      
       const analysisData = {
         userId: userId || "anonymous",
         sourceType: sourceType || "resume",
@@ -80,19 +82,48 @@ function ResultPage() {
         learningRoadmap: roadmapData || contentData?.learningPath || null,
         technicalLevel: getTechnicalLevel(),
         learningStyle: getLearningStyle(),
-        overallScore: technicalScore || score || 0
+        overallScore: technicalScore || score || 0,
+        topic: topic || null,
+        learningScore: learningScore || null,
+        technicalScore: technicalScore || score || null,
+        psychometricProfile: combinedAnalysis?.psychometricProfile || null
       };
 
-      const saveRes = await fetch("http://localhost:5000/save-analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(analysisData)
-      });
+      // If we have an existing analysis, update it
+      if (existingAnalysisId) {
+        await fetch(`http://localhost:5000/analysis/${existingAnalysisId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            skills: skills || [],
+            strengths: strengths || [],
+            weakAreas: weakAreas || [],
+            aiRecommendations: contentData?.resources || contentData?.tips || [],
+            learningRoadmap: roadmapData || contentData?.learningPath || null,
+            technicalLevel: getTechnicalLevel(),
+            learningStyle: getLearningStyle(),
+            topic: topic || null,
+            learningScore: learningScore || null,
+            technicalScore: technicalScore || score || null,
+            psychometricProfile: combinedAnalysis?.psychometricProfile || null
+          })
+        });
+        setAnalysisId(existingAnalysisId);
+        console.log("✅ Analysis updated:", existingAnalysisId);
+      } else {
+        // Create new analysis
+        const saveRes = await fetch("http://localhost:5000/save-analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(analysisData)
+        });
 
-      if (saveRes.ok) {
-        const saveData = await saveRes.json();
-        setAnalysisId(saveData.analysisId);
-        console.log("✅ Analysis saved with ID:", saveData.analysisId);
+        if (saveRes.ok) {
+          const saveData = await saveRes.json();
+          setAnalysisId(saveData.analysisId);
+          localStorage.setItem("currentAnalysisId", saveData.analysisId);
+          console.log("✅ Analysis saved with ID:", saveData.analysisId);
+        }
       }
     } catch (saveErr) {
       console.error("Failed to save analysis:", saveErr);
