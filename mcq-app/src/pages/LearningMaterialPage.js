@@ -174,6 +174,9 @@ function LearningMaterialPage() {
       const questions = await res.json();
       const quizId = res.headers.get("X-Quiz-Id");
       
+      // Store learning material in localStorage for retrieval after quiz
+      localStorage.setItem("learningMaterialData", JSON.stringify(learningMaterial));
+      
       // Navigate to quiz page with generated questions
       navigate("/quiz", {
         state: {
@@ -224,7 +227,7 @@ function LearningMaterialPage() {
         </button>
 
         {/* Header */}
-        <h1 style={{ color: "#2c3e50", marginBottom: "10px" }}>
+        <h1 style={{ color: "#2c3e50", marginBottom: "10px", textAlign: "center" }}>
           📚 {learningMaterial.title || "Complete Learning Material"}
         </h1>
 
@@ -252,7 +255,7 @@ function LearningMaterialPage() {
             borderRadius: "8px",
             borderLeft: "4px solid #667eea"
           }}>
-            <h2 style={{ color: "#2c3e50", marginBottom: "15px" }}>📋 Overview</h2>
+            <h2 style={{ color: "#2c3e50", marginBottom: "15px", textAlign: "center" }}>📋 Overview</h2>
             <p style={{ color: "#555", lineHeight: "1.8", margin: "0" }}>
               {learningMaterial.summary}
             </p>
@@ -268,10 +271,10 @@ function LearningMaterialPage() {
             borderRadius: "8px",
             borderLeft: "4px solid #F57C00"
           }}>
-            <h3 style={{ color: "#E65100", marginBottom: "15px" }}>💡 Learning Tips</h3>
-            <ul style={{ paddingLeft: "20px", margin: "0" }}>
+            <h3 style={{ color: "#E65100", marginBottom: "15px", textAlign: "center" }}>💡 Learning Tips</h3>
+            <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
               {learningMaterial.learningTips.map((tip, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", color: "#555" }}>
+                <li key={idx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
                   {tip}
                 </li>
               ))}
@@ -281,7 +284,7 @@ function LearningMaterialPage() {
 
         {/* Main Content Sections */}
         <div style={{ marginBottom: "30px" }}>
-          <h2 style={{ color: "#2c3e50", marginBottom: "20px" }}>📖 Course Content</h2>
+          <h2 style={{ color: "#2c3e50", marginBottom: "20px", textAlign: "center" }}>📖 Course Content</h2>
 
           {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
             <div key={idx} style={{
@@ -295,7 +298,8 @@ function LearningMaterialPage() {
               <h3 style={{
                 color: "#2c3e50",
                 marginBottom: "15px",
-                fontSize: "20px"
+                fontSize: "20px",
+                textAlign: "center"
               }}>
                 {idx + 1}. {section.title}
               </h3>
@@ -305,7 +309,8 @@ function LearningMaterialPage() {
                 color: "#555",
                 lineHeight: "1.8",
                 marginBottom: "20px",
-                whiteSpace: "pre-wrap"
+                whiteSpace: "pre-wrap",
+                textAlign: "left"
               }}>
                 {section.content}
               </p>
@@ -313,10 +318,10 @@ function LearningMaterialPage() {
               {/* Key Points */}
               {section.keyPoints && section.keyPoints.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px" }}>🔑 Key Points:</h4>
-                  <ul style={{ paddingLeft: "20px", margin: "0" }}>
+                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🔑 Key Points:</h4>
+                  <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.keyPoints.map((point, pIdx) => (
-                      <li key={pIdx} style={{ marginBottom: "8px", color: "#555" }}>
+                      <li key={pIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
                         {point}
                       </li>
                     ))}
@@ -327,10 +332,10 @@ function LearningMaterialPage() {
               {/* Real-World Applications */}
               {section.applications && section.applications.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px" }}>🌍 Real-World Applications:</h4>
-                  <ul style={{ paddingLeft: "20px", margin: "0" }}>
+                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🌍 Real-World Applications:</h4>
+                  <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.applications.map((app, aIdx) => (
-                      <li key={aIdx} style={{ marginBottom: "8px", color: "#555" }}>
+                      <li key={aIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
                         {app}
                       </li>
                     ))}
@@ -341,7 +346,7 @@ function LearningMaterialPage() {
               {/* Examples */}
               {section.examples && section.examples.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px" }}>💻 Examples & Demonstrations:</h4>
+                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>💻 Examples & Demonstrations:</h4>
                   {section.examples.map((ex, exIdx) => (
                     <div key={exIdx} style={{
                       marginBottom: "15px",
@@ -386,10 +391,10 @@ function LearningMaterialPage() {
               {/* Practice Questions */}
               {section.practiceQuestions && section.practiceQuestions.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px" }}>❓ Practice Questions:</h4>
-                  <ol style={{ paddingLeft: "20px", margin: "0" }}>
+                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>❓ Practice Questions:</h4>
+                  <ol style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.practiceQuestions.map((q, qIdx) => (
-                      <li key={qIdx} style={{ marginBottom: "8px", color: "#555" }}>
+                      <li key={qIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
                         {q}
                       </li>
                     ))}
@@ -420,16 +425,16 @@ function LearningMaterialPage() {
             borderRadius: "8px",
             color: "white"
           }}>
-            <h3 style={{ marginTop: "0", marginBottom: "15px" }}>
+            <h3 style={{ marginTop: "0", marginBottom: "15px", textAlign: "center" }}>
               🎯 {learningMaterial.finalProject.title}
             </h3>
             <p style={{ marginBottom: "15px", lineHeight: "1.6" }}>
               {learningMaterial.finalProject.description}
             </p>
-            <h5 style={{ marginBottom: "10px" }}>Steps:</h5>
-            <ol style={{ paddingLeft: "20px", marginBottom: "15px" }}>
+            <h5 style={{ marginBottom: "10px", textAlign: "center" }}>Steps:</h5>
+            <ol style={{ paddingLeft: "20px", marginBottom: "15px", textAlign: "left" }}>
               {learningMaterial.finalProject.steps.map((step, idx) => (
-                <li key={idx} style={{ marginBottom: "8px" }}>{step}</li>
+                <li key={idx} style={{ marginBottom: "8px", textAlign: "left" }}>{step}</li>
               ))}
             </ol>
             <p style={{ marginTop: "15px", fontWeight: "bold" }}>
@@ -447,18 +452,19 @@ function LearningMaterialPage() {
             borderRadius: "8px",
             borderLeft: "4px solid #F57C00"
           }}>
-            <h3 style={{ color: "#E65100", marginBottom: "20px" }}>📝 Quick Reference Cheatsheet</h3>
+            <h3 style={{ color: "#E65100", marginBottom: "20px", textAlign: "center" }}>📝 Quick Reference Cheatsheet</h3>
 
             {learningMaterial.cheatsheet.commands && (
               <div style={{ marginBottom: "20px" }}>
-                <h5 style={{ color: "#E65100", marginBottom: "10px" }}>Commands/Syntax:</h5>
-                <ul style={{ paddingLeft: "20px", margin: "0" }}>
+                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Commands/Syntax:</h5>
+                <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                   {learningMaterial.cheatsheet.commands.map((cmd, idx) => (
                     <li key={idx} style={{
                       marginBottom: "8px",
                       color: "#555",
                       fontFamily: "monospace",
-                      fontSize: "13px"
+                      fontSize: "13px",
+                      textAlign: "left"
                     }}>
                       {cmd}
                     </li>
@@ -469,12 +475,12 @@ function LearningMaterialPage() {
 
             {learningMaterial.cheatsheet.definitions && (
               <div>
-                <h5 style={{ color: "#E65100", marginBottom: "10px" }}>Definitions & Key Terms:</h5>
-                <dl style={{ paddingLeft: "20px", margin: "0" }}>
+                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Definitions & Key Terms:</h5>
+                <dl style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                   {Object.entries(learningMaterial.cheatsheet.definitions).map(([term, def], idx) => (
                     <div key={idx} style={{ marginBottom: "10px" }}>
-                      <dt style={{ fontWeight: "bold", color: "#333" }}>{term}</dt>
-                      <dd style={{ margin: "4px 0 0 20px", color: "#666" }}>{def}</dd>
+                      <dt style={{ fontWeight: "bold", color: "#333", textAlign: "left" }}>{term}</dt>
+                      <dd style={{ margin: "4px 0 0 20px", color: "#666", textAlign: "left" }}>{def}</dd>
                     </div>
                   ))}
                 </dl>
@@ -492,10 +498,10 @@ function LearningMaterialPage() {
             borderRadius: "8px",
             borderLeft: "4px solid #7B1FA2"
           }}>
-            <h3 style={{ color: "#7B1FA2", marginBottom: "15px" }}>📖 Further Reading & Resources</h3>
-            <ul style={{ paddingLeft: "20px", margin: "0" }}>
+            <h3 style={{ color: "#7B1FA2", marginBottom: "15px", textAlign: "center" }}>📖 Further Reading & Resources</h3>
+            <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
               {learningMaterial.furtherReading.map((resource, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", color: "#555" }}>
+                <li key={idx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
                   {resource}
                 </li>
               ))}

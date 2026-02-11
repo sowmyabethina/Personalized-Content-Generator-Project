@@ -5,7 +5,7 @@ function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { questions, quizId, topic: initialTopic } = location.state || { questions: [], quizId: null, topic: "" };
+  const { questions, quizId, topic: initialTopic, fromMaterial, materialTopic } = location.state || { questions: [], quizId: null, topic: "", fromMaterial: false, materialTopic: "" };
 
   // All hooks at the top
   const [stage, setStage] = useState("quiz");
@@ -154,6 +154,60 @@ function QuizPage() {
 
   // Stage: Show Score and Enter Topic
   if (stage === "score") {
+    // If quiz came from learning material, show different UI
+    if (fromMaterial) {
+      return (
+        <div className="card">
+          <h2>📊 Quiz Complete!</h2>
+          
+          <div style={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            borderRadius: "12px",
+            padding: "30px",
+            color: "white",
+            marginBottom: "20px"
+          }}>
+            <p style={{ fontSize: "14px", opacity: 0.9 }}>Your Quiz Score</p>
+            <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
+            <p style={{ fontSize: "14px", opacity: 0.9 }}>
+              {correctCount}/{questions.length} correct
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              const storedMaterial = localStorage.getItem("learningMaterialData");
+              const learningMaterial = storedMaterial ? JSON.parse(storedMaterial) : null;
+              navigate("/learning-material", {
+                state: {
+                  learningMaterial: learningMaterial,
+                  topic: materialTopic,
+                  technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
+                  learningScore: parseInt(localStorage.getItem("learningScore") || "50")
+                }
+              });
+            }}
+            style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
+          >
+            📚 Back to Learning Material
+          </button>
+
+          <button
+            onClick={() => {
+              setQuizIndex(0);
+              setQuizAnswers([]);
+              setQuizSelected("");
+              setStage("quiz");
+            }}
+            style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+          >
+            ← Retake Quiz
+          </button>
+        </div>
+      );
+    }
+
+    // Original flow for quiz not from learning material
     return (
       <div className="card">
         <h2>📊 Quiz Complete!</h2>
