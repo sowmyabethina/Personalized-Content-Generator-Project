@@ -5,7 +5,7 @@ function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { questions, quizId, topic: initialTopic } = location.state || { questions: [], quizId: null, topic: "" };
+  const { questions, quizId, topic: initialTopic, userId, sourceType, sourceUrl, extractedText, skills, strengths, weakAreas } = location.state || { questions: [], quizId: null, topic: "", userId: null, sourceType: "resume", sourceUrl: null, extractedText: null, skills: [], strengths: [], weakAreas: [] };
 
   // All hooks at the top
   const [stage, setStage] = useState("quiz");
@@ -423,8 +423,16 @@ function QuizPage() {
               topic: storedTopic,
               technicalScore: techScore,
               learningScore: learnScore,
-              combinedData: storedCombined,
-              mode: "direct"
+              combinedAnalysis: storedCombined,
+              mode: "direct",
+              // Pass through analysis data from HomePage
+              userId,
+              sourceType,
+              sourceUrl,
+              extractedText,
+              skills,
+              strengths,
+              weakAreas
             }
           })}
           style={{ padding: "20px", fontSize: "16px", width: "100%" }}

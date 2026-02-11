@@ -8,7 +8,13 @@ dotenv.config();
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
-import { similaritySearch, similaritySearchWithThreshold } from "./rag/vectorStore.js";
+import { 
+  similaritySearch, 
+  similaritySearchWithThreshold, 
+  initVectorStore,
+  getChunkCount,
+  clearVectorStore
+} from "./rag/vectorStore.js";
 
 // Initialize Gemini for Q&A
 
@@ -50,7 +56,7 @@ Answer based on the conversation and context:
 dotenv.config();
 
 const app = express();
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -70,12 +76,20 @@ app.use(cors());
 app.use(express.json());
 
 // Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "ok",
-    pdfLoaded: currentPdfInfo.ingested,
-    fileName: currentPdfInfo.fileName
-  });
+app.get("/health", async (req, res) => {
+  try {
+    const chunkCount = await getChunkCount();
+    res.json({ 
+      status: "ok",
+      pdfLoaded: chunkCount > 0,
+      chunkCount: chunkCount
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "error",
+      message: error.message 
+    });
+  }
 });
 
 // Ensure uploads directory exists
@@ -85,9 +99,10 @@ if (!fs.existsSync("uploads/")) {
 
 const upload = multer({ dest: "uploads/" });
 
-// Store uploaded PDF info
+// Store uploaded PDF info (now tracking PDF ID for database)
 let currentPdfInfo = {
   fileName: null,
+  pdfId: null,
   ingested: false
 };
 
@@ -135,7 +150,6 @@ const clearUploads = () => {
     // Ignore errors
   }
 };
-clearUploads();
 
 // Generate answer using LLM with the provided context
 async function generateAnswer(context, question, history = null) {
@@ -186,6 +200,7 @@ app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
     const filePath = req.file.path;
     currentPdfInfo = {
       fileName: req.file.originalname,
+      pdfId: null,
       ingested: false
     };
 
@@ -198,8 +213,10 @@ app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
       return res.status(400).json({ error: "PDF file is too small or empty" });
     }
 
-    await ingestPdf(filePath);
+    // Ingest PDF and store in PostgreSQL
+    const result = await ingestPdf(filePath);
     
+    currentPdfInfo.pdfId = result.pdfId;
     currentPdfInfo.ingested = true;
     
     // Clean up uploaded file
@@ -208,8 +225,10 @@ app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
     console.log("✅ PDF uploaded and processed successfully");
     
     res.json({ 
-      message: "PDF processed & stored in vector DB",
-      fileName: req.file.originalname
+      message: "PDF processed & stored in PostgreSQL database",
+      fileName: req.file.originalname,
+      pdfId: result.pdfId,
+      chunkCount: result.chunkCount
     });
   } catch (error) {
     console.error("❌ Error uploading PDF:", error.message);
@@ -226,7 +245,9 @@ app.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    if (!currentPdfInfo.ingested) {
+    // Check if any PDFs are loaded
+    const chunkCount = await getChunkCount();
+    if (chunkCount === 0) {
       return res.status(400).json({ error: "Please upload a PDF first" });
     }
 
@@ -270,7 +291,7 @@ app.post("/ask", async (req, res) => {
     }
 
     // Update last call timestamp
-    lastLlmCallTime = Date.now();
+    lastLlmCallTime = now;
 
     // Step 3: Prioritize high-similarity chunks and build context
     const sortedResults = results.sort((a, b) => b.score - a.score);
@@ -314,7 +335,9 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    if (!currentPdfInfo.ingested) {
+    // Check if any PDFs are loaded
+    const chunkCount = await getChunkCount();
+    if (chunkCount === 0) {
       return res.status(400).json({ error: "Please upload a PDF first" });
     }
 
@@ -383,7 +406,7 @@ app.post("/chat", async (req, res) => {
     }
 
     // Update last call timestamp
-    lastLlmCallTime = Date.now();
+    lastLlmCallTime = now;
 
 
     // Step 3: Prioritize high-similarity chunks and build context
@@ -435,8 +458,8 @@ app.post("/chat", async (req, res) => {
 });
 
 // Reset endpoint
-app.post("/reset", (req, res) => {
-  const { sessionId } = req.body;
+app.post("/reset", async (req, res) => {
+  const { sessionId, pdfId } = req.body;
   
   if (sessionId && conversationStore[sessionId]) {
     // Reset only this conversation
@@ -445,10 +468,21 @@ app.post("/reset", (req, res) => {
       pdfContext: ""
     };
     res.json({ message: "Conversation reset", sessionId });
-  } else {
-    // Reset everything
+  } else if (pdfId) {
+    // Reset only vectors for this PDF
+    await clearVectorStore(pdfId);
     currentPdfInfo = {
       fileName: null,
+      pdfId: null,
+      ingested: false
+    };
+    res.json({ message: `Vector store reset for PDF: ${pdfId}` });
+  } else {
+    // Reset everything
+    await clearVectorStore();
+    currentPdfInfo = {
+      fileName: null,
+      pdfId: null,
       ingested: false
     };
     for (const key in conversationStore) {
@@ -463,20 +497,67 @@ app.post("/reset", (req, res) => {
 });
 
 // Info endpoint
-app.get("/info", (req, res) => {
-  res.json({
-    service: "RAG PDF Service",
-    version: "2.0.0",
-    endpoints: ["/upload-pdf", "/ask", "/chat", "/health", "/reset"],
-    pdfStatus: currentPdfInfo
-  });
+app.get("/info", async (req, res) => {
+  try {
+    const chunkCount = await getChunkCount();
+    res.json({
+      service: "RAG PDF Service",
+      version: "2.0.0",
+      database: "PostgreSQL",
+      endpoints: ["/upload-pdf", "/ask", "/chat", "/health", "/reset"],
+      status: {
+        chunksStored: chunkCount,
+        currentPdf: currentPdfInfo
+      }
+    });
+  } catch (error) {
+    res.json({
+      service: "RAG PDF Service",
+      version: "2.0.0",
+      database: "PostgreSQL",
+      error: error.message
+    });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(` RAG PDF Service v2.0 running on port ${PORT}`);
-  console.log(`   - POST /upload-pdf - Upload a PDF`);
-  console.log(`   - POST /ask - Ask single questions`);
-  console.log(`   - POST /chat - Continuous Q&A with memory`);
-  console.log(`   - GET /health - Check service status`);
-  console.log(`   - POST /reset - Reset vector store or conversation`);
-});
+// Graceful shutdown
+async function shutdown() {
+  console.log("\n🛑 Shutting down RAG PDF Service...");
+  try {
+    const { closeVectorStore } = await import("./rag/vectorStore.js");
+    await closeVectorStore();
+    console.log("✅ Database connection closed");
+  } catch (error) {
+    console.error("❌ Error during shutdown:", error.message);
+  }
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+// Start server after initializing vector store
+async function startServer() {
+  try {
+    // Initialize database connection
+    console.log("🔄 Initializing PostgreSQL connection...");
+    await initVectorStore();
+    
+    clearUploads();
+    
+    app.listen(PORT, () => {
+      console.log(` RAG PDF Service v2.0 running on port ${PORT}`);
+      console.log(`   - POST /upload-pdf - Upload a PDF`);
+      console.log(`   - POST /ask - Ask single questions`);
+      console.log(`   - POST /chat with memory`);
+      console.log(`   - Continuous Q&A - GET /health - Check service status`);
+      console.log(`   - POST /reset - Reset vector store or conversation`);
+      console.log(`   - GET /info - Service information`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

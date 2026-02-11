@@ -6,10 +6,90 @@ import multer from "multer";
 import fs from "fs";
 import pdf from "pdf-parse";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import pg from 'pg';
 
 import { generateQuestions } from "../pdf/questionGenerator.js";
 
 dotenv.config();
+
+// PostgreSQL connection pool
+const pool = new pg.Pool({
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'rag_pdf_db',
+  password: process.env.DB_PASSWORD || 'password',
+  port: process.env.DB_PORT || 5432,
+});
+
+// Initialize database tables
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quizzes (
+        id VARCHAR(100) PRIMARY KEY,
+        topic VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        expires_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quiz_questions (
+        id SERIAL PRIMARY KEY,
+        quiz_id VARCHAR(100) NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+        question_index INTEGER NOT NULL,
+        question TEXT NOT NULL,
+        options JSONB NOT NULL,
+        correct_answer TEXT NOT NULL,
+        explanation TEXT
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quiz_results (
+        id SERIAL PRIMARY KEY,
+        quiz_id VARCHAR(100) NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+        user_answers JSONB NOT NULL,
+        score INTEGER,
+        correct_count INTEGER,
+        total_count INTEGER,
+        completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+    
+    // Create user_analyses table for persisting analysis data
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_analyses (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id VARCHAR(100),
+        source_type VARCHAR(50) NOT NULL DEFAULT 'resume',
+        source_url TEXT,
+        extracted_text TEXT,
+        skills JSONB,
+        strengths JSONB,
+        weak_areas JSONB,
+        ai_recommendations JSONB,
+        learning_roadmap JSONB,
+        technical_level VARCHAR(50),
+        learning_style VARCHAR(50),
+        overall_score INTEGER,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+    
+    // Create indexes for user_analyses
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_created_at ON user_analyses(created_at)`);
+    
+    console.log('✅ Database tables initialized');
+  } catch (error) {
+    console.error('❌ Error initializing database:', error.message);
+  }
+}
+
+// Initialize on startup
+initDatabase();
 
 const app = express();
 app.use(cors({
@@ -22,8 +102,200 @@ app.use(express.json());
 // Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
 
-// In-memory store for quizzes
+// In-memory store for quizzes (fallback)
 const answerStore = {};
+
+// ===============================
+// DATABASE HELPER FUNCTIONS
+// ===============================
+
+async function storeQuiz(quizId, quizData, topic) {
+  try {
+    await pool.query(
+      `INSERT INTO quizzes (id, topic, created_at, expires_at) 
+       VALUES ($1, $2, NOW(), NOW() + INTERVAL '24 hours') 
+       ON CONFLICT (id) DO NOTHING`,
+      [quizId, topic || 'Quiz']
+    );
+
+    for (const q of quizData) {
+      await pool.query(
+        `INSERT INTO quiz_questions (quiz_id, question_index, question, options, correct_answer, explanation)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [quizId, q.originalIndex, q.question, JSON.stringify(q.options), q.correctAnswer, q.explanation || null]
+      );
+    }
+
+    console.log('✅ Quiz stored in database:', quizId);
+    return true;
+  } catch (err) {
+    console.error('❌ Error storing quiz in database:', err.message);
+    return false;
+  }
+}
+
+async function getQuiz(quizId) {
+  try {
+    const result = await pool.query(
+      `SELECT q.id, q.topic, q.created_at,
+              qj.question_index, qj.question, qj.options, qj.correct_answer, qj.explanation
+       FROM quizzes q
+       JOIN quiz_questions qj ON q.id = qj.quiz_id
+       WHERE q.id = $1
+       ORDER BY qj.question_index`,
+      [quizId]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const quizData = result.rows.map(row => ({
+      originalIndex: row.question_index,
+      question: row.question,
+      options: row.options,
+      correctAnswer: row.correct_answer,
+      explanation: row.explanation
+    }));
+
+    return {
+      quizData,
+      totalQuestions: quizData.length
+    };
+  } catch (err) {
+    console.error('❌ Error getting quiz from database:', err.message);
+    return null;
+  }
+}
+
+async function storeQuizResult(quizId, answers, score, correctCount, totalCount) {
+  try {
+    await pool.query(
+      `INSERT INTO quiz_results (quiz_id, user_answers, score, correct_count, total_count)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [quizId, JSON.stringify(answers), score, correctCount, totalCount]
+    );
+    console.log('✅ Quiz result stored:', quizId);
+    return true;
+  } catch (err) {
+    console.error('❌ Error storing quiz result:', err.message);
+    return false;
+  }
+}
+
+// ===============================
+// USER ANALYSIS HELPER FUNCTIONS
+// ===============================
+
+async function saveUserAnalysis(analysisData) {
+  try {
+    const {
+      id,
+      userId,
+      sourceType,
+      sourceUrl,
+      extractedText,
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      overallScore
+    } = analysisData;
+
+    await pool.query(
+      `INSERT INTO user_analyses 
+       (id, user_id, source_type, source_url, extracted_text, skills, strengths, weak_areas, 
+        ai_recommendations, learning_roadmap, technical_level, learning_style, overall_score, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET
+        extracted_text = COALESCE($5, user_analyses.extracted_text),
+        skills = COALESCE($6, user_analyses.skills),
+        strengths = COALESCE($7, user_analyses.strengths),
+        weak_areas = COALESCE($8, user_analyses.weak_areas),
+        ai_recommendations = COALESCE($9, user_analyses.ai_recommendations),
+        learning_roadmap = COALESCE($10, user_analyses.learning_roadmap),
+        technical_level = COALESCE($11, user_analyses.technical_level),
+        learning_style = COALESCE($12, user_analyses.learning_style),
+        overall_score = COALESCE($13, user_analyses.overall_score),
+        updated_at = NOW()`,
+      [id, userId || null, sourceType, sourceUrl || null, extractedText || null, 
+       JSON.stringify(skills || []), JSON.stringify(strengths || []), JSON.stringify(weakAreas || []),
+       JSON.stringify(aiRecommendations || []), JSON.stringify(learningRoadmap || null),
+       technicalLevel || null, learningStyle || null, overallScore || null]
+    );
+
+    console.log('✅ User analysis saved:', id);
+    return { success: true, analysisId: id };
+  } catch (err) {
+    console.error('❌ Error saving user analysis:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+async function getUserAnalysis(analysisId) {
+  try {
+    const result = await pool.query(
+      `SELECT id, user_id, source_type, source_url, extracted_text, skills, strengths, weak_areas,
+              ai_recommendations, learning_roadmap, technical_level, learning_style, overall_score,
+              created_at, updated_at
+       FROM user_analyses WHERE id = $1`,
+      [analysisId]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      sourceType: row.source_type,
+      sourceUrl: row.source_url,
+      extractedText: row.extracted_text,
+      skills: row.skills,
+      strengths: row.strengths,
+      weakAreas: row.weak_areas,
+      aiRecommendations: row.ai_recommendations,
+      learningRoadmap: row.learning_roadmap,
+      technicalLevel: row.technical_level,
+      learningStyle: row.learning_style,
+      overallScore: row.overall_score,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  } catch (err) {
+    console.error('❌ Error getting user analysis:', err.message);
+    return null;
+  }
+}
+
+async function getUserAnalyses(userId) {
+  try {
+    const result = await pool.query(
+      `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
+              created_at, updated_at
+       FROM user_analyses 
+       WHERE user_id = $1 OR $1 IS NULL
+       ORDER BY created_at DESC`,
+      [userId || null]
+    );
+
+    return result.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      sourceType: row.source_type,
+      sourceUrl: row.source_url,
+      technicalLevel: row.technical_level,
+      learningStyle: row.learning_style,
+      overallScore: row.overall_score,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } catch (err) {
+    console.error('❌ Error getting user analyses:', err.message);
+    return [];
+  }
+}
 
 // ===============================
 // READ PDF FROM GITHUB
@@ -259,8 +531,10 @@ app.post("/generate", async (req, res) => {
       totalQuestions: questions.length
     };
 
-    
-    console.log("✅ Quiz stored:", quizId, answerStore[quizId]);
+    // Also store in database for persistence
+    await storeQuiz(quizId, quizData, topic);
+
+    console.log("✅ Quiz stored:", quizId);
 
     res.setHeader("X-Quiz-Id", quizId);
    
@@ -290,7 +564,7 @@ app.post("/generate", async (req, res) => {
 
 // ===============================
 // SCORE QUIZ
-// Uses server-side stored answers for accurate scoring
+// Uses database for persistent storage with memory fallback
 // ===============================
 app.post("/score-quiz", async (req, res) => {
   try {
@@ -300,7 +574,12 @@ app.post("/score-quiz", async (req, res) => {
       return res.status(400).json({ error: "quizId and answers array required" });
     }
     
-    const quizData = answerStore[quizId];
+    // Try database first, then fall back to memory
+    let quizData = await getQuiz(quizId);
+    if (!quizData && answerStore[quizId]) {
+      quizData = answerStore[quizId];
+    }
+    
     if (!quizData) {
       return res.status(404).json({ error: "Quiz not found" });
     }
@@ -324,7 +603,10 @@ app.post("/score-quiz", async (req, res) => {
     
     const score = Math.round((correct / totalQuestions) * 100);
     
-    // Clean up stored quiz data after scoring
+    // Store result in database
+    await storeQuizResult(quizId, answers, score, correct, totalQuestions);
+    
+    // Clean up memory store
     delete answerStore[quizId];
     
     return res.json({
@@ -854,6 +1136,9 @@ No additional text, only JSON.`;
       totalQuestions: questions.length
     };
 
+    // Also store in database for persistence
+    await storeQuiz(quizId, quizData, topic);
+
     console.log("✅ Quiz generated successfully:", quizId);
 
     res.setHeader("X-Quiz-Id", quizId);
@@ -866,6 +1151,125 @@ No additional text, only JSON.`;
 });
 
 const PORT = process.env.PORT || 5000;
+
+// ===============================
+// USER ANALYSIS API ROUTES
+// ===============================
+
+// Save analysis result
+app.post("/save-analysis", async (req, res) => {
+  try {
+    const {
+      userId,
+      sourceType,
+      sourceUrl,
+      extractedText,
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      overallScore
+    } = req.body;
+
+    // Generate unique analysis ID
+    const analysisId = `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const result = await saveUserAnalysis({
+      id: analysisId,
+      userId,
+      sourceType,
+      sourceUrl,
+      extractedText,
+      skills,
+      strengths,
+      weakAreas,
+      aiRecommendations,
+      learningRoadmap,
+      technicalLevel,
+      learningStyle,
+      overallScore
+    });
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        analysisId,
+        message: "Analysis saved successfully"
+      });
+    } else {
+      return res.status(500).json({ error: "Failed to save analysis", details: result.error });
+    }
+  } catch (err) {
+    console.error("❌ /save-analysis error:", err);
+    return res.status(500).json({ error: "Analysis save failed", details: err.message });
+  }
+});
+
+// Get all analyses for a user
+app.get("/analyses", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    const analyses = await getUserAnalyses(userId);
+    
+    return res.json({
+      success: true,
+      analyses,
+      count: analyses.length
+    });
+  } catch (err) {
+    console.error("❌ /analyses error:", err);
+    return res.status(500).json({ error: "Failed to fetch analyses", details: err.message });
+  }
+});
+
+// Get a specific analysis by ID
+app.get("/analysis/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const analysis = await getUserAnalysis(id);
+    
+    if (!analysis) {
+      return res.status(404).json({ error: "Analysis not found" });
+    }
+    
+    return res.json({
+      success: true,
+      analysis
+    });
+  } catch (err) {
+    console.error("❌ /analysis/:id error:", err);
+    return res.status(500).json({ error: "Failed to fetch analysis", details: err.message });
+  }
+});
+
+// ===============================
+// TEMPORARY DEBUG ROUTE - DELETE AFTER USE
+// ===============================
+app.get("/debug-db", async (req, res) => {
+  try {
+    const quizzesResult = await pool.query("SELECT COUNT(*) FROM quizzes");
+    const quizQuestionsResult = await pool.query("SELECT COUNT(*) FROM quiz_questions");
+    const quizResultsResult = await pool.query("SELECT COUNT(*) FROM quiz_results");
+    const analysesResult = await pool.query("SELECT COUNT(*) FROM user_analyses");
+
+    res.json({
+      quizzes: parseInt(quizzesResult.rows[0].count),
+      quiz_questions: parseInt(quizQuestionsResult.rows[0].count),
+      quiz_results: parseInt(quizResultsResult.rows[0].count),
+      user_analyses: parseInt(analysesResult.rows[0].count),
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error("❌ /debug-db error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Backend running on http://localhost:${PORT}`);
 });
