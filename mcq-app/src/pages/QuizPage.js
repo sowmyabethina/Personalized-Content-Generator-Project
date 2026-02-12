@@ -53,6 +53,9 @@ function QuizPage() {
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   
+  // State for answer submission feedback (Technical Quiz only)
+  const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
+  
   // Learning questions state
   const [learningQuestions, setLearningQuestions] = useState([]);
   const [learningIndex, setLearningIndex] = useState(0);
@@ -87,7 +90,7 @@ function QuizPage() {
     setLoading(false);
   };
 
-  // Stage: Quiz Questions (from extracted PDF)
+  // Stage: Quiz Questions (from extracted PDF) - Technical Quiz with answer feedback
   if (stage === "quiz" && questions && questions.length > 0) {
     const completeQuiz = async () => {
       try {
@@ -134,10 +137,17 @@ function QuizPage() {
       }
     };
 
+    // Submit answer and show feedback (Technical Quiz only)
+    const submitAnswer = () => {
+      setQuizAnswerSubmitted(true);
+    };
+
+    // Move to next question after showing feedback
     const nextQuestion = () => {
       const nextAnswers = [...quizAnswers, quizSelected];
       setQuizAnswers(nextAnswers);
       setQuizSelected("");
+      setQuizAnswerSubmitted(false);
 
       if (quizIndex + 1 < questions.length) {
         setQuizIndex(quizIndex + 1);
@@ -146,27 +156,51 @@ function QuizPage() {
       }
     };
 
+    const currentQuestion = questions[quizIndex];
+    const correctAnswer = currentQuestion?.answer;
+    const isCorrect = quizSelected === correctAnswer;
+
     return (
       <div className="card">
         <h2>📝 Technical Quiz (Based on Your PDF)</h2>
         <p>Question {quizIndex + 1} of {questions.length}</p>
         
-        <h3 style={{ margin: "20px 0" }}>{questions[quizIndex]?.question}</h3>
+        <h3 style={{ margin: "20px 0" }}>{currentQuestion?.question}</h3>
 
-        {questions[quizIndex]?.options.map((opt, i) => (
-          <label key={i} className="option">
-            <input
-              type="radio"
-              name="quiz-option"
-              value={opt}
-              checked={quizSelected === opt}
-              onChange={(e) => setQuizSelected(e.target.value)}
-            />
-            <span>{opt}</span>
-          </label>
-        ))}
+        {currentQuestion?.options.map((opt, i) => {
+          // Determine option class for highlighting
+          let optionClass = "option";
+          if (quizSelected) {
+            if (opt === correctAnswer) {
+              optionClass += " correct";
+            } else if (opt === quizSelected && !isCorrect) {
+              optionClass += " wrong";
+            }
+          }
+          
+          return (
+            <label key={i} className={optionClass}>
+              <input
+                type="radio"
+                name="quiz-option"
+                value={opt}
+                checked={quizSelected === opt}
+                onChange={(e) => {
+                  setQuizSelected(e.target.value);
+                  setQuizAnswerSubmitted(true);
+                }}
+                disabled={quizAnswerSubmitted}
+              />
+              <span>{opt}</span>
+            </label>
+          );
+        })}
 
-        <button onClick={nextQuestion} disabled={!quizSelected} style={{ marginTop: "15px" }}>
+        <button 
+          onClick={nextQuestion} 
+          disabled={!quizSelected} 
+          style={{ marginTop: "15px" }}
+        >
           {quizIndex + 1 < questions.length ? "Next →" : "Complete Quiz"}
         </button>
 
@@ -175,6 +209,7 @@ function QuizPage() {
             setQuizIndex(0);
             setQuizAnswers([]);
             setQuizSelected("");
+            setQuizAnswerSubmitted(false);
             setStage("score");
           }}
           style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
