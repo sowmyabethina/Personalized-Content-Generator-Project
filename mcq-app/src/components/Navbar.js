@@ -5,12 +5,10 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const showBackButton = !["/", "/quiz", "/assessment", "/pdf-chat", "/progress"].includes(location.pathname);
+  const showBackButton = !["/", "/pdf-chat", "/progress"].includes(location.pathname);
 
   const navLinks = [
     { path: "/", label: "Home", icon: "🏠" },
-    { path: "/quiz", label: "Quiz", icon: "📝" },
-    { path: "/assessment", label: "Assessment", icon: "📊" },
     { path: "/pdf-chat", label: "PDF Chat", icon: "📄" },
     { path: "/progress", label: "Progress", icon: "📈" },
   ];

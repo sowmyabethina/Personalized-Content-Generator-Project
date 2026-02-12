@@ -5,57 +5,53 @@ function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const {
-  questions,
-  quizId,
-  topic: initialTopic,
+    questions,
+    quizId,
+    topic: initialTopic,
 
-  // material learning flow
-  fromMaterial,
-  materialTopic,
+    // material learning flow
+    fromMaterial,
+    materialTopic,
 
-  // resume / link analysis flow
-  userId,
-  sourceType,
-  sourceUrl,
-  extractedText,
-  skills,
-  strengths,
-  weakAreas
+    // resume / link analysis flow
+    userId,
+    sourceType,
+    sourceUrl,
+    extractedText,
+    skills,
+    strengths,
+    weakAreas
 
-} = location.state || {
-  questions: [],
-  quizId: null,
-  topic: "",
-  fromMaterial: false,
-  materialTopic: "",
+  } = location.state || {
+    questions: [],
+    quizId: null,
+    topic: "",
+    fromMaterial: false,
+    materialTopic: "",
 
-  userId: null,
-  sourceType: "resume",
-  sourceUrl: null,
-  extractedText: null,
-  skills: [],
-  strengths: [],
-  weakAreas: []
-};
-
-
+    userId: null,
+    sourceType: "resume",
+    sourceUrl: null,
+    extractedText: null,
+    skills: [],
+    strengths: [],
+    weakAreas: []
+  };
 
   // All hooks at the top
   const [stage, setStage] = useState("quiz");
   const [topic, setTopic] = useState(initialTopic || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Technical quiz state
   const [quizIndex, setQuizIndex] = useState(0);
   const [quizSelected, setQuizSelected] = useState("");
   const [quizAnswers, setQuizAnswers] = useState([]);
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  
-  // State for answer submission feedback (Technical Quiz only)
   const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
-  
+
   // Learning questions state
   const [learningQuestions, setLearningQuestions] = useState([]);
   const [learningIndex, setLearningIndex] = useState(0);
@@ -63,12 +59,160 @@ function QuizPage() {
   const [learningSelectedScore, setLearningSelectedScore] = useState(0);
   const [learningAnswers, setLearningAnswers] = useState([]);
 
+  // State for storing auto-generated questions
+  const [generatedQuizQuestions, setGeneratedQuizQuestions] = useState([]);
+
+  // Use either questions from state or auto-generated questions
+  const displayQuestions = questions && questions.length > 0 ? questions : generatedQuizQuestions;
+
+  // Helper function to parse questions from text (same as in HomePage)
+  const parseQuestionsFromText = (text) => {
+    const questions = [];
+    if (!text || typeof text !== "string") return [];
+
+    const sections = text.split(/\*\*Multiple-Choice Questions\*\*|\*\*Multiple Choice Questions\*\*/i);
+    const mcqSection = sections.length > 1 ? sections[1] : text;
+
+    const questionBlocks = mcqSection.split(/\n(?=\d+\.)/);
+
+    for (const block of questionBlocks) {
+      const lines = block.trim().split("\n").filter(l => l.trim());
+      if (lines.length < 4) continue;
+
+      let questionText = lines[0].replace(/^\d+\.\s*/, "").trim();
+      questionText = questionText.replace(/http[s]?:\/\/\S+/g, "").trim();
+
+      const options = [];
+      let correctAnswer = null;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)(?:\s*\*?Correct Answer:\*?.*)?$/i);
+        if (optionMatch) {
+          let optionText = optionMatch[2].trim();
+          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*$/i, "").trim();
+
+          if (optionText && optionText.length > 0) {
+            options.push(optionText);
+          }
+
+          if (line.match(/\*?Correct Answer:\*?\s*([A-D])/i)) {
+            const match = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
+            correctAnswer = match[1];
+          }
+        }
+      }
+
+      if (questionText && options.length >= 3) {
+        const finalOptions = options.slice(0, 4);
+        let answerIndex = 0;
+        if (correctAnswer) {
+          answerIndex = correctAnswer.charCodeAt(0) - 65;
+          if (answerIndex < 0 || answerIndex >= finalOptions.length) {
+            answerIndex = 0;
+          }
+        }
+
+        questions.push({
+          question: questionText,
+          options: finalOptions,
+          answer: finalOptions[answerIndex] || finalOptions[0]
+        });
+      }
+    }
+
+    return questions;
+  };
+
   // Load learning questions when entering learning stage
   useEffect(() => {
     if (stage === "learning") {
       loadLearningQuestions();
     }
   }, [stage]);
+
+  // Auto-generate questions when navigated from HomePage with extractedText
+  useEffect(() => {
+    const autoGenerateQuestions = async () => {
+      // Check if we have extractedText but no questions
+      if ((!questions || questions.length === 0) && extractedText) {
+        setLoading(true);
+        setError("");
+
+        try {
+          const payload = {
+            docText: extractedText.substring(0, 12000)
+          };
+
+          const res = await fetch("http://localhost:5000/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            throw new Error(`Server ${res.status}`);
+          }
+
+          const data = await res.json();
+          let parsedQuestions = [];
+
+          if (Array.isArray(data)) {
+            parsedQuestions = data.map(q => ({
+              question: q.question,
+              options: Array.isArray(q.options) ? q.options : [q.options],
+              answer: q.answer || q.options[0]
+            }));
+          } else if (data.questions) {
+            let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
+            try {
+              const jsonParsed = JSON.parse(questionsText);
+              if (Array.isArray(jsonParsed)) {
+                parsedQuestions = jsonParsed.map(q => ({
+                  question: q.question,
+                  options: Array.isArray(q.options) ? q.options : [q.options],
+                  answer: q.answer || q.options[0]
+                }));
+              }
+            } catch (e) {
+              // Fallback to text parsing
+              parsedQuestions = parseQuestionsFromText(questionsText);
+            }
+          }
+
+          if (parsedQuestions.length > 0) {
+            // Normalize answers
+            const normalized = parsedQuestions.map(q => {
+              let correct = q.answer;
+              if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
+                const idx = correct.toUpperCase().charCodeAt(0) - 65;
+                correct = q.options[idx];
+              }
+              if (typeof correct === "number") {
+                correct = q.options[correct];
+              }
+              return {
+                ...q,
+                answer: correct?.trim()
+              };
+            });
+
+            // Update state with generated questions
+            setGeneratedQuizQuestions(normalized);
+          } else {
+            setError("Could not parse questions from extracted content.");
+          }
+        } catch (err) {
+          console.error("Auto-generate error:", err);
+          setError(`Error generating questions: ${err.message}`);
+        }
+
+        setLoading(false);
+      }
+    };
+
+    autoGenerateQuestions();
+  }, [extractedText, questions]);
 
   const loadLearningQuestions = async () => {
     setLoading(true);
@@ -90,134 +234,143 @@ function QuizPage() {
     setLoading(false);
   };
 
-  // Stage: Quiz Questions (from extracted PDF) - Technical Quiz with answer feedback
-  if (stage === "quiz" && questions && questions.length > 0) {
-    const completeQuiz = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/score-quiz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            quizId,
-            answers: quizAnswers
-          })
-        });
-        
-        const data = await res.json();
-        
-        let correct = 0;
-        if (data.error) {
-          console.error("Scoring error:", data.error);
+  // Stage: Quiz Questions (from extracted PDF or auto-generated)
+  if (stage === "quiz") {
+    // Show loading when auto-generating questions
+    if (!displayQuestions.length && (extractedText || localStorage.getItem("extractedContent"))) {
+      return (
+        <div className="card">
+          <h2>📝 Technical Quiz</h2>
+          <p style={{ marginBottom: "20px" }}>Generating questions from your document...</p>
+          {loading && (
+            <div style={{ textAlign: "center", padding: "20px" }}>
+              <div style={{
+                width: "40px",
+                height: "40px",
+                border: "4px solid #f3f3f3",
+                borderTop: "4px solid #667eea",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+                margin: "0 auto 15px"
+              }}></div>
+              <p>Please wait while we generate quiz questions from your uploaded document...</p>
+            </div>
+          )}
+          {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      );
+    }
+
+    if (displayQuestions.length > 0) {
+      const completeQuiz = async () => {
+        try {
+          const res = await fetch("http://localhost:5000/score-quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              quizId,
+              answers: quizAnswers
+            })
+          });
+
+          const data = await res.json();
+
+          let correct = 0;
+          if (data.error) {
+            console.error("Scoring error:", data.error);
+            // Fallback to client-side scoring
+            quizAnswers.forEach((ans, i) => {
+              const correctAnswer = displayQuestions[i]?.answer;
+              if (ans === correctAnswer) correct++;
+            });
+          } else {
+            correct = data.correct || 0;
+          }
+          const score = Math.round((correct / displayQuestions.length) * 100);
+          setTechnicalScore(score);
+          setCorrectCount(correct);
+          localStorage.setItem("technicalScore", score.toString());
+          setStage("score");
+        } catch (err) {
+          console.error("Failed to score quiz:", err);
           // Fallback to client-side scoring
+          let correct = 0;
           quizAnswers.forEach((ans, i) => {
-            const correctAnswer = questions[i]?.answer;
+            const correctAnswer = displayQuestions[i]?.answer;
             if (ans === correctAnswer) correct++;
           });
-        } else {
-          correct = data.correct || 0;
+          const score = Math.round((correct / displayQuestions.length) * 100);
+          setTechnicalScore(score);
+          setCorrectCount(correct);
+          localStorage.setItem("technicalScore", score.toString());
+          setStage("score");
         }
-        const score = Math.round((correct / questions.length) * 100);
-        setTechnicalScore(score);
-        setCorrectCount(correct);
-        localStorage.setItem("technicalScore", score.toString());
-        setStage("score");
-      } catch (err) {
-        console.error("Failed to score quiz:", err);
-        // Fallback to client-side scoring
-        let correct = 0;
-        quizAnswers.forEach((ans, i) => {
-          const correctAnswer = questions[i]?.answer;
-          if (ans === correctAnswer) correct++;
-        });
-        const score = Math.round((correct / questions.length) * 100);
-        setTechnicalScore(score);
-        setCorrectCount(correct);
-        localStorage.setItem("technicalScore", score.toString());
-        setStage("score");
-      }
-    };
+      };
 
-    // Submit answer and show feedback (Technical Quiz only)
-    const submitAnswer = () => {
-      setQuizAnswerSubmitted(true);
-    };
+      // Submit answer and show feedback (Technical Quiz only)
+      const submitAnswer = () => {
+        setQuizAnswerSubmitted(true);
+      };
 
-    // Move to next question after showing feedback
-    const nextQuestion = () => {
-      const nextAnswers = [...quizAnswers, quizSelected];
-      setQuizAnswers(nextAnswers);
-      setQuizSelected("");
-      setQuizAnswerSubmitted(false);
+      // Move to next question after showing feedback
+      const nextQuestion = () => {
+        const nextAnswers = [...quizAnswers, quizSelected];
+        setQuizAnswers(nextAnswers);
+        setQuizSelected("");
+        setQuizAnswerSubmitted(false);
 
-      if (quizIndex + 1 < questions.length) {
-        setQuizIndex(quizIndex + 1);
-      } else {
-        completeQuiz();
-      }
-    };
+        if (quizIndex + 1 < displayQuestions.length) {
+          setQuizIndex(quizIndex + 1);
+        } else {
+          completeQuiz();
+        }
+      };
 
-    const currentQuestion = questions[quizIndex];
-    const correctAnswer = currentQuestion?.answer;
-    const isCorrect = quizSelected === correctAnswer;
+      return (
+        <div className="card">
+          <h2>📝 Technical Quiz (Based on Your PDF)</h2>
+          <p>Question {quizIndex + 1} of {displayQuestions.length}</p>
 
-    return (
-      <div className="card">
-        <h2>📝 Technical Quiz (Based on Your PDF)</h2>
-        <p>Question {quizIndex + 1} of {questions.length}</p>
-        
-        <h3 style={{ margin: "20px 0" }}>{currentQuestion?.question}</h3>
+          <h3 style={{ margin: "20px 0" }}>{displayQuestions[quizIndex]?.question}</h3>
 
-        {currentQuestion?.options.map((opt, i) => {
-          // Determine option class for highlighting
-          let optionClass = "option";
-          if (quizSelected) {
-            if (opt === correctAnswer) {
-              optionClass += " correct";
-            } else if (opt === quizSelected && !isCorrect) {
-              optionClass += " wrong";
-            }
-          }
-          
-          return (
-            <label key={i} className={optionClass}>
+          {displayQuestions[quizIndex]?.options.map((opt, i) => (
+            <label key={i} className="option">
               <input
                 type="radio"
                 name="quiz-option"
                 value={opt}
                 checked={quizSelected === opt}
-                onChange={(e) => {
-                  setQuizSelected(e.target.value);
-                  setQuizAnswerSubmitted(true);
-                }}
-                disabled={quizAnswerSubmitted}
+                onChange={(e) => setQuizSelected(e.target.value)}
               />
               <span>{opt}</span>
             </label>
-          );
-        })}
+          ))}
 
-        <button 
-          onClick={nextQuestion} 
-          disabled={!quizSelected} 
-          style={{ marginTop: "15px" }}
-        >
-          {quizIndex + 1 < questions.length ? "Next →" : "Complete Quiz"}
-        </button>
+          <button onClick={nextQuestion} disabled={!quizSelected} style={{ marginTop: "15px" }}>
+            {quizIndex + 1 < displayQuestions.length ? "Next →" : "Complete Quiz"}
+          </button>
 
-        <button
-          onClick={() => {
-            setQuizIndex(0);
-            setQuizAnswers([]);
-            setQuizSelected("");
-            setQuizAnswerSubmitted(false);
-            setStage("score");
-          }}
-          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← back
-        </button>
-      </div>
-    );
+          <button
+            onClick={() => {
+              setQuizIndex(0);
+              setQuizAnswers([]);
+              setQuizSelected("");
+              setQuizAnswerSubmitted(false);
+              setStage("score");
+            }}
+            style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+          >
+            ← back
+          </button>
+        </div>
+      );
+    }
   }
 
   // Stage: Show Score and Enter Topic
@@ -227,7 +380,7 @@ function QuizPage() {
       return (
         <div className="card">
           <h2>📊 Quiz Complete!</h2>
-          
+
           <div style={{
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             borderRadius: "12px",
@@ -238,7 +391,7 @@ function QuizPage() {
             <p style={{ fontSize: "14px", opacity: 0.9 }}>Your Quiz Score</p>
             <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
             <p style={{ fontSize: "14px", opacity: 0.9 }}>
-              {correctCount}/{questions.length} correct
+              {correctCount}/{displayQuestions.length} correct
             </p>
           </div>
 
@@ -279,7 +432,7 @@ function QuizPage() {
     return (
       <div className="card">
         <h2>📊 Quiz Complete!</h2>
-        
+
         <div style={{
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           borderRadius: "12px",
@@ -290,7 +443,7 @@ function QuizPage() {
           <p style={{ fontSize: "14px", opacity: 0.9 }}>Technical Score</p>
           <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
           <p style={{ fontSize: "14px", opacity: 0.9 }}>
-            {correctCount}/{questions.length} correct
+            {correctCount}/{displayQuestions.length} correct
           </p>
         </div>
 
@@ -302,7 +455,7 @@ function QuizPage() {
           onChange={(e) => setTopic(e.target.value)}
           style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
         />
-        
+
         <button
           onClick={() => {
             if (topic.trim()) {
@@ -335,7 +488,7 @@ function QuizPage() {
   const analyzePsychometricProfile = (answers, questions) => {
     const levels = {};
     const categories = ["technicalFamiliarity", "documentationSkill", "learningGoal", "applicationConfidence", "learningBehavior"];
-    
+
     answers.forEach((score, idx) => {
       const category = categories[idx];
       if (score === 0) levels[category] = "Beginner";
@@ -370,7 +523,7 @@ function QuizPage() {
         <div className="card">
           <h2>📊 Learner Level Assessment</h2>
           <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
-          
+
           {/* Back Button */}
           <button
             onClick={() => {
@@ -383,7 +536,7 @@ function QuizPage() {
           >
             ← Back
           </button>
-          
+
           <button onClick={loadLearningQuestions} disabled={loading} style={{ padding: "12px 24px", fontSize: "14px", fontWeight: "600" }}>
             {loading ? "Loading..." : "Start Assessment →"}
           </button>
@@ -397,19 +550,19 @@ function QuizPage() {
       const totalPoints = learningAnswers.reduce((acc, val) => acc + val, 0);
       const maxPoints = learningQuestions.length * 2;
       const learnScore = Math.round((totalPoints / maxPoints) * 100);
-      
+
       localStorage.setItem("learningScore", learnScore.toString());
-      
+
       const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
       const storedTopic = localStorage.getItem("quizTopic") || topic;
       const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
-      
+
       // Analyze psychometric profile
       const profile = analyzePsychometricProfile(learningAnswers, learningQuestions);
-      
+
       // Save/update analysis in database
       let analysisId = localStorage.getItem("currentAnalysisId");
-      
+
       if (!analysisId) {
         // Create new analysis if none exists
         try {
@@ -433,7 +586,7 @@ function QuizPage() {
               psychometricProfile: profile.levels
             })
           });
-          
+
           if (saveRes.ok) {
             const saveData = await saveRes.json();
             analysisId = saveData.analysisId;
@@ -462,7 +615,7 @@ function QuizPage() {
           console.error("Failed to update analysis:", updateErr);
         }
       }
-      
+
       // Store combined data and navigate to options
       localStorage.setItem("combinedData", JSON.stringify({
         technicalLevel: techLevel,
@@ -472,7 +625,7 @@ function QuizPage() {
         psychometricProfile: profile.levels,
         combinedAnalysis: `Technical: ${techLevel} (${techScore}%), Learner: ${profile.overallLevel} (${learnScore}%)`
       }));
-      
+
       setStage("options");
     };
 
@@ -559,7 +712,7 @@ function QuizPage() {
     return (
       <div className="card">
         <h2>🚀 Step 4: Generate Your Content</h2>
-        
+
         {/* Back Button */}
         <button
           onClick={() => {
@@ -572,21 +725,21 @@ function QuizPage() {
         >
           ← Back to Learning Assessment
         </button>
-        
+
         {/* Assessment Summary */}
         <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
           <h4 style={{ margin: "0 0 10px 0" }}>📊 Your Assessment Profile:</h4>
           <p>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
           <p>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
           <p>Topic: <strong>{storedTopic}</strong></p>
-          
+
           <hr style={{ margin: "15px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
           <h5 style={{ margin: "0 0 10px 0" }}>Psychometric Assessment:</h5>
-          
+
           {Object.entries(psychometricProfile).map(([key, value]) => (
             <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px" }}>
               <span>{formatCategory(key)}:</span>
-              <span style={{ 
+              <span style={{
                 color: getLevelColor(value),
                 fontWeight: "bold"
               }}>{value}</span>
@@ -629,7 +782,7 @@ function QuizPage() {
     );
   }
 
-  // Fallback - no questions
+  // Fallback - no questions and not loading
   return (
     <div className="card">
       <h2>No questions available</h2>

@@ -106,7 +106,28 @@ function HomePage() {
         setExtractedContent(data.text);
         setIsExtracted(true);
         setSuccessMessage("✅ Resume PDF extracted successfully!");
+        
+        // Store extracted content in localStorage for QuizPage to access
+        localStorage.setItem("extractedContent", data.text);
+        localStorage.setItem("documentSourceType", inputType);
+        if (inputType === "github") {
+          localStorage.setItem("documentSourceUrl", githubLink);
+        } else {
+          localStorage.removeItem("documentSourceUrl");
+        }
+        
         setTimeout(() => setSuccessMessage(""), 3000);
+        
+        // Automatically navigate to Technical Assessment (QuizPage)
+        setTimeout(() => {
+          navigate("/quiz", {
+            state: {
+              sourceType: inputType,
+              sourceUrl: inputType === "github" ? githubLink : null,
+              extractedText: data.text
+            }
+          });
+        }, 500);
 
       } else {
         // GitHub URL path (existing logic)
@@ -133,7 +154,28 @@ function HomePage() {
         setExtractedContent(data.text);
         setIsExtracted(true);
         setSuccessMessage("✅ PDF extracted successfully!");
+        
+        // Store extracted content in localStorage for QuizPage to access
+        localStorage.setItem("extractedContent", data.text);
+        localStorage.setItem("documentSourceType", inputType);
+        if (inputType === "github") {
+          localStorage.setItem("documentSourceUrl", githubLink);
+        } else {
+          localStorage.removeItem("documentSourceUrl");
+        }
+        
         setTimeout(() => setSuccessMessage(""), 3000);
+        
+        // Automatically navigate to Technical Assessment (QuizPage)
+        setTimeout(() => {
+          navigate("/quiz", {
+            state: {
+              sourceType: inputType,
+              sourceUrl: inputType === "github" ? githubLink : null,
+              extractedText: data.text
+            }
+          });
+        }, 500);
       }
     } catch (err) {
       console.error(err);
