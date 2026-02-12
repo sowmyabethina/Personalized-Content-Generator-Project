@@ -83,22 +83,32 @@ function QuizPage() {
       questionText = questionText.replace(/http[s]?:\/\/\S+/g, "").trim();
 
       const options = [];
-      let correctAnswer = null;
+      let correctAnswerLetter = null;
+
+      // First, check if the question line itself has the correct answer
+      const questionLine = lines[0];
+      const questionCorrectMatch = questionLine.match(/Correct Answer:\s*([A-D])/i);
+      if (questionCorrectMatch) {
+        correctAnswerLetter = questionCorrectMatch[1];
+      }
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
-        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)(?:\s*\*?Correct Answer:\*?.*)?$/i);
+        
+        // Check if this line contains the correct answer marker
+        const correctMatch = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
+        if (correctMatch) {
+          correctAnswerLetter = correctMatch[1];
+        }
+
+        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)$/i);
         if (optionMatch) {
           let optionText = optionMatch[2].trim();
-          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*$/i, "").trim();
+          // Remove any "Correct Answer:" text from the option
+          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*/i, "").trim();
 
           if (optionText && optionText.length > 0) {
             options.push(optionText);
-          }
-
-          if (line.match(/\*?Correct Answer:\*?\s*([A-D])/i)) {
-            const match = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
-            correctAnswer = match[1];
           }
         }
       }
@@ -106,8 +116,8 @@ function QuizPage() {
       if (questionText && options.length >= 3) {
         const finalOptions = options.slice(0, 4);
         let answerIndex = 0;
-        if (correctAnswer) {
-          answerIndex = correctAnswer.charCodeAt(0) - 65;
+        if (correctAnswerLetter) {
+          answerIndex = correctAnswerLetter.toUpperCase().charCodeAt(0) - 65;
           if (answerIndex < 0 || answerIndex >= finalOptions.length) {
             answerIndex = 0;
           }
@@ -184,6 +194,7 @@ function QuizPage() {
             // Normalize answers
             const normalized = parsedQuestions.map(q => {
               let correct = q.answer;
+              // Convert letter answer (A, B, C, D) to actual answer text
               if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
                 const idx = correct.toUpperCase().charCodeAt(0) - 65;
                 correct = q.options[idx];
@@ -262,6 +273,15 @@ function QuizPage() {
               0% { transform: rotate(0deg); }
               100% { transform: rotate(360deg); }
             }
+            @keyframes fadeIn {
+              0% { opacity: 0; transform: translateY(-10px); }
+              100% { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes pulse {
+              0% { transform: scale(1); }
+              50% { transform: scale(1.02); }
+              100% { transform: scale(1); }
+            }
           `}</style>
         </div>
       );
@@ -313,7 +333,7 @@ function QuizPage() {
         }
       };
 
-      // Submit answer and show feedback (Technical Quiz only)
+      // Submit answer and show feedback
       const submitAnswer = () => {
         setQuizAnswerSubmitted(true);
       };
@@ -339,18 +359,59 @@ function QuizPage() {
 
           <h3 style={{ margin: "20px 0" }}>{displayQuestions[quizIndex]?.question}</h3>
 
-          {displayQuestions[quizIndex]?.options.map((opt, i) => (
-            <label key={i} className="option">
-              <input
-                type="radio"
-                name="quiz-option"
-                value={opt}
-                checked={quizSelected === opt}
-                onChange={(e) => setQuizSelected(e.target.value)}
-              />
-              <span>{opt}</span>
-            </label>
-          ))}
+          {displayQuestions[quizIndex]?.options.map((opt, i) => {
+            const isCorrect = opt === displayQuestions[quizIndex]?.answer;
+            const isSelected = quizSelected === opt;
+            const showHighlight = quizSelected !== "";
+            
+            return (
+              <label
+                key={i}
+                className="option"
+                style={{
+                  transition: "all 0.3s ease",
+                  background: showHighlight
+                    ? isCorrect
+                      ? "#dcfce7"
+                      : isSelected
+                      ? "#fee2e2"
+                      : "#f3f4f6"
+                    : "",
+                  borderColor: showHighlight
+                    ? isCorrect
+                      ? "#22c55e"
+                      : isSelected
+                      ? "#ef4444"
+                      : "#d1d5db"
+                    : "",
+                  borderWidth: showHighlight ? "2px" : "1px",
+                  cursor: "pointer"
+                }}
+              >
+                <input
+                  type="radio"
+                  name="quiz-option"
+                  value={opt}
+                  checked={quizSelected === opt}
+                  onChange={(e) => setQuizSelected(e.target.value)}
+                />
+                <span style={{
+                  color: showHighlight
+                    ? isCorrect
+                      ? "#16a34a"
+                      : isSelected
+                      ? "#dc2626"
+                      : "inherit"
+                    : "inherit",
+                  fontWeight: isSelected ? "600" : "inherit"
+                }}>
+                  {opt}
+                  {showHighlight && isCorrect && " ✓"}
+                  {showHighlight && isSelected && !isCorrect && " ✗"}
+                </span>
+              </label>
+            );
+          })}
 
           <button onClick={nextQuestion} disabled={!quizSelected} style={{ marginTop: "15px" }}>
             {quizIndex + 1 < displayQuestions.length ? "Next →" : "Complete Quiz"}
