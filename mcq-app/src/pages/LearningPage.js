@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function LearningPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { topic } = location.state || { topic: "" };
+  const { topic, analysisId } = location.state || { topic: "", analysisId: null };
 
   const [stage, setStage] = useState("input"); // "input", "questions", "content"
   const [topicInput, setTopicInput] = useState(topic);
@@ -17,6 +17,27 @@ function LearningPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Update last active timestamp when page loads
+  useEffect(() => {
+    const updateLastActive = async () => {
+      // Try to get analysisId from location state or localStorage
+      const storedAnalysisId = localStorage.getItem("currentAnalysisId");
+      const currentAnalysisId = analysisId || storedAnalysisId;
+      
+      if (currentAnalysisId) {
+        try {
+          await fetch(`http://localhost:5000/analysis/${currentAnalysisId}/last-active`, {
+            method: "PATCH"
+          });
+        } catch (err) {
+          console.error("Failed to update last active:", err);
+        }
+      }
+    };
+
+    updateLastActive();
+  }, [analysisId]);
 
   const generateLearningQuestions = async () => {
     setLoading(true);

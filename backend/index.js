@@ -1382,6 +1382,27 @@ app.put("/analysis/:id", async (req, res) => {
   }
 });
 
+// Update last active timestamp (for tracking user activity)
+app.patch("/analysis/:id/last-active", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      `UPDATE user_analyses SET updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Analysis not found" });
+    }
+
+    return res.json({ success: true, message: "Last active updated" });
+  } catch (err) {
+    console.error("❌ /analysis/:id/last-active error:", err);
+    return res.status(500).json({ error: "Failed to update last active", details: err.message });
+  }
+});
+
 // ===============================
 // TEMPORARY DEBUG ROUTE - DELETE AFTER USE
 // ===============================
