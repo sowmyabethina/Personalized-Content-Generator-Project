@@ -281,6 +281,35 @@ export async function getChunksByPdfId(pdfId) {
   }
 }
 
+// Get chunks sequentially (for summary mode) - ordered by id as proxy for chunk_index
+export async function getSequentialChunks(pdfId = null, limit = 5) {
+  try {
+    let query = 'SELECT id, chunk_text, embedding FROM document_chunks';
+    const params = [];
+    
+    if (pdfId) {
+      query += ' WHERE pdf_id = $1';
+      params.push(pdfId);
+      query += ' ORDER BY id ASC LIMIT $2';
+      params.push(limit);
+    } else {
+      query += ' ORDER BY id ASC LIMIT $1';
+      params.push(limit);
+    }
+    
+    const result = await pool.query(query, params);
+    
+    return result.rows.map(row => ({
+      text: row.chunk_text,
+      score: 1.0,
+      id: row.id
+    }));
+  } catch (error) {
+    console.error('❌ Error getting sequential chunks:', error.message);
+    throw error;
+  }
+}
+
 // Get total count of chunks
 export async function getChunkCount(pdfId = null) {
   try {

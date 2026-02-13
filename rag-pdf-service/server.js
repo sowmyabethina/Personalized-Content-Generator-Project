@@ -5,7 +5,7 @@ import fs from "fs";
 
 import dotenv from "dotenv";
 dotenv.config();
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
 import { 
@@ -13,44 +13,9 @@ import {
   similaritySearchWithThreshold, 
   initVectorStore,
   getChunkCount,
-  clearVectorStore
+  clearVectorStore,
+  getSequentialChunks
 } from "./rag/vectorStore.js";
-
-// Initialize Gemini for Q&A
-
-// General Q&A prompt - works for all question types
-const QA_PROMPT = `
-You are a helpful assistant answering questions about a document.
-
-Your task:
-1. Read the provided context carefully
-2. Answer the user's question based ONLY on the context
-3. If the context doesn't contain enough information, say "I don't have enough information in the document to answer this question."
-4. Be concise but thorough
-5. If answering from the document, include relevant details
-
-Context from document:
-{context}
-
-User's question: {question}
-
-Answer:
-`;
-
-// Follow-up question prompt that uses conversation history
-const FOLLOWUP_PROMPT = `
-You are a helpful assistant answering questions about a document.
-
-Conversation history:
-{history}
-
-Context from document:
-{context}
-
-User's follow-up question: {question}
-
-Answer based on the conversation and context:
-`;
 
 // Load environment variables
 dotenv.config();
@@ -58,9 +23,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+// Initialize Groq
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
+});
 
 // Global error handlers to prevent crashes
 process.on("uncaughtException", (err) => {
@@ -151,43 +117,66 @@ const clearUploads = () => {
   }
 };
 
-// Generate answer using LLM with the provided context
-async function generateAnswer(context, question, history = null) {
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    
-    let prompt;
-    if (history && history.length > 0) {
-      // Format conversation history
-      const historyText = history
-        .map(h => `Q: ${h.question}\nA: ${h.answer}`)
-        .join("\n\n");
-      prompt = FOLLOWUP_PROMPT
-        .replace("{history}", historyText)
-        .replace("{context}", context)
-        .replace("{question}", question);
-    } else {
-      prompt = QA_PROMPT
-        .replace("{context}", context)
-        .replace("{question}", question);
-    }
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let answer = response.text().trim();
-    
-    // Clean up any residual formatting
-    answer = answer
-      .replace(/^["']|["']$/g, "")
-      .replace(/^[-•*]\s*/gm, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    
-    return answer || "I couldn't find a clear answer in the document.";
-  } catch (error) {
-    console.error("❌ LLM answer generation error:", error.message);
-    throw error;
-  }
+const TUTOR_PROMPT = `You are EduBot, a friendly AI tutor that explains concepts to students in a clean and readable way.
+
+Rules:
+
+* Explain in simple words
+* Do not copy sentences from the study material
+* No long paragraphs (maximum 3 sentences)
+* Do not use numbered lists
+* Do not use "*" or "+"
+* Use "-" bullets only
+* Do not mention the document
+
+If the answer is not in the material, say exactly:
+"I could not find this in the uploaded material."
+
+NORMAL QUESTIONS — respond in this exact format:
+
+(2–3 short sentences)
+
+(1 short real-life example)
+
+* point
+* point
+* point
+* point
+
+COMPARISON QUESTIONS (difference, compare, vs, between):
+
+Return ONLY a markdown table:
+
+| Feature   | Concept 1 | Concept 2 |
+| --------- | --------- | --------- |
+| Meaning   | ...       | ...       |
+| Structure | ...       | ...       |
+| Data      | ...       | ...       |
+| Security  | ...       | ...       |
+| Usage     | ...       | ...       |`;
+
+async function generateAnswer(context, question, history = []) {
+  const messages = [
+    { role: "system", content: TUTOR_PROMPT },
+    { role: "system", content: `Study Material:\n${context}` },
+    { role: "user", content: question }
+  ];
+
+  history.forEach(h => {
+    messages.push({ role: "user", content: h.question });
+    messages.push({ role: "assistant", content: h.answer });
+  });
+
+  messages.push({ role: "user", content: question });
+
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages,
+    temperature: 0.4,
+    max_tokens: 1024
+  });
+
+  return completion.choices[0]?.message?.content || "No response generated.";
 }
 
 // Upload PDF endpoint
@@ -264,9 +253,29 @@ app.post("/ask", async (req, res) => {
       });
     }
 
-    // Step 1: Vector retrieval with similarity threshold
-    const queryEmbedding = await getEmbedding(question);
-    const results = await similaritySearchWithThreshold(queryEmbedding, 10, similarityThreshold);
+    // Detect summary-type questions
+    const summaryKeywords = [
+      "summarize", "summary", "overview", "main idea", "gist", 
+      "what is this document about", "explain this pdf", "what is the main topic",
+      "give me an overview", "brief summary"
+    ];
+    const isSummary = summaryKeywords.some(kw => 
+      question.toLowerCase().includes(kw)
+    );
+
+    let results;
+    let isSummaryMode = false;
+
+    if (isSummary) {
+      // Summary mode: fetch first 5 chunks sequentially (no similarity search)
+      console.log("📑 Summary mode detected - fetching sequential chunks");
+      results = await getSequentialChunks(null, 5);
+      isSummaryMode = true;
+    } else {
+      // Normal mode: use similarity search with top 3 chunks
+      const queryEmbedding = await getEmbedding(question);
+      results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
+    }
 
     // If no relevant results found, return immediately without LLM call
     if (!results.length) {
@@ -295,8 +304,22 @@ app.post("/ask", async (req, res) => {
 
     // Step 3: Prioritize high-similarity chunks and build context
     const sortedResults = results.sort((a, b) => b.score - a.score);
-    const topChunks = sortedResults.slice(0, 5);
-    const context = topChunks.map(r => r.text).join("\n\n---\n\n");
+    // Use up to 5 chunks for summary mode, 3 for normal mode
+    const topChunks = isSummaryMode ? sortedResults.slice(0, 5) : sortedResults.slice(0, 3);
+    
+    // Build context with word limit (~1500 words)
+    const MAX_WORDS = 1500;
+    let context = "";
+    let wordCount = 0;
+    for (const chunk of topChunks) {
+      const chunkWords = chunk.text.split(/\s+/).length;
+      if (wordCount + chunkWords <= MAX_WORDS) {
+        context += (context ? "\n\n---\n\n" : "") + chunk.text;
+        wordCount += chunkWords;
+      } else {
+        break;
+      }
+    }
 
     // Step 4: Generate answer using LLM (SINGLE CALL)
     const answer = await generateAnswer(context, question);
@@ -309,7 +332,7 @@ app.post("/ask", async (req, res) => {
 
     console.log("✅ Answer generated for question:", question.substring(0, 30) + "...");
 
-    const responseData = { answer, sources };
+    const responseData = { answer, sources, isSummaryMode };
     
     // Cache the response
     requestCache.set(cacheKey, {
@@ -364,21 +387,52 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // Detect clarification requests
+    // Detect clarification/follow-up requests
     const clarificationKeywords = [
       "explain more", "give example", "summarize that", "why?",
-      "clarify", "expand", "more details", "tell me more"
+      "clarify", "expand", "more details", "tell me more", "about this",
+      "what is this", "explain that", "continue", "go on"
     ];
     const isClarification = clarificationKeywords.some(kw => 
       question.toLowerCase().includes(kw)
     );
 
-    console.log("❓ Chat question:", question.substring(0, 50) + "...");
+    // Detect summary-type questions
+    const summaryKeywords = [
+      "summarize", "summary", "overview", "main idea", "gist", 
+      "what is this document about", "explain this pdf", "what is the main topic",
+      "give me an overview", "brief summary"
+    ];
+    const isSummary = summaryKeywords.some(kw => 
+      question.toLowerCase().includes(kw)
+    );
 
-    // Step 1: Vector retrieval with similarity threshold
-    const queryEmbedding = await getEmbedding(question);
-    const numResults = isClarification ? 15 : 10;
-    const results = await similaritySearchWithThreshold(queryEmbedding, numResults, similarityThreshold);
+    let results;
+    let isSummaryMode = false;
+
+    if (isSummary) {
+      // Summary mode: fetch first 5 chunks sequentially (no similarity search)
+      console.log("📑 Summary mode detected - fetching sequential chunks");
+      results = await getSequentialChunks(null, 5);
+      isSummaryMode = true;
+    } else {
+      // For follow-up questions, include the last user question in retrieval
+      let retrievalQuery = question;
+      if (isClarification && conversationHistory && conversationHistory.length > 0) {
+        // Get the last user question from history
+        const lastUserMessage = [...conversationHistory].reverse().find(h => h.role === 'user');
+        if (lastUserMessage) {
+          retrievalQuery = lastUserMessage.content + " " + question;
+          console.log("🔍 Follow-up detected, combined query:", retrievalQuery.substring(0, 50) + "...");
+        }
+      }
+      
+      console.log("❓ Chat question:", question.substring(0, 50) + "...");
+
+      // Normal mode: use similarity search with top 3 chunks
+      const queryEmbedding = await getEmbedding(retrievalQuery);
+      results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
+    }
 
     // If no relevant results found, return immediately without LLM call
     if (!results.length) {
@@ -411,8 +465,22 @@ app.post("/chat", async (req, res) => {
 
     // Step 3: Prioritize high-similarity chunks and build context
     const sortedResults = results.sort((a, b) => b.score - a.score);
-    const topChunks = sortedResults.slice(0, isClarification ? 8 : 5);
-    const context = topChunks.map(r => r.text).join("\n\n---\n\n");
+    // Use up to 5 chunks for summary mode, 3 for normal mode
+    const topChunks = isSummaryMode ? sortedResults.slice(0, 5) : sortedResults.slice(0, 3);
+    
+    // Build context with word limit (~1500 words)
+    const MAX_WORDS = 1500;
+    let context = "";
+    let wordCount = 0;
+    for (const chunk of topChunks) {
+      const chunkWords = chunk.text.split(/\s+/).length;
+      if (wordCount + chunkWords <= MAX_WORDS) {
+        context += (context ? "\n\n---\n\n" : "") + chunk.text;
+        wordCount += chunkWords;
+      } else {
+        break;
+      }
+    }
 
 
     // Step 4: Generate answer using LLM with conversation history (SINGLE CALL)
@@ -440,7 +508,8 @@ app.post("/chat", async (req, res) => {
       answer,
       sources,
       sessionId: chatId,
-      isClarification
+      isClarification,
+      isSummaryMode
     };
 
     // Cache the successful response
