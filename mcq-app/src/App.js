@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
-import { SignedIn, SignedOut, SignIn } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignIn, useUser } from "@clerk/clerk-react";
+import { useState, useEffect } from "react";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import QuizPage from "./pages/QuizPage";
@@ -7,9 +8,52 @@ import ResultPage from "./pages/ResultPage";
 import LearningMaterialPage from "./pages/LearningMaterialPage";
 import PdfChatPage from "./pages/PdfChatPage";
 import LearningProgressPage from "./pages/LearningProgressPage";
+import OnboardingWizard from "./components/OnboardingWizard";
 import "./App.css";
 
 function App() {
+  const { user } = useUser();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:5000/analyses?userId=${user.id}`);
+        const data = await response.json();
+
+        if (data.success && data.analyses) {
+          // Check if user has no analysis OR onboarding is not completed
+          const hasExistingAnalysis = data.analyses.length > 0;
+          const onboardingCompleted = data.analyses.some(a => a.onboardingCompleted === true);
+
+          if (!hasExistingAnalysis || !onboardingCompleted) {
+            setShowOnboarding(true);
+          }
+        } else {
+          // No analyses found, show onboarding
+          setShowOnboarding(true);
+        }
+      } catch (err) {
+        console.error("Error checking onboarding status:", err);
+        // Show onboarding on error to be safe
+        setShowOnboarding(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+  };
   return (
     <div className="app-wrapper">
       <SignedOut>
@@ -145,6 +189,12 @@ function App() {
       </SignedOut>
 
       <SignedIn>
+        {!isLoading && showOnboarding && user && (
+          <OnboardingWizard 
+            userId={user.id} 
+            onComplete={handleOnboardingComplete} 
+          />
+        )}
         <Layout>
           <Routes>
             <Route path="/" element={<HomePage />} />

@@ -107,6 +107,9 @@ CREATE TABLE IF NOT EXISTS user_analyses (
     ai_recommendations JSONB,
     learning_roadmap JSONB,
     
+    -- User goal from onboarding
+    goal VARCHAR(100),
+    
     -- Metadata
     technical_level VARCHAR(50),
     learning_style VARCHAR(50),

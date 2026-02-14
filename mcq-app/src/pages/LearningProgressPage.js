@@ -14,9 +14,43 @@ function LearningProgressPage() {
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     loadAnalyses();
+    
+    // Refresh data when page becomes visible (e.g., user returns from quiz)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadAnalyses();
+      }
+    };
+    
+    // Also refresh on window focus
+    const handleFocus = () => {
+      loadAnalyses();
+    };
+    
+    // Poll for updates every 5 seconds (more responsive for real-time)
+    const intervalId = setInterval(() => {
+      loadAnalyses();
+    }, 5000);
+    
+    // Update current time every second for real-time display
+    const timeIntervalId = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(intervalId);
+      clearInterval(timeIntervalId);
+    };
   }, [userId]);
 
   const loadAnalyses = async () => {
@@ -32,7 +66,12 @@ function LearningProgressPage() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setAnalyses(data.analyses || []);
+        // Explicitly sort by created_at DESC to ensure latest assessment is first
+        const sortedAnalyses = (data.analyses || []).sort((a, b) => {
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        setAnalyses(sortedAnalyses);
+        setLastUpdated(new Date());
       } else {
         throw new Error("Failed to load analyses");
       }
@@ -42,6 +81,10 @@ function LearningProgressPage() {
     }
     setLoading(false);
   };
+
+  // Define latest and previous assessments for metric calculations
+  const latestAssessment = analyses.length > 0 ? analyses[0] : null;
+  const previousAssessment = analyses.length > 1 ? analyses[1] : null;
 
   const loadAnalysisDetail = async (analysisId) => {
     setLoading(true);
@@ -96,6 +139,16 @@ function LearningProgressPage() {
     });
   };
 
+  // Format time since last update for real-time display
+  const getTimeSinceUpdate = () => {
+    if (!lastUpdated) return "Just now";
+    const seconds = Math.floor((currentTime - lastUpdated) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    return formatDate(lastUpdated);
+  };
+
   const getLevelColor = (level) => {
     if (!level) return "#6b7280";
     const lower = level.toLowerCase();
@@ -138,9 +191,11 @@ function LearningProgressPage() {
 
   const weakAreasSummary = getWeakAreasSummary();
 
-  // Prepare chart data
+  // Prepare chart data - show only last 3 assessments for the graph
   const getChartData = () => {
-    return analyses
+    // Take only the last 3 analyses for the chart
+    const recentAnalyses = analyses.slice(0, 3);
+    return recentAnalyses
       .filter(a => a.technicalScore > 0 || a.learningScore > 0)
       .map(a => ({
         date: formatDate(a.createdAt),
@@ -153,20 +208,16 @@ function LearningProgressPage() {
 
   const chartData = getChartData();
 
-  // Calculate progress trend
+  // Calculate progress trend comparing latest vs previous assessment
   const getProgressTrend = () => {
-    const scores = analyses
-      .filter(a => a.overallScore > 0)
-      .map(a => a.overallScore);
+    if (!latestAssessment || !previousAssessment) return "neutral";
     
-    if (scores.length < 2) return "neutral";
+    const latestScore = latestAssessment.technicalScore || latestAssessment.overallScore || 0;
+    const previousScore = previousAssessment.technicalScore || previousAssessment.overallScore || 0;
     
-    const first = scores[0];
-    const last = scores[scores.length - 1];
-    
-    if (last > first) return "improving";
-    if (last < first) return "declining";
-    return "stable";
+    if (latestScore > previousScore) return "improving";
+    if (latestScore < previousScore) return "declining";
+    return "neutral";
   };
 
   const progressTrend = getProgressTrend();
@@ -255,6 +306,22 @@ function LearningProgressPage() {
           >
             ← Back to Home
           </button>
+          <button
+            onClick={() => loadAnalyses()}
+            disabled={loading}
+            style={{
+              padding: "10px 20px",
+              background: loading ? "#e5e7eb" : "#3b82f6",
+              border: "none",
+              borderRadius: "8px",
+              cursor: loading ? "not-allowed" : "pointer",
+              color: loading ? "#9ca3af" : "#ffffff",
+              fontSize: "14px",
+              fontWeight: "500"
+            }}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
         {/* Error Message */}
@@ -314,8 +381,8 @@ function LearningProgressPage() {
             
             {/* Left Column - Main Content */}
             <div>
-              {/* Score Trend Chart */}
-              {chartData.length > 0 && (
+              {/* Score Trend Chart - Show last 3 assessments */}
+              {analyses.length > 0 && (
                 <div style={{
                   background: "#ffffff",
                   borderRadius: "12px",
@@ -325,42 +392,48 @@ function LearningProgressPage() {
                   border: "1px solid #e5e7eb"
                 }}>
                   <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
-                    📈 Learning Progress Over Time
+                    📈 Learning Progress (Last 3 Assessments)
                   </h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
-                      <YAxis stroke="#6b7280" fontSize={12} domain={[0, 100]} />
-                      <Tooltip 
-                        contentStyle={{ 
-                          background: "#fff", 
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
-                        }}
-                      />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="technicalScore" 
-                        stroke="#667eea" 
-                        strokeWidth={2}
-                        name="Technical Score"
-                        dot={{ fill: "#667eea", strokeWidth: 2 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="learningScore" 
-                        stroke="#11998e" 
-                        strokeWidth={2}
-                        name="Learning Score"
-                        dot={{ fill: "#11998e", strokeWidth: 2 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+                        <YAxis stroke="#6b7280" fontSize={12} domain={[0, 100]} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            background: "#fff", 
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+                          }}
+                        />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="technicalScore" 
+                          stroke="#667eea" 
+                          strokeWidth={2}
+                          name="Technical Score"
+                          dot={{ fill: "#667eea", strokeWidth: 2 }}
+                          activeDot={{ r: 6 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="learningScore" 
+                          stroke="#11998e" 
+                          strokeWidth={2}
+                          name="Learning Score"
+                          dot={{ fill: "#11998e", strokeWidth: 2 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
+                      <p>No score data available for chart display</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -390,7 +463,7 @@ function LearningProgressPage() {
                 <div style={{ textAlign: "center" }}>
                   <p style={{ margin: 0, opacity: 0.9, fontSize: "14px" }}>Latest Technical</p>
                   <p style={{ margin: "5px 0 0 0", fontSize: "28px", fontWeight: "bold" }}>
-                    {analyses[0]?.technicalScore || analyses[0]?.overallScore || 0}%
+                    {latestAssessment?.technicalScore || latestAssessment?.overallScore || 0}%
                   </p>
                 </div>
               </div>
@@ -407,7 +480,8 @@ function LearningProgressPage() {
                   📋 Past Assessments
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {analyses.map((analysis, index) => {
+                  {/* Show only last 3 past assessments */}
+                  {analyses.slice(0, 3).map((analysis, index) => {
                     const analysisKey = analysis.analysisId || analysis.id;
                     const readiness = calculateReadiness(
                       analysis.technicalScore || analysis.overallScore || 0,
@@ -689,10 +763,9 @@ function LearningProgressPage() {
             <div>
               {/* Placement Readiness */}
               {analyses.length > 0 && (() => {
-                const latest = analyses[0];
                 const readiness = calculateReadiness(
-                  latest.technicalScore || latest.overallScore || 0,
-                  latest.learningScore || 0
+                  latestAssessment?.technicalScore || latestAssessment?.overallScore || 0,
+                  latestAssessment?.learningScore || 0
                 );
                 return (
                   <div style={{
@@ -752,8 +825,8 @@ function LearningProgressPage() {
                         <strong>Formula:</strong> (Technical × 0.6) + (Learning × 0.4)
                       </p>
                       <p style={{ margin: 0 }}>
-                        Technical: {(latest.technicalScore || latest.overallScore || 0) * 0.6}% | 
-                        Learning: {(latest.learningScore || 0) * 0.4}%
+                        Technical: {(latestAssessment?.technicalScore || latestAssessment?.overallScore || 0) * 0.6}% | 
+                        Learning: {(latestAssessment?.learningScore || 0) * 0.4}%
                       </p>
                     </div>
                   </div>
@@ -815,8 +888,7 @@ function LearningProgressPage() {
                   {weakAreasSummary.length > 5 && (
                     <button
                       onClick={() => {
-                        const latest = analyses[0];
-                        if (latest) continueLearning(latest);
+                        if (latestAssessment) continueLearning(latestAssessment);
                       }}
                       style={{
                         width: "100%",
@@ -858,7 +930,7 @@ function LearningProgressPage() {
                   }}>
                     <span style={{ color: "#6b7280", fontSize: "14px" }}>Source Type</span>
                     <span style={{ fontWeight: "600", color: "#2c3e50" }}>
-                      {analyses[0]?.sourceType === "resume" ? "📄 Resume" : "🐙 GitHub"}
+                      {latestAssessment?.sourceType === "resume" ? "Resume" : "GitHub"}
                     </span>
                   </div>
                   <div style={{ 
@@ -870,7 +942,7 @@ function LearningProgressPage() {
                   }}>
                     <span style={{ color: "#6b7280", fontSize: "14px" }}>Latest Topic</span>
                     <span style={{ fontWeight: "600", color: "#2c3e50", maxWidth: "150px", textAlign: "right" }}>
-                      {analyses[0]?.topic || analyses[0]?.sourceType || "N/A"}
+                      {latestAssessment?.topic || latestAssessment?.sourceType || "N/A"}
                     </span>
                   </div>
                   <div style={{ 
@@ -885,16 +957,18 @@ function LearningProgressPage() {
                       {formatDate(analyses[analyses.length - 1]?.createdAt)}
                     </span>
                   </div>
+                  {/* Last Active - Show actual last active date from data */}
                   <div style={{ 
                     display: "flex", 
                     justifyContent: "space-between", 
                     padding: "12px",
-                    background: "#f8f9fa",
-                    borderRadius: "8px"
+                    background: latestAssessment ? "#ecfdf5" : "#f8f9fa",
+                    borderRadius: "8px",
+                    border: latestAssessment ? "1px solid #10b981" : "none"
                   }}>
                     <span style={{ color: "#6b7280", fontSize: "14px" }}>Last Active</span>
-                    <span style={{ fontWeight: "600", color: "#2c3e50" }}>
-                      {formatDate(analyses[0]?.createdAt)}
+                    <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "#2c3e50" }}>
+                      {latestAssessment ? formatDate(latestAssessment.createdAt) : "N/A"}
                     </span>
                   </div>
                 </div>

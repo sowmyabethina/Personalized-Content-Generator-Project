@@ -110,6 +110,8 @@ function HomePage() {
         // Store extracted content in localStorage for QuizPage to access
         localStorage.setItem("extractedContent", data.text);
         localStorage.setItem("documentSourceType", inputType);
+        // Clear previous analysis ID to ensure fresh assessment is created
+        localStorage.removeItem("currentAnalysisId");
         if (inputType === "github") {
           localStorage.setItem("documentSourceUrl", githubLink);
         } else {
@@ -158,6 +160,8 @@ function HomePage() {
         // Store extracted content in localStorage for QuizPage to access
         localStorage.setItem("extractedContent", data.text);
         localStorage.setItem("documentSourceType", inputType);
+        // Clear previous analysis ID to ensure fresh assessment is created
+        localStorage.removeItem("currentAnalysisId");
         if (inputType === "github") {
           localStorage.setItem("documentSourceUrl", githubLink);
         } else {
@@ -276,6 +280,9 @@ function HomePage() {
 
         setSuccessMessage("✅ Questions generated successfully!");
         setTimeout(() => setSuccessMessage(""), 3000);
+
+        // Clear previous analysis ID to ensure fresh assessment is created
+        localStorage.removeItem("currentAnalysisId");
 
         // Navigate to quiz page with questions
         // Analysis will be saved after content generation in ResultPage

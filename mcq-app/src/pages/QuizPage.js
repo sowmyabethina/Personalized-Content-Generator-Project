@@ -48,6 +48,7 @@ function QuizPage() {
   const [quizIndex, setQuizIndex] = useState(0);
   const [quizSelected, setQuizSelected] = useState("");
   const [quizAnswers, setQuizAnswers] = useState([]);
+  const [answerLocked, setAnswerLocked] = useState(false); // Lock answer after selection
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
@@ -344,6 +345,7 @@ function QuizPage() {
         setQuizAnswers(nextAnswers);
         setQuizSelected("");
         setQuizAnswerSubmitted(false);
+        setAnswerLocked(false); // Unlock for next question
 
         if (quizIndex + 1 < displayQuestions.length) {
           setQuizIndex(quizIndex + 1);
@@ -385,7 +387,8 @@ function QuizPage() {
                       : "#d1d5db"
                     : "",
                   borderWidth: showHighlight ? "2px" : "1px",
-                  cursor: "pointer"
+                  cursor: answerLocked ? "not-allowed" : "pointer",
+                  opacity: answerLocked && !isSelected ? 0.6 : 1
                 }}
               >
                 <input
@@ -393,7 +396,13 @@ function QuizPage() {
                   name="quiz-option"
                   value={opt}
                   checked={quizSelected === opt}
-                  onChange={(e) => setQuizSelected(e.target.value)}
+                  disabled={answerLocked} // Disable changing after selection
+                  onChange={(e) => {
+                    if (!answerLocked) {
+                      setQuizSelected(e.target.value);
+                      setAnswerLocked(true); // Lock the answer immediately
+                    }
+                  }}
                 />
                 <span style={{
                   color: showHighlight

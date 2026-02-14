@@ -5,7 +5,7 @@ import fs from "fs";
 
 import dotenv from "dotenv";
 dotenv.config();
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
 import { 
@@ -23,9 +23,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Initialize Groq
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Global error handlers to prevent crashes
@@ -117,43 +117,23 @@ const clearUploads = () => {
   }
 };
 
-const TUTOR_PROMPT = `You are EduBot, a friendly AI tutor that explains concepts to students in a clean and readable way.
+const TUTOR_PROMPT = `You are EduBot.
 
-Rules:
-
-* Explain in simple words
-* Do not copy sentences from the study material
-* No long paragraphs (maximum 3 sentences)
-* Do not use numbered lists
-* Do not use "*" or "+"
-* Use "-" bullets only
-* Do not mention the document
-
-If the answer is not in the material, say exactly:
+GENERAL RULES:
+- Use ONLY retrieved content.
+- Do not add outside knowledge.
+- If not found, say exactly:
 "I could not find this in the uploaded material."
+- Do not mention the document.
 
-NORMAL QUESTIONS — respond in this exact format:
+Return exactly:
+- 2 to 3 short sentences
+- 1 short real-life example
+- 4 bullet points using "-" only
 
-(2–3 short sentences)
 
-(1 short real-life example)
 
-* point
-* point
-* point
-* point
-
-COMPARISON QUESTIONS (difference, compare, vs, between):
-
-Return ONLY a markdown table:
-
-| Feature   | Concept 1 | Concept 2 |
-| --------- | --------- | --------- |
-| Meaning   | ...       | ...       |
-| Structure | ...       | ...       |
-| Data      | ...       | ...       |
-| Security  | ...       | ...       |
-| Usage     | ...       | ...       |`;
+`;
 
 async function generateAnswer(context, question, history = []) {
   const messages = [
@@ -169,11 +149,9 @@ async function generateAnswer(context, question, history = []) {
 
   messages.push({ role: "user", content: question });
 
-  const completion = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages,
-    temperature: 0.4,
-    max_tokens: 1024
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-nano",
+    messages
   });
 
   return completion.choices[0]?.message?.content || "No response generated.";

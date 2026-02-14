@@ -84,6 +84,12 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS technical_score INTEGER`);
     await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS psychometric_profile JSONB`);
     
+    // Add onboarding columns
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS career_goal VARCHAR(100)`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS goal VARCHAR(100)`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS experience_level VARCHAR(50)`);
+    
     // Create indexes for user_analyses
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_analyses_created_at ON user_analyses(created_at)`);
@@ -347,6 +353,7 @@ async function getUserAnalyses(userId) {
       // If userId is provided, get analyses for that user
       query = `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
                topic, learning_score, technical_score, psychometric_profile,
+               career_goal, onboarding_completed, experience_level,
                created_at, updated_at
         FROM user_analyses 
         WHERE user_id = $1
@@ -356,6 +363,7 @@ async function getUserAnalyses(userId) {
       // If no userId, get all analyses (for demo/anonymous users)
       query = `SELECT id, user_id, source_type, source_url, technical_level, learning_style, overall_score,
                topic, learning_score, technical_score, psychometric_profile,
+               career_goal, onboarding_completed, experience_level,
                created_at, updated_at
         FROM user_analyses 
         ORDER BY created_at DESC`;
@@ -376,6 +384,9 @@ async function getUserAnalyses(userId) {
       learningScore: row.learning_score,
       technicalScore: row.technical_score,
       psychometricProfile: row.psychometric_profile,
+      careerGoal: row.career_goal,
+      onboardingCompleted: row.onboarding_completed,
+      experienceLevel: row.experience_level,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -1311,6 +1322,117 @@ app.get("/analyses", async (req, res) => {
   } catch (err) {
     console.error("❌ /analyses error:", err);
     return res.status(500).json({ error: "Failed to fetch analyses", details: err.message });
+  }
+});
+
+// DEBUG: Get raw table data for learning progress
+app.get("/debug/table/analyses", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id, user_id, source_type, topic, 
+        technical_level, learning_style, 
+        overall_score, learning_score, technical_score,
+        created_at, updated_at
+      FROM user_analyses 
+      ORDER BY created_at DESC
+      LIMIT 20
+    `);
+    res.json({
+      success: true,
+      table: "user_analyses",
+      rowCount: result.rows.length,
+      data: result.rows
+    });
+  } catch (err) {
+    console.error("❌ /debug/table/analyses error:", err);
+    res.status(500).json({ error: "Failed to fetch table data", details: err.message });
+  }
+});
+
+// DEBUG: Get quiz_results table
+app.get("/debug/table/quiz_results", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM quiz_results ORDER BY created_at DESC LIMIT 20
+    `);
+    res.json({
+      success: true,
+      table: "quiz_results",
+      rowCount: result.rows.length,
+      data: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch table data", details: err.message });
+  }
+});
+
+// DEBUG: Get all tables info
+app.get("/debug/tables", async (req, res) => {
+  try {
+    const analyses = await pool.query(`SELECT COUNT(*) as count FROM user_analyses`);
+    const quizzes = await pool.query(`SELECT COUNT(*) as count FROM quizzes`);
+    const quizResults = await pool.query(`SELECT COUNT(*) as count FROM quiz_results`);
+    
+    res.json({
+      success: true,
+      tables: {
+        user_analyses: parseInt(analyses.rows[0].count),
+        quizzes: parseInt(quizzes.rows[0].count),
+        quiz_results: parseInt(quizResults.rows[0].count)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch table info", details: err.message });
+  }
+});
+
+// Save onboarding goal
+app.post("/onboarding/goal", async (req, res) => {
+  try {
+    const { userId, careerGoal, experienceLevel } = req.body;
+    
+    if (!userId || !careerGoal) {
+      return res.status(400).json({ error: "userId and careerGoal are required" });
+    }
+    
+    // Check if there's already an analysis for this user
+    const existingAnalyses = await getUserAnalyses(userId);
+    
+    if (existingAnalyses && existingAnalyses.length > 0) {
+      // Update the most recent analysis with the career goal and experience level
+      const analysisId = existingAnalyses[0].id;
+      await pool.query(
+        `UPDATE user_analyses 
+         SET career_goal = $1, goal = $1, experience_level = $2, onboarding_completed = TRUE, updated_at = NOW()
+         WHERE id = $3`,
+        [careerGoal, experienceLevel || null, analysisId]
+      );
+      
+      return res.json({
+        success: true,
+        message: "Onboarding goal saved",
+        analysisId
+      });
+    } else {
+      // Create a new analysis record for the user with onboarding data
+      const analysisId = `onboarding_${userId}_${Date.now()}`;
+      await pool.query(
+        `INSERT INTO user_analyses 
+         (id, user_id, career_goal, goal, experience_level, onboarding_completed, created_at, updated_at)
+         VALUES ($1, $2, $3, $3, $4, TRUE, NOW(), NOW())`,
+        [analysisId, userId, careerGoal, experienceLevel || null]
+      );
+      
+      return res.json({
+        success: true,
+        message: "Onboarding goal saved",
+        analysisId
+      });
+    }
+  } catch (err) {
+    console.error("❌ /onboarding/goal error:", err);
+    return res.status(500).json({ error: "Failed to save goal", details: err.message });
   }
 });
 
