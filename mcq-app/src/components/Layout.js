@@ -5,7 +5,7 @@ function Layout({ children }) {
     <div className="container">
       <Navbar />
       <div className="header">
-        <h1>Personalized Learning Platform</h1>
+        <h1>Intelligent Personalized Learning Platform</h1>
       </div>
       {children}
     </div>

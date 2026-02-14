@@ -119,17 +119,6 @@ function HomePage() {
         }
         
         setTimeout(() => setSuccessMessage(""), 3000);
-        
-        // Automatically navigate to Technical Assessment (QuizPage)
-        setTimeout(() => {
-          navigate("/quiz", {
-            state: {
-              sourceType: inputType,
-              sourceUrl: inputType === "github" ? githubLink : null,
-              extractedText: data.text
-            }
-          });
-        }, 500);
 
       } else {
         // GitHub URL path (existing logic)
@@ -169,17 +158,6 @@ function HomePage() {
         }
         
         setTimeout(() => setSuccessMessage(""), 3000);
-        
-        // Automatically navigate to Technical Assessment (QuizPage)
-        setTimeout(() => {
-          navigate("/quiz", {
-            state: {
-              sourceType: inputType,
-              sourceUrl: inputType === "github" ? githubLink : null,
-              extractedText: data.text
-            }
-          });
-        }, 500);
       }
     } catch (err) {
       console.error(err);
@@ -313,7 +291,7 @@ function HomePage() {
   if (!isExtracted) {
     return (
       <div className="card">
-        <h3>📄 Upload & Extract Document</h3>
+        <h3>Get Started with Your Profile</h3>
         
         {/* Input Type Toggle */}
         <div style={{ 
@@ -361,6 +339,18 @@ function HomePage() {
         
         {inputType === "github" ? (
           <>
+            <div style={{ 
+              backgroundColor: "#f0f9ff", 
+              border: "1px solid #bae6fd", 
+              borderRadius: "8px", 
+              padding: "12px 16px", 
+              marginBottom: "15px"
+            }}>
+              <p style={{ color: "#0369a1", fontSize: "13px", margin: 0 }}>
+                Paste the direct PDF link from your GitHub repository.<br />
+                Make sure the file is public and accessible.
+              </p>
+            </div>
             <input
               type="text"
               placeholder="Paste GitHub PDF link"
@@ -371,6 +361,17 @@ function HomePage() {
           </>
         ) : (
           <>
+            <div style={{ 
+              backgroundColor: "#f0f9ff", 
+              border: "1px solid #bae6fd", 
+              borderRadius: "8px", 
+              padding: "12px 16px", 
+              marginBottom: "15px"
+            }}>
+              <p style={{ color: "#0369a1", fontSize: "13px", margin: 0 }}>
+                Upload your resume in PDF format to analyze your skills and generate personalized recommendations.
+              </p>
+            </div>
             <input
               type="file"
               accept=".pdf"
@@ -406,7 +407,7 @@ function HomePage() {
             cursor: loading ? "not-allowed" : "pointer"
           }}
         >
-          {loading ? "Extracting..." : "Extract Document"}
+          {loading ? "Extracting..." : "🔍 Analyze Document"}
         </button>
 
         {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
@@ -464,7 +465,7 @@ function HomePage() {
           marginLeft: "10px"
         }}
       >
-        ← Back
+        🔄 Start Over
       </button>
 
       {successMessage && (

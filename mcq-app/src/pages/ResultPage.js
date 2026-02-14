@@ -261,14 +261,6 @@ function ResultPage() {
           🏆 Assessment Complete
         </h2>
 
-        {/* Back Button */}
-        <button
-          onClick={() => navigate("/quiz")}
-          style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Back to Assessment
-        </button>
-
         {topic && (
           <p style={{ textAlign: "center", color: "#667eea", fontSize: "18px", fontWeight: "600", marginBottom: "20px" }}>
             Topic: {topic}
@@ -335,10 +327,19 @@ function ResultPage() {
                 width: "100%",
                 padding: "18px",
                 fontSize: "18px",
+                marginBottom: "15px",
                 background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
               }}
             >
               {loading ? "Generating..." : "🚀 Generate Personalized Learning Path"}
+            </button>
+
+            {/* Back Button */}
+            <button
+              onClick={() => navigate("/quiz")}
+              style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+            >
+              ↩️ Back to Quiz
             </button>
           </>
         ) : (
@@ -438,7 +439,7 @@ function ResultPage() {
 
             <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
               <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
-                📄 PDF Chat
+                💬 Chat with PDF
               </button>
               <button onClick={() => navigate("/quiz")} style={{ flex: "1", minWidth: "150px", background: "#9C27B0" }}>
                 🔄 New Assessment

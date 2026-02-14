@@ -208,23 +208,7 @@ function LearningMaterialPage() {
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         padding: "40px"
       }}>
-        {/* Back Button */}
-        <button
-          onClick={() => navigate("/result")}
-          style={{
-            marginBottom: "20px",
-            background: "#f3f4f6",
-            border: "1px solid #d1d5db",
-            padding: "10px 20px",
-            cursor: "pointer",
-            borderRadius: "8px",
-            color: "#374151",
-            fontSize: "14px",
-            fontWeight: "500"
-          }}
-        >
-          ← Back to Results
-        </button>
+        
 
         {/* Header */}
         <h1 style={{ color: "#2c3e50", marginBottom: "10px", textAlign: "center" }}>
@@ -262,25 +246,7 @@ function LearningMaterialPage() {
           </div>
         )}
 
-        {/* Learning Tips */}
-        {learningMaterial.learningTips && learningMaterial.learningTips.length > 0 && (
-          <div style={{
-            marginBottom: "30px",
-            padding: "20px",
-            background: "#FFF3E0",
-            borderRadius: "8px",
-            borderLeft: "4px solid #F57C00"
-          }}>
-            <h3 style={{ color: "#E65100", marginBottom: "15px", textAlign: "center" }}>💡 Learning Tips</h3>
-            <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
-              {learningMaterial.learningTips.map((tip, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        
 
         {/* Main Content Sections */}
         <div style={{ marginBottom: "30px" }}>
@@ -531,7 +497,7 @@ function LearningMaterialPage() {
               fontWeight: "600"
             }}
           >
-            📥 Download Learning Material
+            Download Learning Material
           </button>
 
           <button
@@ -548,7 +514,7 @@ function LearningMaterialPage() {
               fontWeight: "600"
             }}
           >
-            {loading ? "Generating Quiz..." : "🎯 Test Knowledge & Take Assignment"}
+            {loading ? "Generating Quiz..." : "Test Your Knowledge"}
           </button>
         </div>
 
@@ -560,21 +526,7 @@ function LearningMaterialPage() {
           justifyContent: "center",
           flexWrap: "wrap"
         }}>
-          <button
-            onClick={() => navigate("/pdf-chat")}
-            style={{
-              padding: "12px 24px",
-              fontSize: "14px",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              cursor: "pointer",
-              color: "#374151",
-              fontWeight: "500"
-            }}
-          >
-            📄 PDF Chat
-          </button>
+      
           <button
             onClick={() => navigate("/result")}
             style={{

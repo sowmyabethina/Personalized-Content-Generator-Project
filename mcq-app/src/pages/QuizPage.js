@@ -356,7 +356,7 @@ function QuizPage() {
 
       return (
         <div className="card">
-          <h2>📝 Technical Quiz (Based on Your PDF)</h2>
+          <h2>Technical Quiz (Based on the Content)</h2>
           <p>Question {quizIndex + 1} of {displayQuestions.length}</p>
 
           <h3 style={{ margin: "20px 0" }}>{displayQuestions[quizIndex]?.question}</h3>
@@ -436,7 +436,7 @@ function QuizPage() {
             }}
             style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
           >
-            ← back
+            ↩️ Previous Question
           </button>
         </div>
       );
@@ -492,7 +492,7 @@ function QuizPage() {
             }}
             style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
           >
-            ← Retake Quiz
+            🔄 Try Again
           </button>
         </div>
       );
@@ -536,7 +536,7 @@ function QuizPage() {
           disabled={!topic.trim()}
           style={{ width: "100%", padding: "14px", fontSize: "16px" }}
         >
-          Continue to Learner Assessment →
+          Begin Level Assessment  →
         </button>
 
         <button
@@ -548,7 +548,7 @@ function QuizPage() {
           }}
           style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
         >
-          ← back (Retake Quiz)
+          ← Retake Quiz
         </button>
       </div>
     );
@@ -776,25 +776,12 @@ function QuizPage() {
 
     // Format category name for display
     const formatCategory = (key) => {
-      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase()).trim();
     };
 
     return (
       <div className="card">
-        <h2>🚀 Step 4: Generate Your Content</h2>
-
-        {/* Back Button */}
-        <button
-          onClick={() => {
-            setLearningIndex(0);
-            setLearningAnswers([]);
-            setLearningSelected("");
-            setStage("learning");
-          }}
-          style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Back to Learning Assessment
-        </button>
+        <h2>Personalized Learning Dashboard</h2>
 
         {/* Assessment Summary */}
         <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
@@ -810,9 +797,9 @@ function QuizPage() {
             <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px" }}>
               <span>{formatCategory(key)}:</span>
               <span style={{
-                color: getLevelColor(value),
+                color: getLevelColor(value?.trim()),
                 fontWeight: "bold"
-              }}>{value}</span>
+              }}>{value?.trim()}</span>
             </div>
           ))}
         </div>
@@ -836,18 +823,25 @@ function QuizPage() {
               weakAreas
             }
           })}
-          style={{ padding: "20px", fontSize: "16px", width: "100%" }}
+          style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
         >
-          <span style={{ fontSize: "30px" }}>⚡</span>
-          <strong>Continue to Content Generation</strong>
+          <strong>Create My Learning Plan</strong>
         </button>
 
+        
+        {/* Back Button */}
         <button
-          onClick={() => navigate("/pdf-chat")}
-          style={{ marginTop: "15px", background: "transparent", border: "1px solid #ddd", padding: "12px", width: "100%" }}
+          onClick={() => {
+            setLearningIndex(0);
+            setLearningAnswers([]);
+            setLearningSelected("");
+            setStage("learning");
+          }}
+          style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
         >
-          📄 Chat with PDF Instead
+          ← Back to Learning Assessment
         </button>
+        
       </div>
     );
   }

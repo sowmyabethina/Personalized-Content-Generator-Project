@@ -164,13 +164,7 @@ function PdfChatPage() {
   if (!pdfStatus?.pdfLoaded && !showChatbot) {
     return (
       <div className="card" style={{ maxWidth: "600px", margin: "0 auto" }}>
-        {/* Back Button */}
-        <button
-          onClick={() => navigate("/quiz")}
-          style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Back to Assessment
-        </button>
+        
 
         <h3>📄 Upload PDF to Start Chatting</h3>
         <p style={{ color: "#6b7280", marginBottom: "20px" }}>
@@ -230,16 +224,14 @@ function PdfChatPage() {
             </button>
           </div>
         )}
-
-        <div style={{ marginTop: "20px", padding: "15px", background: "#f3f4f6", borderRadius: "8px" }}>
-          <h4 style={{ marginTop: 0 }}>💡 Tips</h4>
-          <ul style={{ marginBottom: 0, paddingLeft: "20px" }}>
-            <li>Upload a resume, research paper, or technical document</li>
-            <li>Ask specific questions about the content</li>
-            <li>Use follow-up questions like "explain more" or "give examples"</li>
-            <li>The system remembers your conversation context</li>
-          </ul>
-        </div>
+        {/* Back Button */}
+        <button
+          onClick={() => navigate("/quiz")}
+          style={{marginTop: "20px", marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ↩️ Back to Quiz
+        </button>
+        
       </div>
     );
   }
@@ -252,7 +244,7 @@ function PdfChatPage() {
         onClick={() => navigate("/quiz")}
         style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "8px 16px", cursor: "pointer", borderRadius: "6px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
       >
-        ← Back
+        ↩️ Back
       </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
@@ -273,7 +265,7 @@ function PdfChatPage() {
               fontSize: "12px",
             }}
           >
-            Reset
+            🔄 New Chat
           </button>
         </div>
       </div>
@@ -407,7 +399,7 @@ function PdfChatPage() {
             fontWeight: "600",
           }}
         >
-          Send
+          ➤ Ask
         </button>
       </div>
 
