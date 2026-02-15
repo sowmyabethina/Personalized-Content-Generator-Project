@@ -325,27 +325,7 @@ function PdfChatPage() {
               )}
               <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.5" }}>{message.content}</div>
 
-              {/* Show sources for assistant messages */}
-              {message.type === "assistant" && message.sources?.length > 0 && (
-                <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid #e5e7eb" }}>
-                  <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 5px 0" }}>
-                    📎 Sources:
-                  </p>
-                  {message.sources.map((source, i) => (
-                    <p
-                      key={i}
-                      style={{
-                        fontSize: "11px",
-                        color: "#9ca3af",
-                        margin: "2px 0",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      {source.text.substring(0, 100)}...
-                    </p>
-                  ))}
-                </div>
-              )}
+              {/* Sources removed per user preference */}
             </div>
           </div>
         ))}

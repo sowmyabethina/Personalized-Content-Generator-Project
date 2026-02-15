@@ -22,6 +22,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+// Control whether sources are included in responses (set to 'false' to hide)
+const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES !== 'false';
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -258,9 +260,9 @@ app.post("/ask", async (req, res) => {
     // If no relevant results found, return immediately without LLM call
     if (!results.length) {
       const noAnswerResponse = {
-        answer: "I couldn't find any relevant information in the uploaded PDF. Please try rephrasing your question.",
-        sources: []
+        answer: "I couldn't find any relevant information in the uploaded PDF. Please try rephrasing your question."
       };
+      if (INCLUDE_SOURCES) noAnswerResponse.sources = [];
       requestCache.set(cacheKey, {
         timestamp: Date.now(),
         response: noAnswerResponse
@@ -310,8 +312,9 @@ app.post("/ask", async (req, res) => {
 
     console.log("✅ Answer generated for question:", question.substring(0, 30) + "...");
 
-    const responseData = { answer, sources, isSummaryMode };
-    
+    const responseData = { answer, isSummaryMode };
+    if (INCLUDE_SOURCES) responseData.sources = sources;
+
     // Cache the response
     requestCache.set(cacheKey, {
       timestamp: Date.now(),
@@ -416,10 +419,10 @@ app.post("/chat", async (req, res) => {
     if (!results.length) {
       const noAnswerResponse = {
         answer: "I couldn't find any relevant information in the uploaded PDF. Please try rephrasing your question.",
-        sources: [],
         sessionId: chatId,
         isClarification
       };
+      if (INCLUDE_SOURCES) noAnswerResponse.sources = [];
       // Cache the no-result response too
       requestCache.set(cacheKey, {
         timestamp: Date.now(),
@@ -484,11 +487,11 @@ app.post("/chat", async (req, res) => {
 
     const responseData = {
       answer,
-      sources,
       sessionId: chatId,
       isClarification,
       isSummaryMode
     };
+    if (INCLUDE_SOURCES) responseData.sources = sources;
 
     // Cache the successful response
     requestCache.set(cacheKey, {

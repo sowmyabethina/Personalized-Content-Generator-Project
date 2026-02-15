@@ -428,11 +428,24 @@ function QuizPage() {
 
           <button
             onClick={() => {
-              setQuizIndex(0);
-              setQuizAnswers([]);
-              setQuizSelected("");
-              setQuizAnswerSubmitted(false);
-              setStage("score");
+              // If not on the first question, go back one step and restore previous answer
+              if (quizIndex > 0) {
+                const prevIndex = quizIndex - 1;
+                const prevSelected = quizAnswers[prevIndex] || "";
+                const newAnswers = quizAnswers.slice(0, prevIndex);
+                setQuizAnswers(newAnswers);
+                setQuizIndex(prevIndex);
+                setQuizSelected(prevSelected);
+                setQuizAnswerSubmitted(false);
+                setAnswerLocked(false);
+              } else {
+                // If on the first question, fall back to score/summary stage
+                setQuizIndex(0);
+                setQuizAnswers([]);
+                setQuizSelected("");
+                setQuizAnswerSubmitted(false);
+                setStage("score");
+              }
             }}
             style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
           >

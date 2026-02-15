@@ -12,9 +12,9 @@ export async function generateQuestions(text) {
       throw new Error("Not enough content");
     }
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash"
-    });
+
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
     const prompt = `
 You are an expert technical interviewer.
@@ -24,23 +24,11 @@ Your task is to convert resume/PDF content into SKILL TESTING questions.
 VERY IMPORTANT:
 
 You are NOT allowed to ask questions about:
-- Person name
-- College / school / institute
-- Certificates
-- Where they studied
-- Which course they completed
-- Resume facts
-- Personal background
 
 ❌ NEVER create questions like:
-- "Which college did X attend?"
-- "Which certificate did X complete?"
-- "From which institute did X graduate?"
-- "What degree does X have?"
 
 These are FORBIDDEN.
 
----
 
 You MUST do this instead:
 
@@ -66,7 +54,6 @@ If PDF says "MongoDB":
 If PDF says "Git":
 ✅ Ask: "What is the purpose of git rebase?"
 
----
 
 RULES:
 
@@ -92,19 +79,18 @@ CONTENT:
 ${text}
 `;
 
-    console.log("🚀 Sending to Gemini...");
+      console.log("🚀 Sending to OpenAI...");
 
-    const result = await model.generateContent({
-      contents: [
-        { role: "user", parts: [{ text: prompt }] }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
+      const result = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 1500,
+        temperature: 0.2
+      });
 
-    const rawText =
-      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const rawText = result?.choices?.[0]?.message?.content;
 
     if (!rawText) {
       throw new Error("Empty Gemini output");
