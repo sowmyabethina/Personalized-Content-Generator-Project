@@ -291,21 +291,7 @@ function LearningProgressPage() {
               Track your growth and continue learning
             </p>
           </div>
-          <button
-            onClick={() => navigate("/")}
-            style={{
-              padding: "10px 20px",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              cursor: "pointer",
-              color: "#374151",
-              fontSize: "14px",
-              fontWeight: "500"
-            }}
-          >
-            ← Back to Home
-          </button>
+          
           <button
             onClick={() => loadAnalyses()}
             disabled={loading}
@@ -974,9 +960,31 @@ function LearningProgressPage() {
                 </div>
               </div>
             </div>
+
+            
           </div>
         )}
+
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "30px" }}>
+          <button onClick={() => navigate("/")}
+            style={{
+              padding: "10px 20px",
+              background: "#f3f4f6",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              cursor: "pointer",
+              color: "#374151",
+              fontSize: "14px",
+              fontWeight: "500"
+
+            }}
+          >
+            ← Back to Home
+          </button>
+        </div>
       </div>
+
+      
     </div>
   );
 }

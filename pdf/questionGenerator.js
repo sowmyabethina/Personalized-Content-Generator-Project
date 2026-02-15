@@ -12,9 +12,7 @@ export async function generateQuestions(text) {
       throw new Error("Not enough content");
     }
 
-
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
 You are an expert technical interviewer.
@@ -79,24 +77,32 @@ CONTENT:
 ${text}
 `;
 
-      console.log("🚀 Sending to OpenAI...");
+    console.log("🚀 Sending to Gemini...");
 
-      const result = await client.chat.completions.create({
-        model,
-        messages: [
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 1500,
-        temperature: 0.2
-      });
-
-      const rawText = result?.choices?.[0]?.message?.content;
+    const result = await model.generateContent(prompt);
+    let rawText = result.response.text();
 
     if (!rawText) {
       throw new Error("Empty Gemini output");
     }
 
     console.log("🧠 AI Text:", rawText);
+
+    // Clean up the response - Gemini 2.5 often returns markdown-wrapped JSON
+    rawText = rawText.trim();
+    
+    // Remove markdown code blocks if present
+    if (rawText.startsWith("```json")) {
+      rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (rawText.startsWith("```")) {
+      rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    // Also handle cases where there's text before/after the JSON
+    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      rawText = jsonMatch[0];
+    }
 
     let parsed;
 
