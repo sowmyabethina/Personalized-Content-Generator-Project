@@ -839,35 +839,56 @@ function QuizPage() {
           ))}
         </div>
 
-        {/* Continue to Content Generation */}
+        {/* Combined Analysis */}
+        {storedCombined && (
+          <div style={{
+            background: "#f8f9fa",
+            borderRadius: "12px",
+            padding: "20px",
+            marginBottom: "20px",
+            borderLeft: "4px solid #667eea",
+            textAlign: "left"
+          }}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>📊 Combined Analysis</h4>
+            <p style={{ margin: "0", color: "#555", lineHeight: "1.6" }}>
+              {storedCombined.combinedAnalysis}
+            </p>
+          </div>
+        )}
+
         <button
-          onClick={() => navigate("/result", {
-            state: {
-              topic: storedTopic,
-              technicalScore: techScore,
-              learningScore: learnScore,
-              combinedAnalysis: storedCombined,
-              mode: "quiz",
-              questions: displayQuestions,
-              quizAnswers: quizAnswers,
-              correctCount: correctCount,
-              // Pass through analysis data from HomePage
-              userId,
-              sourceType,
-              sourceUrl,
-              extractedText,
-              skills,
-              strengths,
-              weakAreas
-            }
-          })}
-          style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
+          onClick={() => {
+            const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
+            const learnScore = parseInt(localStorage.getItem("learningScore") || "50");
+            const storedTopic = localStorage.getItem("quizTopic") || topic;
+            const storedCombined = JSON.parse(localStorage.getItem("combinedData") || "{}");
+            const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
+            const learnLevel = storedCombined.learnerLevel || "Beginner";
+            
+            navigate("/result", {
+              state: {
+                topic: storedTopic,
+                technicalLevel: techLevel,
+                technicalScore: techScore,
+                learningLevel: learnLevel,
+                learningScore: learnScore,
+                combinedAnalysis: storedCombined,
+                mode: "learning-path",
+                autoGenerate: true
+              }
+            });
+          }}
+          style={{
+            width: "100%",
+            padding: "18px",
+            fontSize: "18px",
+            marginBottom: "15px",
+            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+          }}
         >
-          <strong>Performance Analysis</strong>
+          📚 Personalized Learning Path
         </button>
 
-        
-        {/* Back Button */}
         <button
           onClick={() => {
             setLearningIndex(0);
@@ -879,7 +900,6 @@ function QuizPage() {
         >
           ← Back to Learning Assessment
         </button>
-        
       </div>
     );
   }

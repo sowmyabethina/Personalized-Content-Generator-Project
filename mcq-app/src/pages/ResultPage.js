@@ -14,6 +14,8 @@ function ResultPage() {
     learningScore,
     combinedAnalysis,
     mode,
+    autoGenerate,
+    learningLevel,
     // Analysis data passed from QuizPage/HomePage
     userId,
     sourceType,
@@ -33,6 +35,8 @@ function ResultPage() {
     learningScore: 0,
     combinedAnalysis: null,
     mode: "direct",
+    autoGenerate: false,
+    learningLevel: "Beginner",
     userId: null,
     sourceType: "resume",
     sourceUrl: null,
@@ -52,6 +56,13 @@ function ResultPage() {
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
   const [analysisId, setAnalysisId] = useState(null);
+
+  // Auto-generate content when navigating from QuizPage
+  useEffect(() => {
+    if (autoGenerate && !showContent && !loading) {
+      generateContent();
+    }
+  }, [autoGenerate]);
 
   // Analyze quiz results to derive strengths and areas to improve
   const analyzeQuizResults = () => {
@@ -221,6 +232,12 @@ function ResultPage() {
   };
 
   const getLearningStyle = () => {
+    // Use learningLevel if provided directly from QuizPage
+    if (learningLevel) {
+      if (learningLevel === "Advanced") return "Hands-On Learner";
+      if (learningLevel === "Intermediate") return "Balanced Learner";
+      return "Theory-First Learner";
+    }
     const learnScore = learningScore || 50;
     if (learnScore >= 70) return "Hands-On Learner";
     if (learnScore >= 35) return "Balanced Learner";
@@ -419,104 +436,7 @@ function ResultPage() {
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         padding: "40px"
       }}>
-        <h2 style={{ textAlign: "center", color: "#2c3e50", marginBottom: "10px", fontSize: "28px" }}>
-           Personalized Performance Analysis
-        </h2>
-
-        {topic && (
-          <p style={{ textAlign: "center", color: "#667eea", fontSize: "18px", fontWeight: "600", marginBottom: "20px" }}>
-             Topic: {topic}
-          </p>
-        )}
-
-        {/* AI Analysis Explanation */}
-        <div style={{
-          background: "#4ea3f9",
-          borderRadius: "12px",
-          padding: "25px",
-          marginBottom: "25px",
-          color: "white",
-          textAlign: "left"
-        }}>
-          <h4 style={{ margin: "0 0 15px 0", fontSize: "18px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <span></span> AI Analysis 
-          </h4>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.95)", lineHeight: "1.7", fontSize: "15px" }}>
-            {getAIExplanation()}
-          </p>
-        </div>
-
-        {/* Technical Score */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "20px",
-          marginBottom: "20px"
-        }}>
-          <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>📊 Technical Knowledge</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{technicalScore || score}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Level: {getTechnicalLevel()}</p>
-          </div>
-
-          <div style={{
-            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>🧠 Learning Preference</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{learningScore || 50}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Style: {getLearningStyle()}</p>
-          </div>
-        </div>
-
-        {renderQuizScore()}
-
-
-        {/* Simplified Summary - Quick Reference */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "25px" }}>
-          {/* Strengths Summary */}
-          <div style={{
-            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-            borderRadius: "12px",
-            padding: "20px",
-            color: "white"
-          }}>
-            <h5 style={{ margin: "0 0 10px 0", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>💪</span> Your Strengths
-            </h5>
-            <p style={{ margin: 0, fontSize: "13px", opacity: 0.9 }}>
-              {getDerivedStrengths().length > 0 
-                ? getDerivedStrengths().slice(0, 3).join(", ") 
-                : "Keep learning to discover your strengths!"}
-            </p>
-          </div>
-
-          {/* Areas to Improve Summary */}
-          <div style={{
-            background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-            borderRadius: "12px",
-            padding: "20px",
-            color: "white"
-          }}>
-            <h5 style={{ margin: "0 0 10px 0", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>🎯</span> Focus Areas
-            </h5>
-            <p style={{ margin: 0, fontSize: "13px", opacity: 0.9 }}>
-              {getAreasToImprove().length > 0 
-                ? getAreasToImprove().slice(0, 3).join(", ") 
-                : "Great job! No specific areas to improve."}
-            </p>
-          </div>
-        </div>
+        
 
         {/* Combined Analysis */}
         {combinedAnalysis && (
