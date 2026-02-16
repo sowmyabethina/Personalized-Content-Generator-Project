@@ -8,6 +8,8 @@ import ResultPage from "./pages/ResultPage";
 import LearningMaterialPage from "./pages/LearningMaterialPage";
 import PdfChatPage from "./pages/PdfChatPage";
 import LearningProgressPage from "./pages/LearningProgressPage";
+import About from "./pages/About";
+import Help from "./pages/Help";
 import "./App.css";
 
 function App() {
@@ -165,6 +167,8 @@ function App() {
             <Route path="/learning-material" element={<LearningMaterialPage />} />
             <Route path="/pdf-chat" element={<PdfChatPage />} />
             <Route path="/progress" element={<LearningProgressPage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/help" element={<Help />} />
           </Routes>
         </Layout>
       </SignedIn>
