@@ -37,117 +37,160 @@ function LearningMaterialPage() {
     );
   }
 
-  // Download learning material as text file
-  const downloadMaterial = () => {
+  // Download learning material as PDF
+  const downloadMaterial = async () => {
     if (!learningMaterial) return;
 
-    let content = `${learningMaterial.title || "Learning Material"}\n`;
-    content += `${"=".repeat(60)}\n\n`;
-    content += `Topic: ${learningMaterial.topic}\n`;
-    content += `Level: ${learningMaterial.level}\n`;
-    content += `Learning Style: ${learningMaterial.style}\n\n`;
+    setLoading(true);
+    setError("");
 
-    if (learningMaterial.summary) {
-      content += `SUMMARY\n${"-".repeat(40)}\n${learningMaterial.summary}\n\n`;
-    }
+    try {
+      // Build content string (same format as before, but sent to backend)
+      let content = `${learningMaterial.title || "Learning Material"}\n`;
+      content += `${"=".repeat(60)}\n\n`;
+      content += `Topic: ${learningMaterial.topic}\n`;
+      content += `Level: ${learningMaterial.level}\n`;
+      content += `Learning Style: ${learningMaterial.style}\n\n`;
 
-    if (learningMaterial.sections) {
-      learningMaterial.sections.forEach((section, idx) => {
+      if (learningMaterial.summary) {
+        content += `SUMMARY\n${"-".repeat(40)}\n${learningMaterial.summary}\n\n`;
+      }
+
+      if (learningMaterial.sections) {
+        learningMaterial.sections.forEach((section, idx) => {
+          content += `\n${"=".repeat(60)}\n`;
+          content += `${idx + 1}. ${section.title}\n`;
+          content += `${"=".repeat(60)}\n\n`;
+          content += `${section.content}\n\n`;
+
+          if (section.keyPoints) {
+            content += `KEY POINTS:\n`;
+            section.keyPoints.forEach(point => {
+              content += `  • ${point}\n`;
+            });
+            content += `\n`;
+          }
+
+          if (section.applications) {
+            content += `REAL-WORLD APPLICATIONS:\n`;
+            section.applications.forEach(app => {
+              content += `  • ${app}\n`;
+            });
+            content += `\n`;
+          }
+
+          if (section.examples) {
+            content += `EXAMPLES:\n`;
+            section.examples.forEach((ex, exIdx) => {
+              content += `\n  Example ${exIdx + 1}: ${ex.title}\n`;
+              content += `  ${ex.description}\n`;
+              if (ex.code) {
+                content += `  Code:\n  ${ex.code}\n`;
+              }
+            });
+            content += `\n`;
+          }
+
+          if (section.practiceQuestions) {
+            content += `PRACTICE QUESTIONS:\n`;
+            section.practiceQuestions.forEach((q, qIdx) => {
+              content += `  ${qIdx + 1}. ${q}\n`;
+            });
+            content += `\n`;
+          }
+
+          content += `Estimated Time: ${section.estimatedTime}\n`;
+        });
+      }
+
+      if (learningMaterial.finalProject) {
         content += `\n${"=".repeat(60)}\n`;
-        content += `${idx + 1}. ${section.title}\n`;
-        content += `${"=".repeat(60)}\n\n`;
-        content += `${section.content}\n\n`;
-
-        if (section.keyPoints) {
-          content += `KEY POINTS:\n`;
-          section.keyPoints.forEach(point => {
-            content += `  • ${point}\n`;
-          });
-          content += `\n`;
-        }
-
-        if (section.applications) {
-          content += `REAL-WORLD APPLICATIONS:\n`;
-          section.applications.forEach(app => {
-            content += `  • ${app}\n`;
-          });
-          content += `\n`;
-        }
-
-        if (section.examples) {
-          content += `EXAMPLES:\n`;
-          section.examples.forEach((ex, exIdx) => {
-            content += `\n  Example ${exIdx + 1}: ${ex.title}\n`;
-            content += `  ${ex.description}\n`;
-            if (ex.code) {
-              content += `  Code:\n  ${ex.code}\n`;
-            }
-          });
-          content += `\n`;
-        }
-
-        if (section.practiceQuestions) {
-          content += `PRACTICE QUESTIONS:\n`;
-          section.practiceQuestions.forEach((q, qIdx) => {
-            content += `  ${qIdx + 1}. ${q}\n`;
-          });
-          content += `\n`;
-        }
-
-        content += `Estimated Time: ${section.estimatedTime}\n`;
-      });
-    }
-
-    if (learningMaterial.finalProject) {
-      content += `\n${"=".repeat(60)}\n`;
-      content += `CAPSTONE PROJECT\n${"=".repeat(60)}\n\n`;
-      content += `${learningMaterial.finalProject.title}\n`;
-      content += `${learningMaterial.finalProject.description}\n\n`;
-      content += `STEPS:\n`;
-      learningMaterial.finalProject.steps.forEach((step, idx) => {
-        content += `  ${idx + 1}. ${step}\n`;
-      });
-      content += `\nExpected Outcome: ${learningMaterial.finalProject.expectedOutcome}\n`;
-    }
-
-    if (learningMaterial.cheatsheet) {
-      content += `\n${"=".repeat(60)}\n`;
-      content += `QUICK REFERENCE CHEATSHEET\n${"=".repeat(60)}\n\n`;
-
-      if (learningMaterial.cheatsheet.commands) {
-        content += `COMMANDS/SYNTAX:\n`;
-        learningMaterial.cheatsheet.commands.forEach(cmd => {
-          content += `  ${cmd}\n`;
+        content += `CAPSTONE PROJECT\n${"=".repeat(60)}\n\n`;
+        content += `${learningMaterial.finalProject.title}\n`;
+        content += `${learningMaterial.finalProject.description}\n\n`;
+        content += `STEPS:\n`;
+        learningMaterial.finalProject.steps.forEach((step, idx) => {
+          content += `  ${idx + 1}. ${step}\n`;
         });
-        content += `\n`;
+        content += `\nExpected Outcome: ${learningMaterial.finalProject.expectedOutcome}\n`;
       }
 
-      if (learningMaterial.cheatsheet.definitions) {
-        content += `DEFINITIONS:\n`;
-        Object.entries(learningMaterial.cheatsheet.definitions).forEach(([term, def]) => {
-          content += `  ${term}: ${def}\n`;
+      if (learningMaterial.cheatsheet) {
+        content += `\n${"=".repeat(60)}\n`;
+        content += `QUICK REFERENCE CHEATSHEET\n${"=".repeat(60)}\n\n`;
+
+        if (learningMaterial.cheatsheet.commands) {
+          content += `COMMANDS/SYNTAX:\n`;
+          learningMaterial.cheatsheet.commands.forEach(cmd => {
+            content += `  ${cmd}\n`;
+          });
+          content += `\n`;
+        }
+
+        if (learningMaterial.cheatsheet.definitions) {
+          content += `DEFINITIONS:\n`;
+          Object.entries(learningMaterial.cheatsheet.definitions).forEach(([term, def]) => {
+            content += `  ${term}: ${def}\n`;
+          });
+        }
+      }
+
+      if (learningMaterial.furtherReading) {
+        content += `\n${"=".repeat(60)}\n`;
+        content += `FURTHER READING & RESOURCES\n${"=".repeat(60)}\n\n`;
+        learningMaterial.furtherReading.forEach((resource, idx) => {
+          content += `  ${idx + 1}. ${resource}\n`;
         });
       }
-    }
 
-    if (learningMaterial.furtherReading) {
-      content += `\n${"=".repeat(60)}\n`;
-      content += `FURTHER READING & RESOURCES\n${"=".repeat(60)}\n\n`;
-      learningMaterial.furtherReading.forEach((resource, idx) => {
-        content += `  ${idx + 1}. ${resource}\n`;
+      // Call backend API to generate PDF
+      const response = await fetch("http://localhost:5000/download-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: content,
+          filename: (learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()
+        })
       });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      // Get the PDF blob from response
+      const blob = await response.blob();
+      
+      // Create download link and trigger download - force to Downloads folder
+      const downloadFilename = `${(learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()}-complete-guide.pdf`;
+      
+      // Create blob URL with explicit MIME type
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Create anchor element for download
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = downloadFilename;
+      link.style.display = 'none';
+      
+      // Append to body, click, and remove - this triggers native browser download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up after a short delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+
+      console.log("✅ PDF downloaded successfully");
+    } catch (err) {
+      console.error("PDF download error:", err);
+      setError("Failed to download PDF. Please try again.");
     }
 
-    // Create blob and download
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()}-complete-guide.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setLoading(false);
   };
 
   // Generate quiz from learning material

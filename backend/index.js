@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import multer from "multer";
 import fs from "fs";
 import pdf from "pdf-parse";
+import PDFDocument from "pdfkit";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import pg from 'pg';
 
@@ -1246,6 +1247,109 @@ No additional text, only JSON.`;
   } catch (err) {
     console.error("❌ /generate-quiz-from-material error:", err);
     return res.status(500).json({ error: "Quiz generation failed", details: err.message });
+  }
+});
+
+// ===============================
+// PDF GENERATION API
+// ===============================
+
+// Generate and download PDF from learning material content
+app.post("/download-pdf", async (req, res) => {
+  try {
+    const { content, filename } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: "Content is required" });
+    }
+
+    // Set response headers to force download (not inline display)
+    const safeFilename = (filename || "learning-material").replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+    
+    // Essential headers for forcing download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}.pdf"; filename*=UTF-8''${encodeURIComponent(safeFilename)}.pdf`);
+    
+    // Prevent caching and ensure clean download
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    
+    // Remove X-Powered-By to prevent some browsers from trying to handle it specially
+    res.removeHeader("X-Powered-By");
+
+    // Create PDF document - let PDFKit handle page breaks automatically
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: 50, right: 50 }
+    });
+
+    // Pipe directly to response
+    doc.pipe(res);
+
+    // Add title
+    doc.fontSize(20).font('Helvetica-Bold').text("Learning Material", {
+      align: 'center',
+      continued: false
+    });
+    doc.moveDown();
+
+    // Parse content and add to PDF
+    // PDFKit automatically handles page breaks when using text() without explicit y position
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip separator lines (=== or ---)
+      if (line.match(/^={30,}$/) || line.match(/^-{30,}$/)) {
+        continue;
+      }
+
+      // Format headers (lines that end with colon and are all uppercase)
+      if (line.match(/^[A-Z\s]+:$/)) {
+        doc.fontSize(14).font('Helvetica-Bold').text(line, {
+          continued: false
+        });
+        doc.moveDown(0.3);
+      }
+      // Section titles (numbered sections like "1. Title")
+      else if (line.match(/^\d+\.\s+/) && !line.includes('.')) {
+        doc.fontSize(14).font('Helvetica-Bold').text(line, {
+          continued: false
+        });
+        doc.moveDown(0.3);
+      }
+      // Bullet points
+      else if (line.trim().startsWith('•') || line.trim().startsWith('- ')) {
+        doc.fontSize(11).font('Helvetica').text(line, {
+          continued: false
+        });
+      }
+      // Empty lines
+      else if (!line.trim()) {
+        doc.moveDown(0.5);
+      }
+      // Regular content - let PDFKit handle wrapping and page breaks
+      else {
+        doc.fontSize(11).font('Helvetica').text(line, {
+          continued: false,
+          lineBreak: true
+        });
+      }
+    }
+
+    // Finalize the PDF - this sends it to the client
+    doc.end();
+
+    console.log("✅ PDF generated successfully");
+
+  } catch (err) {
+    console.error("❌ /download-pdf error:", err);
+    // Only send error response if headers haven't been sent
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "PDF generation failed", details: err.message });
+    }
   }
 });
 
