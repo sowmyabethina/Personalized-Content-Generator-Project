@@ -356,6 +356,22 @@ function QuizPage() {
 
       return (
         <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                background: "#6b7280",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              ← Back to Home
+            </button>
+          </div>
           <h2>Technical Quiz (Based on the Content)</h2>
           <p>Question {quizIndex + 1} of {displayQuestions.length}</p>
 
@@ -428,7 +444,7 @@ function QuizPage() {
 
           <button
             onClick={() => {
-              // If not on the first question, go back one step and restore previous answer
+              // Only allow going back if not on the first question
               if (quizIndex > 0) {
                 const prevIndex = quizIndex - 1;
                 const prevSelected = quizAnswers[prevIndex] || "";
@@ -438,16 +454,22 @@ function QuizPage() {
                 setQuizSelected(prevSelected);
                 setQuizAnswerSubmitted(false);
                 setAnswerLocked(false);
-              } else {
-                // If on the first question, fall back to score/summary stage
-                setQuizIndex(0);
-                setQuizAnswers([]);
-                setQuizSelected("");
-                setQuizAnswerSubmitted(false);
-                setStage("score");
               }
+              // If on first question (quizIndex === 0), do nothing - button should be disabled
             }}
-            style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+            disabled={quizIndex === 0}
+            style={{ 
+              marginTop: "15px", 
+              background: quizIndex === 0 ? "#e5e7eb" : "#f3f4f6", 
+              border: "1px solid #d1d5db", 
+              padding: "12px 20px", 
+              width: "100%", 
+              borderRadius: "8px", 
+              cursor: quizIndex === 0 ? "not-allowed" : "pointer", 
+              color: quizIndex === 0 ? "#9ca3af" : "#374151", 
+              fontSize: "14px", 
+              fontWeight: "500" 
+            }}
           >
             ↩️ Previous Question
           </button>
@@ -825,7 +847,10 @@ function QuizPage() {
               technicalScore: techScore,
               learningScore: learnScore,
               combinedAnalysis: storedCombined,
-              mode: "direct",
+              mode: "quiz",
+              questions: displayQuestions,
+              quizAnswers: quizAnswers,
+              correctCount: correctCount,
               // Pass through analysis data from HomePage
               userId,
               sourceType,
@@ -838,7 +863,7 @@ function QuizPage() {
           })}
           style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
         >
-          <strong>Create My Learning Plan</strong>
+          <strong>Performance Analysis</strong>
         </button>
 
         

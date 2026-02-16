@@ -265,7 +265,6 @@ function LearningProgressPage() {
   return (
     <div style={{ 
       minHeight: "100vh", 
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
       padding: "20px"
     }}>
       <div style={{ 

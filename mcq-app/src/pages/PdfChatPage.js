@@ -163,11 +163,11 @@ function PdfChatPage() {
   // If no PDF uploaded yet
   if (!pdfStatus?.pdfLoaded && !showChatbot) {
     return (
-      <div className="card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+      <div className="card" style={{ maxWidth: "600px", margin: "0 auto" , marginTop: "50px"}}>
         
 
         <h3>📄 Upload PDF to Start Chatting</h3>
-        <p style={{ color: "#6b7280", marginBottom: "20px" }}>
+        <p style={{ color: "#6b7280", marginBottom: "20px", marginTop: "20px" }}>
           Upload a PDF document and ask questions about its content. The system will
           extract relevant information to answer your queries.
         </p>
