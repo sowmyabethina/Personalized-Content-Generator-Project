@@ -237,7 +237,7 @@ function LearningProgressPage() {
         justifyContent: "center",
         alignItems: "center"
       }}>
-        <div className="card" style={{ textAlign: "center", padding: "40px" }}>
+        <div className="glass-card" style={{ textAlign: "center", padding: "40px" }}>
           <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
           <h2>Loading your learning progress...</h2>
           <p style={{ color: "#6b7280" }}>Fetching your analysis history</p>
@@ -265,6 +265,7 @@ function LearningProgressPage() {
   return (
     <div style={{ 
       minHeight: "100vh", 
+      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
       padding: "20px"
     }}>
       <div style={{ 

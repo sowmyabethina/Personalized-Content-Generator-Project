@@ -5,9 +5,7 @@ import fetch from "node-fetch";
 import multer from "multer";
 import fs from "fs";
 import pdf from "pdf-parse";
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const PDFDocument = require("pdfkit");
+import PDFDocument from "pdfkit";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import pg from 'pg';
 

@@ -163,11 +163,11 @@ function PdfChatPage() {
   // If no PDF uploaded yet
   if (!pdfStatus?.pdfLoaded && !showChatbot) {
     return (
-      <div className="card" style={{ maxWidth: "600px", margin: "0 auto" , marginTop: "50px"}}>
+      <div className="glass-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
         
 
         <h3>📄 Upload PDF to Start Chatting</h3>
-        <p style={{ color: "#6b7280", marginBottom: "20px", marginTop: "20px" }}>
+        <p style={{ color: "#6b7280", marginBottom: "20px" }}>
           Upload a PDF document and ask questions about its content. The system will
           extract relevant information to answer your queries.
         </p>
@@ -224,6 +224,13 @@ function PdfChatPage() {
             </button>
           </div>
         )}
+        {/* Back Button */}
+        <button
+          onClick={() => navigate("/quiz")}
+          style={{marginTop: "20px", marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+        >
+          ↩️ Back to Quiz
+        </button>
         
       </div>
     );
@@ -231,7 +238,14 @@ function PdfChatPage() {
 
   // Chat interface
   return (
-    <div className="card" style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div className="glass-card" style={{ maxWidth: "800px", margin: "0 auto" }}>
+      {/* Back Button */}
+      <button
+        onClick={() => navigate("/quiz")}
+        style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "8px 16px", cursor: "pointer", borderRadius: "6px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+      >
+        ↩️ Back
+      </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
         <h3 style={{ margin: 0 }}>💬 PDF Chat</h3>

@@ -13,12 +13,13 @@ function About() {
     title: {
       fontSize: "36px",
       fontWeight: "bold",
-      color: "#1f2937",
+      color: "#ffffff",
       marginBottom: "16px",
+      textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
     },
     subtitle: {
       fontSize: "18px",
-      color: "#64748b",
+      color: "rgba(255, 255, 255, 0.8)",
       maxWidth: "600px",
       margin: "0 auto",
       lineHeight: "1.6",
@@ -29,16 +30,16 @@ function About() {
     sectionTitle: {
       fontSize: "24px",
       fontWeight: "600",
-      color: "#1f2937",
+      color: "#ffffff",
       marginBottom: "20px",
       paddingBottom: "8px",
-      borderBottom: "2px solid #e5e7eb",
+      borderBottom: "2px solid rgba(255, 255, 255, 0.2)",
     },
     card: {
-      background: "#ffffff",
+      background: "#f9fafb",
       borderRadius: "12px",
       padding: "24px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       border: "1px solid #e5e7eb",
     },
     cardGrid: {
@@ -70,28 +71,6 @@ function About() {
       fontSize: "14px",
       color: "#64748b",
       lineHeight: "1.5",
-    },
-    techGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-      gap: "16px",
-    },
-    techItem: {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      padding: "16px",
-      background: "#f0f9ff",
-      borderRadius: "8px",
-      border: "1px solid #bae6fd",
-    },
-    techIcon: {
-      fontSize: "24px",
-    },
-    techName: {
-      fontSize: "16px",
-      fontWeight: "600",
-      color: "#0369a1",
     },
     missionText: {
       fontSize: "16px",
@@ -130,12 +109,6 @@ function About() {
     },
   ];
 
-  const techStack = [
-    { icon: "⚛️", name: "React" },
-    { icon: "🟢", name: "Node.js / Express" },
-    { icon: "🤖", name: "AI Integration" },
-    { icon: "🗄️", name: "Database" },
-  ];
 
   return (
     <div style={styles.container}>
@@ -159,19 +132,6 @@ function About() {
                 <div style={styles.featureTitle}>{feature.title}</div>
                 <div style={styles.featureDescription}>{feature.description}</div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tech Stack */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Tech Stack</h2>
-        <div style={styles.techGrid}>
-          {techStack.map((tech, index) => (
-            <div key={index} style={styles.techItem}>
-              <div style={styles.techIcon}>{tech.icon}</div>
-              <div style={styles.techName}>{tech.name}</div>
             </div>
           ))}
         </div>

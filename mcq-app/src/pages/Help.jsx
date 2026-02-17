@@ -28,12 +28,13 @@ function Help() {
     title: {
       fontSize: "36px",
       fontWeight: "bold",
-      color: "#1f2937",
+      color: "#ffffff",
       marginBottom: "12px",
+      textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
     },
     subtitle: {
       fontSize: "18px",
-      color: "#64748b",
+      color: "rgba(255, 255, 255, 0.8)",
     },
     section: {
       marginBottom: "32px",
@@ -41,7 +42,7 @@ function Help() {
     sectionTitle: {
       fontSize: "22px",
       fontWeight: "600",
-      color: "#1f2937",
+      color: "#ffffff",
       marginBottom: "16px",
       display: "flex",
       alignItems: "center",

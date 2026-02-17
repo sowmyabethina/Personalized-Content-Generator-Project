@@ -191,7 +191,7 @@ function HomePage() {
 
       if (!res.ok) {
         const bodyText = await res.text();
-        console.error("❌ Server error:", res.status, bodyText);
+        console.error(" Server error:", res.status, bodyText);
 
         try {
           const parsed = JSON.parse(bodyText);
@@ -256,7 +256,7 @@ function HomePage() {
           };
         });
 
-        setSuccessMessage("✅ Questions generated successfully!");
+        setSuccessMessage(" Questions generated successfully!");
         setTimeout(() => setSuccessMessage(""), 3000);
 
         // Clear previous analysis ID to ensure fresh assessment is created
@@ -280,41 +280,30 @@ function HomePage() {
         setError("Could not parse questions. Please try again.");
       }
     } catch (err) {
-      console.error("💥 Error:", err);
+      console.error("  Error:", err);
       setError(`Error: ${err.message}`);
     }
 
     setLoading(false);
   };
 
-  // Extraction step
+  // Extraction step - Initial state with glassmorphism card
   if (!isExtracted) {
     return (
-      <div className="card">
+      <>
+        <h1 className="page-title">Intelligent Personalized Learning Platform</h1>
+        <div className="glass-card">
         <h3>Get Started with Your Profile</h3>
         
         {/* Input Type Toggle */}
-        <div style={{ 
-          display: "flex", 
-          gap: "10px", 
-          marginBottom: "20px",
-          justifyContent: "center"
-        }}>
+        <div className="toggle-group">
           <button
             onClick={() => {
               setInputType("github");
               setResumeFile(null);
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: inputType === "github" ? "#2563eb" : "#e5e7eb",
-              color: inputType === "github" ? "white" : "#374151",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontWeight: "500"
-            }}
+            className={`toggle-btn ${inputType === "github" ? "active" : ""}`}
           >
             GitHub URL
           </button>
@@ -323,156 +312,161 @@ function HomePage() {
               setInputType("resume");
               setGithubLink("");
             }}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: inputType === "resume" ? "#2563eb" : "#e5e7eb",
-              color: inputType === "resume" ? "white" : "#374151",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontWeight: "500"
-            }}
+            className={`toggle-btn ${inputType === "resume" ? "active" : ""}`}
           >
             Upload Resume
           </button>
         </div>
         
-        {inputType === "github" ? (
-          <>
-            <div style={{ 
-              backgroundColor: "#f0f9ff", 
-              border: "1px solid #bae6fd", 
-              borderRadius: "8px", 
-              padding: "12px 16px", 
-              marginBottom: "15px"
-            }}>
-              <p style={{ color: "#0369a1", fontSize: "13px", margin: 0 }}>
-                Paste the direct PDF link from your GitHub repository.<br />
-                Make sure the file is public and accessible.
-              </p>
+        {/* Loading State with Pulsing Animation */}
+        {loading && (
+          <div className="extracting-progress">
+            <div className="pulsing-orb"></div>
+            <p className="extracting-text">Extracting Document...</p>
+            <p className="extracting-subtext">Our AI is analyzing your content</p>
+            <div className="progress-bar-container">
+              <div className="progress-bar"></div>
             </div>
-            <input
-              type="text"
-              placeholder="Paste GitHub PDF link"
-              value={githubLink}
-              onChange={(e) => setGithubLink(e.target.value)}
-              style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-            />
-          </>
-        ) : (
+          </div>
+        )}
+        
+        {!loading && (
           <>
-            <div style={{ 
-              backgroundColor: "#f0f9ff", 
-              border: "1px solid #bae6fd", 
-              borderRadius: "8px", 
-              padding: "12px 16px", 
-              marginBottom: "15px"
-            }}>
-              <p style={{ color: "#0369a1", fontSize: "13px", margin: 0 }}>
-                Upload your resume in PDF format to analyze your skills and generate personalized recommendations.
-              </p>
-            </div>
-            <input
-              type="file"
-              accept=".pdf"
-              ref={fileInputRef}
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file && file.type === "application/pdf") {
-                  setResumeFile(file);
-                } else {
-                  setError("Please select a valid PDF file");
-                  setResumeFile(null);
-                }
-              }}
-              style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-            />
-            {resumeFile && (
-              <p style={{ color: "green", marginBottom: "10px" }}>
-                ✅ Selected: {resumeFile.name}
-              </p>
+            {inputType === "github" ? (
+              <>
+                <div className="info-box">
+                  <p>
+                    Paste the direct PDF link from your GitHub repository.<br />
+                    Make sure the file is public and accessible.
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  id="github-link"
+                  name="githubLink"
+                  placeholder="Paste GitHub PDF link"
+                  value={githubLink}
+                  onChange={(e) => setGithubLink(e.target.value)}
+                  className="glass-input"
+                />
+              </>
+            ) : (
+              <>
+                <div className="info-box">
+                  <p>
+                    Upload your resume in PDF format to analyze your skills and generate personalized recommendations.
+                  </p>
+                </div>
+                <div className="file-input-wrapper">
+                  <input
+                    type="file"
+                    id="resume-file"
+                    name="resumeFile"
+                    accept=".pdf"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file && file.type === "application/pdf") {
+                        setResumeFile(file);
+                      } else {
+                        setError("Please select a valid PDF file");
+                        setResumeFile(null);
+                      }
+                    }}
+                  />
+                </div>
+                {resumeFile && (
+                  <p className="selected-file">
+                      Selected: {resumeFile.name}
+                  </p>
+                )}
+              </>
             )}
+
+            <button
+              onClick={extractDocument}
+              disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
+              className="glow-btn"
+            >
+              {loading ? "⏳ Extracting..." : "🔍 Analyze Document"}
+            </button>
+
+            {error && <p className="message error">{error}</p>}
           </>
         )}
-
-        <button
-          onClick={extractDocument}
-          disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: loading ? "#9ca3af" : "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: loading ? "not-allowed" : "pointer"
-          }}
-        >
-          {loading ? "Extracting..." : "🔍 Analyze Document"}
-        </button>
-
-        {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
       </div>
+    </>
     );
   }
 
-  // Extracted content preview
+  // Extracted content preview - Second state with glassmorphism card
   return (
-    <div className="card">
-      <h3>✅ Content Extracted</h3>
-      <p style={{ color: "#6b7280", marginBottom: "10px" }}>
-        Source: {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
-      </p>
-      <textarea
-        rows="6"
-        value={extractedContent.substring(0, 500) + "..."}
-        readOnly
-        style={{ width: "100%", padding: "10px" }}
-      />
-
-      <button
-        onClick={generateQuiz}
-        disabled={loading}
-        style={{
-          padding: "10px 20px",
-          backgroundColor: "#2196F3",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: loading ? "not-allowed" : "pointer",
-          marginTop: "10px"
-        }}
-      >
-        {loading ? "Generating..." : "📚 Start Quiz"}
-      </button>
-
-      <button
-        onClick={() => {
-          setGithubLink("");
-          setResumeFile(null);
-          setExtractedContent("");
-          setIsExtracted(false);
-          setError("");
-          if (fileInputRef.current) fileInputRef.current.value = "";
-        }}
-        style={{
-          padding: "10px 20px",
-          backgroundColor: "#757575",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-          marginTop: "10px",
-          marginLeft: "10px"
-        }}
-      >
-        🔄 Start Over
-      </button>
-
-      {successMessage && (
-        <p style={{ color: "green", marginTop: "10px" }}>{successMessage}</p>
+    <>
+      <h1 className="page-title">Intelligent Personalized Learning Platform</h1>
+      <div className="glass-card">
+      <h3>{loading ? "Preparing Your Quiz..." : "Content Extracted"}</h3>
+      
+      {/* Loading State for Quiz Generation */}
+      {loading && (
+        <div className="extracting-progress">
+          <div className="pulsing-orb"></div>
+          <p className="extracting-text">Generating Quiz...</p>
+          <p className="extracting-subtext">Creating personalized questions for you</p>
+          <div className="progress-bar-container">
+            <div className="progress-bar"></div>
+          </div>
+        </div>
       )}
-      {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+      
+      {!loading && (
+        <>
+          <div className="content-preview">
+            <label>Source:</label>
+            <span className="source-badge">
+              {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
+            </span>
+            <textarea
+              id="extracted-preview"
+              name="extractedPreview"
+              rows="4"
+              value={extractedContent.substring(0, 500) + "..."}
+              readOnly
+              className="glass-textarea"
+            />
+          </div>
+
+          <div className="button-group">
+            <button
+              onClick={generateQuiz}
+              disabled={loading}
+              className="glow-btn"
+            >
+              {loading ? "⏳ Generating..." : "📚 Start Quiz"}
+            </button>
+
+            <button
+              onClick={() => {
+                setGithubLink("");
+                setResumeFile(null);
+                setExtractedContent("");
+                setIsExtracted(false);
+                setError("");
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              className="glow-btn secondary"
+            >
+              🔄 Start Over
+            </button>
+          </div>
+        </>
+      )}
+
+      {successMessage && !loading && (
+        <p className="message success">{successMessage}</p>
+      )}
+      {error && !loading && <p className="message error">{error}</p>}
     </div>
+    </>
   );
 }
 

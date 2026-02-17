@@ -251,7 +251,7 @@ function QuizPage() {
     // Show loading when auto-generating questions
     if (!displayQuestions.length && (extractedText || localStorage.getItem("extractedContent"))) {
       return (
-        <div className="card">
+        <div className="glass-card">
           <h2>📝 Technical Quiz</h2>
           <p style={{ marginBottom: "20px" }}>Generating questions from your document...</p>
           {loading && (
@@ -355,124 +355,257 @@ function QuizPage() {
       };
 
       return (
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-            <button
-              onClick={() => navigate("/")}
-              style={{
-                background: "#6b7280",
-                border: "none",
-                padding: "8px 16px",
-                borderRadius: "6px",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "14px"
-              }}
-            >
-              ← Back to Home
-            </button>
+        <div className="glass-card" style={{ padding: '30px' }}>
+          <h2 style={{ 
+            color: "#E0E0E0", 
+            marginBottom: '20px',
+            fontSize: '24px',
+            fontWeight: '600'
+          }}>Technical Quiz</h2>
+          
+          {/* Dual-row progress header */}
+          <div style={{ marginBottom: '15px' }}>
+            {/* Row 1: Animated progress bar */}
+            <div style={{
+              width: '100%',
+              height: '4px',
+              background: 'rgba(255,255,255,0.1)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+              marginBottom: '8px'
+            }}>
+              <div style={{
+                width: `${((quizIndex + 1) / displayQuestions.length) * 100}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '2px',
+                transition: 'width 0.4s ease-out',
+                boxShadow: '0 0 10px rgba(102, 126, 234, 0.5)'
+              }} />
+            </div>
+            {/* Row 2: Question count text */}
+            <p style={{ 
+              color: '#888888', 
+              fontSize: '14px',
+              margin: 0,
+              fontWeight: '500'
+            }}>Question {quizIndex + 1} of {displayQuestions.length}</p>
           </div>
-          <h2>Technical Quiz (Based on the Content)</h2>
-          <p>Question {quizIndex + 1} of {displayQuestions.length}</p>
 
-          <h3 style={{ margin: "20px 0" }}>{displayQuestions[quizIndex]?.question}</h3>
+          <h3 style={{ margin: "20px 0", color: '#E0E0E0' }}>{displayQuestions[quizIndex]?.question}</h3>
 
           {displayQuestions[quizIndex]?.options.map((opt, i) => {
             const isCorrect = opt === displayQuestions[quizIndex]?.answer;
             const isSelected = quizSelected === opt;
             const showHighlight = quizSelected !== "";
             
+            // Helper function to highlight code terms
+            const highlightCode = (text) => {
+              const codeTerms = ['useEffect', 'useState', 'useCallback', 'useMemo', 'useRef', 'useContext', 'useReducer', 'useLayoutEffect', 'useImperativeHandle', 'useDebugValue', 'createElement', 'render', 'componentDidMount', 'componentDidUpdate', 'componentWillUnmount', 'constructor', 'getDerivedStateFromProps', 'getSnapshotBeforeUpdate', 'shouldComponentUpdate', 'React', 'Vue', 'Angular', 'Node', 'Express', 'MongoDB', 'SQL', 'API', 'JSON', 'AJAX', 'DOM', 'BOM', 'CSS', 'HTML', 'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Ruby', 'Go', 'Rust', 'Swift', 'Kotlin', 'PHP', 'Laravel', 'Django', 'Flask', 'Spring', 'ASP.NET', 'GraphQL', 'REST', 'WebSocket', 'HTTP', 'HTTPS', 'TCP', 'UDP', 'DNS', 'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'CI/CD', 'Git', 'GitHub', 'GitLab', 'npm', 'yarn', 'webpack', 'babel', 'eslint', 'prettier', 'jest', 'mocha', 'cypress', 'selenium', 'redux', 'mobx', 'vuex', 'pinia', 'axios', 'fetch', 'async', 'await', 'promise', 'callback', 'closure', 'hoisting', 'prototype', 'inheritance', 'polymorphism', 'encapsulation', 'abstraction', 'interface', 'abstract', 'class', 'function', 'variable', 'constant', 'array', 'object', 'string', 'number', 'boolean', 'null', 'undefined', 'NaN', 'Infinity', 'this', 'super', 'new', 'delete', 'typeof', 'instanceof', 'in', 'of', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'Error', 'Event', 'Listener', 'Handler', 'Component', 'Props', 'State', 'Ref', 'Context', 'Provider', 'Consumer', 'Hook', 'Effect', 'Memo', 'Callback', 'Portal', 'Fragment', 'Suspense', 'Lazy', 'ForwardRef', 'memo', 'lazy', 'Suspense'];
+              const parts = text.split(/(\s+)/);
+              return parts.map((part, idx) => {
+                const cleanPart = part.trim();
+                if (codeTerms.some(term => term === cleanPart || term.toLowerCase() === cleanPart.toLowerCase())) {
+                  return <code key={idx} style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.9em',
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    color: '#e0e0e0'
+                  }}>{part}</code>;
+                }
+                return part;
+              });
+            };
+            
             return (
               <label
                 key={i}
                 className="option"
                 style={{
-                  transition: "all 0.3s ease",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.3s ease',
                   background: showHighlight
                     ? isCorrect
-                      ? "#dcfce7"
+                      ? 'rgba(34, 197, 94, 0.1)'
                       : isSelected
-                      ? "#fee2e2"
-                      : "#f3f4f6"
-                    : "",
+                      ? 'rgba(239, 68, 68, 0.1)'
+                      : 'rgba(255,255,255,0.05)'
+                    : 'rgba(255,255,255,0.05)',
                   borderColor: showHighlight
                     ? isCorrect
-                      ? "#22c55e"
+                      ? '#22c55e'
                       : isSelected
-                      ? "#ef4444"
-                      : "#d1d5db"
-                    : "",
-                  borderWidth: showHighlight ? "2px" : "1px",
-                  cursor: answerLocked ? "not-allowed" : "pointer",
-                  opacity: answerLocked && !isSelected ? 0.6 : 1
+                      ? '#ef4444'
+                      : 'rgba(255,255,255,0.1)'
+                    : 'rgba(255,255,255,0.1)',
+                  borderWidth: showHighlight ? '2px' : '1px',
+                  borderStyle: 'solid',
+                  borderRadius: '10px',
+                  padding: '16px 20px',
+                  marginBottom: '12px',
+                  cursor: answerLocked ? 'not-allowed' : 'pointer',
+                  opacity: 1,
+                  transform: answerLocked ? 'none' : 'translateY(0)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  if (!answerLocked) {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!answerLocked) {
+                    e.currentTarget.style.borderColor = showHighlight 
+                      ? (isCorrect ? '#22c55e' : isSelected ? '#ef4444' : 'rgba(255,255,255,0.1)')
+                      : 'rgba(255,255,255,0.1)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                  }
                 }}
               >
-                <input
-                  type="radio"
-                  name="quiz-option"
-                  value={opt}
-                  checked={quizSelected === opt}
-                  disabled={answerLocked} // Disable changing after selection
-                  onChange={(e) => {
-                    if (!answerLocked) {
-                      setQuizSelected(e.target.value);
-                      setAnswerLocked(true); // Lock the answer immediately
-                    }
-                  }}
-                />
-                <span style={{
-                  color: showHighlight
-                    ? isCorrect
-                      ? "#16a34a"
-                      : isSelected
-                      ? "#dc2626"
-                      : "inherit"
-                    : "inherit",
-                  fontWeight: isSelected ? "600" : "inherit"
-                }}>
-                  {opt}
-                  {showHighlight && isCorrect && " ✓"}
-                  {showHighlight && isSelected && !isCorrect && " ✗"}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                  <input
+                    type="radio"
+                    name="quiz-option"
+                    value={opt}
+                    checked={quizSelected === opt}
+                    disabled={answerLocked}
+                    onChange={(e) => {
+                      if (!answerLocked) {
+                        setQuizSelected(e.target.value);
+                        setAnswerLocked(true);
+                      }
+                    }}
+                    style={{ marginRight: '12px', accentColor: '#667eea' }}
+                  />
+                  <span style={{
+                    color: 'rgba(255,255,255,0.92)',
+                    fontWeight: '500',
+                    opacity: 1,
+                    flex: 1
+                  }}>
+                    {highlightCode(opt)}
+                  </span>
+                </div>
+                {/* Correct/Incorrect badge - only show for correct answer OR selected wrong answer */}
+                {showHighlight && (isCorrect || isSelected) && (
+                  <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    background: isCorrect ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: isCorrect ? '#22c55e' : '#ef4444',
+                    marginLeft: '10px'
+                  }}>
+                    {isCorrect ? (
+                      <><span>✓</span> Correct</>
+                    ) : (
+                      <><span>✗</span> Incorrect</>
+                    )}
+                  </span>
+                )}
               </label>
             );
           })}
 
-          <button onClick={nextQuestion} disabled={!quizSelected} style={{ marginTop: "15px" }}>
-            {quizIndex + 1 < displayQuestions.length ? "Next →" : "Complete Quiz"}
-          </button>
+          {/* Action buttons container */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '12px', 
+            marginTop: '25px',
+            flexDirection: 'row',
+            alignItems: 'stretch'
+          }}>
+            {/* Previous Button - Ghost style */}
+            <button
+              onClick={() => {
+                if (quizIndex > 0) {
+                  const prevIndex = quizIndex - 1;
+                  const prevSelected = quizAnswers[prevIndex] || "";
+                  const newAnswers = quizAnswers.slice(0, prevIndex);
+                  setQuizAnswers(newAnswers);
+                  setQuizIndex(prevIndex);
+                  setQuizSelected(prevSelected);
+                  setQuizAnswerSubmitted(false);
+                  setAnswerLocked(false);
+                } else {
+                  setQuizIndex(0);
+                  setQuizAnswers([]);
+                  setQuizSelected("");
+                  setQuizAnswerSubmitted(false);
+                  setStage("score");
+                }
+              }}
+              style={{
+                padding: '14px 24px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'transparent',
+                color: '#e0e0e0',
+                fontSize: '15px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                flex: '0 0 auto'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              ← Previous
+            </button>
 
-          <button
-            onClick={() => {
-              // Only allow going back if not on the first question
-              if (quizIndex > 0) {
-                const prevIndex = quizIndex - 1;
-                const prevSelected = quizAnswers[prevIndex] || "";
-                const newAnswers = quizAnswers.slice(0, prevIndex);
-                setQuizAnswers(newAnswers);
-                setQuizIndex(prevIndex);
-                setQuizSelected(prevSelected);
-                setQuizAnswerSubmitted(false);
-                setAnswerLocked(false);
-              }
-              // If on first question (quizIndex === 0), do nothing - button should be disabled
-            }}
-            disabled={quizIndex === 0}
-            style={{ 
-              marginTop: "15px", 
-              background: quizIndex === 0 ? "#e5e7eb" : "#f3f4f6", 
-              border: "1px solid #d1d5db", 
-              padding: "12px 20px", 
-              width: "100%", 
-              borderRadius: "8px", 
-              cursor: quizIndex === 0 ? "not-allowed" : "pointer", 
-              color: quizIndex === 0 ? "#9ca3af" : "#374151", 
-              fontSize: "14px", 
-              fontWeight: "500" 
-            }}
-          >
-            ↩️ Previous Question
-          </button>
+            {/* Next Button - Primary gradient CTA */}
+            <button 
+              onClick={nextQuestion} 
+              disabled={!quizSelected}
+              style={{ 
+                marginTop: 0,
+                flex: 1,
+                padding: '14px 32px',
+                borderRadius: '10px',
+                border: 'none',
+                background: quizSelected 
+                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  : 'rgba(102, 126, 234, 0.3)',
+                color: quizSelected ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: quizSelected ? 'pointer' : 'not-allowed',
+                opacity: quizSelected ? 1 : 0.5,
+                transition: 'all 0.3s ease',
+                boxShadow: quizSelected ? '0 4px 15px rgba(102, 126, 234, 0.4)' : 'none',
+                transform: quizSelected ? 'translateY(0)' : 'none'
+              }}
+              onMouseEnter={(e) => {
+                if (quizSelected) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+              }}
+            >
+              {quizIndex + 1 < displayQuestions.length ? 'Next →' : 'Complete Quiz'}
+            </button>
+          </div>
         </div>
       );
     }
@@ -483,8 +616,8 @@ function QuizPage() {
     // If quiz came from learning material, show different UI
     if (fromMaterial) {
       return (
-        <div className="card">
-          <h2>📊 Quiz Complete!</h2>
+        <div className="glass-card">
+          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}> Quiz Complete!</h2>
 
           <div style={{
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -515,7 +648,7 @@ function QuizPage() {
             }}
             style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
           >
-            📚 Back to Learning Material
+              Back to Learning Material
           </button>
 
           <button
@@ -527,7 +660,7 @@ function QuizPage() {
             }}
             style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
           >
-            🔄 Try Again
+             Try Again
           </button>
         </div>
       );
@@ -535,8 +668,8 @@ function QuizPage() {
 
     // Original flow for quiz not from learning material
     return (
-      <div className="card">
-        <h2>📊 Quiz Complete!</h2>
+      <div className="glass-card">
+        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Quiz Complete!</h2>
 
         <div style={{
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -617,16 +750,16 @@ function QuizPage() {
   if (stage === "learning") {
     if (loading && learningQuestions.length === 0) {
       return (
-        <div className="card">
-          <h2>📊 Loading Learner Level Assessment...</h2>
+        <div className="glass-card">
+          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Loading Learner Level Assessment...</h2>
         </div>
       );
     }
 
     if (learningQuestions.length === 0) {
       return (
-        <div className="card">
-          <h2>📊 Learner Level Assessment</h2>
+        <div className="glass-card">
+          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
           <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
 
           {/* Back Button */}
@@ -753,8 +886,8 @@ function QuizPage() {
     };
 
     return (
-      <div className="card">
-        <h2>📊 Learner Level Assessment</h2>
+      <div className="glass-card">
+        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
         <p>Question {learningIndex + 1} of {learningQuestions.length}</p>
 
         <h3 style={{ margin: "20px 0" }}>{learningQuestions[learningIndex]?.question}</h3>
@@ -815,21 +948,21 @@ function QuizPage() {
     };
 
     return (
-      <div className="card">
-        <h2>Personalized Learning Dashboard</h2>
+      <div className="glass-card">
+        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Personalized Learning Dashboard</h2>
 
         {/* Assessment Summary */}
         <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
-          <h4 style={{ margin: "0 0 10px 0" }}>📊 Your Assessment Profile:</h4>
-          <p>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
-          <p>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
-          <p>Topic: <strong>{storedTopic}</strong></p>
+          <h4 style={{ margin: "0 0 10px 0", color: "#1f2937", textShadow: "none" }}>📊 Your Assessment Profile:</h4>
+          <p style={{ color: "#1f2937" }}>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
+          <p style={{ color: "#1f2937" }}>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
+          <p style={{ color: "#1f2937" }}>Topic: <strong>{storedTopic}</strong></p>
 
           <hr style={{ margin: "15px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
-          <h5 style={{ margin: "0 0 10px 0" }}>Psychometric Assessment:</h5>
+          <h5 style={{ margin: "0 0 10px 0", color: "#1f2937" }}>Psychometric Assessment:</h5>
 
           {Object.entries(psychometricProfile).map(([key, value]) => (
-            <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px" }}>
+            <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px", color: "#1f2937" }}>
               <span>{formatCategory(key)}:</span>
               <span style={{
                 color: getLevelColor(value?.trim()),
@@ -839,56 +972,32 @@ function QuizPage() {
           ))}
         </div>
 
-        {/* Combined Analysis */}
-        {storedCombined && (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "20px",
-            marginBottom: "20px",
-            borderLeft: "4px solid #667eea",
-            textAlign: "left"
-          }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>📊 Combined Analysis</h4>
-            <p style={{ margin: "0", color: "#555", lineHeight: "1.6" }}>
-              {storedCombined.combinedAnalysis}
-            </p>
-          </div>
-        )}
-
+        {/* Continue to Content Generation */}
         <button
-          onClick={() => {
-            const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
-            const learnScore = parseInt(localStorage.getItem("learningScore") || "50");
-            const storedTopic = localStorage.getItem("quizTopic") || topic;
-            const storedCombined = JSON.parse(localStorage.getItem("combinedData") || "{}");
-            const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
-            const learnLevel = storedCombined.learnerLevel || "Beginner";
-            
-            navigate("/result", {
-              state: {
-                topic: storedTopic,
-                technicalLevel: techLevel,
-                technicalScore: techScore,
-                learningLevel: learnLevel,
-                learningScore: learnScore,
-                combinedAnalysis: storedCombined,
-                mode: "learning-path",
-                autoGenerate: true
-              }
-            });
-          }}
-          style={{
-            width: "100%",
-            padding: "18px",
-            fontSize: "18px",
-            marginBottom: "15px",
-            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
-          }}
+          onClick={() => navigate("/result", {
+            state: {
+              topic: storedTopic,
+              technicalScore: techScore,
+              learningScore: learnScore,
+              combinedAnalysis: storedCombined,
+              mode: "direct",
+              // Pass through analysis data from HomePage
+              userId,
+              sourceType,
+              sourceUrl,
+              extractedText,
+              skills,
+              strengths,
+              weakAreas
+            }
+          })}
+          style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
         >
-          📚 Personalized Learning Path
+          <strong>Create My Learning Plan</strong>
         </button>
 
+        
+        {/* Back Button */}
         <button
           onClick={() => {
             setLearningIndex(0);
@@ -900,13 +1009,14 @@ function QuizPage() {
         >
           ← Back to Learning Assessment
         </button>
+        
       </div>
     );
   }
 
   // Fallback - no questions and not loading
   return (
-    <div className="card">
+    <div className="glass-card">
       <h2>No questions available</h2>
       <p>Please go back and extract a PDF first.</p>
       <button onClick={() => navigate("/")} style={{ marginTop: "10px" }}>

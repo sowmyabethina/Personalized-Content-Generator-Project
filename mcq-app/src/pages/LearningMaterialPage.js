@@ -26,7 +26,7 @@ function LearningMaterialPage() {
         alignItems: "center",
         justifyContent: "center"
       }}>
-        <div className="card" style={{ textAlign: "center" }}>
+        <div className="glass-card" style={{ textAlign: "center" }}>
           <h2>No Learning Material Found</h2>
           <p>Please generate learning material first.</p>
           <button onClick={() => navigate("/result")} style={{ marginTop: "20px" }}>
@@ -243,7 +243,7 @@ function LearningMaterialPage() {
       background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
       padding: "20px"
     }}>
-      <div className="card" style={{
+      <div className="glass-card" style={{
         maxWidth: "900px",
         margin: "0 auto",
         background: "#ffffff",
