@@ -43,6 +43,8 @@ function QuizPage() {
   const [topic, setTopic] = useState(initialTopic || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [retakeLoading, setRetakeLoading] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Technical quiz state
   const [quizIndex, setQuizIndex] = useState(0);
@@ -247,28 +249,125 @@ function QuizPage() {
   };
 
   // Stage: Quiz Questions (from extracted PDF or auto-generated)
+  
+  // Show celebration overlay when quiz is completed (regardless of stage)
+  if (showCelebration) {
+    return (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "#F8FAFC",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        animation: "fadeIn 0.3s ease-out"
+      }}>
+        {/* Confetti */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: "hidden",
+          pointerEvents: "none"
+        }}>
+          {[...Array(50)].map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                width: `${Math.random() * 10 + 5}px`,
+                height: `${Math.random() * 10 + 5}px`,
+                background: ["#10b981", "#2563EB", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"][Math.floor(Math.random() * 6)],
+                top: "-20px",
+                left: `${Math.random() * 100}%`,
+                borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+                animation: `confettiFall ${Math.random() * 2 + 1.5}s linear forwards`,
+                animationDelay: `${Math.random() * 0.5}s`,
+                opacity: 0.8
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Success Content */}
+        <div style={{
+          textAlign: "center",
+          color: "#1E293B",
+          zIndex: 1,
+          animation: "scaleIn 0.5s ease-out"
+        }}>
+          {/* Animated Green Checkmark */}
+          <div style={{
+            width: "100px",
+            height: "100px",
+            margin: "0 auto 24px",
+            borderRadius: "50%",
+            background: "#10b981",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+            animation: "pulseCheck 1s ease-in-out infinite"
+          }}>
+            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" style={{ 
+                strokeDasharray: 30, 
+                strokeDashoffset: 30,
+                animation: "checkDraw 0.5s ease-out 0.3s forwards" 
+              }} />
+            </svg>
+          </div>
+          
+          <h2 style={{
+            fontSize: "32px",
+            fontWeight: "700",
+            marginBottom: "12px",
+            color: "#1E293B"
+          }}>
+            Congratulations! Quiz Completed.
+          </h2>
+          
+          <p style={{
+            fontSize: "16px",
+            color: "#475569",
+            maxWidth: "400px"
+          }}>
+            Analyzing your results and preparing your profile...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (stage === "quiz") {
     // Show loading when auto-generating questions
     if (!displayQuestions.length && (extractedText || localStorage.getItem("extractedContent"))) {
       return (
         <div className="glass-card">
           <h2>📝 Technical Quiz</h2>
-          <p style={{ marginBottom: "20px" }}>Generating questions from your document...</p>
+          <p style={{ marginBottom: "20px", color: "#475569" }}>Generating questions from your document...</p>
           {loading && (
             <div style={{ textAlign: "center", padding: "20px" }}>
               <div style={{
                 width: "40px",
                 height: "40px",
-                border: "4px solid #f3f3f3",
-                borderTop: "4px solid #667eea",
+                border: "4px solid #E2E8F0",
+                borderTop: "4px solid #2563EB",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
                 margin: "0 auto 15px"
               }}></div>
-              <p>Please wait while we generate quiz questions from your uploaded document...</p>
+              <p style={{ color: "#475569" }}>Please wait while we generate quiz questions from your uploaded document...</p>
             </div>
           )}
-          {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+          {error && <p style={{ color: "#DC2626", marginTop: "10px" }}>{error}</p>}
           <style>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
@@ -317,7 +416,12 @@ function QuizPage() {
           setTechnicalScore(score);
           setCorrectCount(correct);
           localStorage.setItem("technicalScore", score.toString());
-          setStage("score");
+          // Show celebration before transitioning to score
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            setStage("score");
+          }, 2000);
         } catch (err) {
           console.error("Failed to score quiz:", err);
           // Fallback to client-side scoring
@@ -330,7 +434,12 @@ function QuizPage() {
           setTechnicalScore(score);
           setCorrectCount(correct);
           localStorage.setItem("technicalScore", score.toString());
-          setStage("score");
+          // Show celebration before transitioning to score
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            setStage("score");
+          }, 2000);
         }
       };
 
@@ -357,7 +466,7 @@ function QuizPage() {
       return (
         <div className="glass-card" style={{ padding: '30px' }}>
           <h2 style={{ 
-            color: "#E0E0E0", 
+            color: "#1E293B", 
             marginBottom: '20px',
             fontSize: '24px',
             fontWeight: '600'
@@ -369,7 +478,7 @@ function QuizPage() {
             <div style={{
               width: '100%',
               height: '4px',
-              background: 'rgba(255,255,255,0.1)',
+              background: '#F1F5F9',
               borderRadius: '2px',
               overflow: 'hidden',
               marginBottom: '8px'
@@ -377,22 +486,21 @@ function QuizPage() {
               <div style={{
                 width: `${((quizIndex + 1) / displayQuestions.length) * 100}%`,
                 height: '100%',
-                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                background: '#3B82F6',
                 borderRadius: '2px',
-                transition: 'width 0.4s ease-out',
-                boxShadow: '0 0 10px rgba(102, 126, 234, 0.5)'
+                transition: 'width 0.4s ease-out'
               }} />
             </div>
             {/* Row 2: Question count text */}
             <p style={{ 
-              color: '#888888', 
+              color: '#475569', 
               fontSize: '14px',
               margin: 0,
               fontWeight: '500'
             }}>Question {quizIndex + 1} of {displayQuestions.length}</p>
           </div>
 
-          <h3 style={{ margin: "20px 0", color: '#E0E0E0' }}>{displayQuestions[quizIndex]?.question}</h3>
+          <h3 style={{ margin: "20px 0", color: '#1E293B' }}>{displayQuestions[quizIndex]?.question}</h3>
 
           {displayQuestions[quizIndex]?.options.map((opt, i) => {
             const isCorrect = opt === displayQuestions[quizIndex]?.answer;
@@ -407,12 +515,12 @@ function QuizPage() {
                 const cleanPart = part.trim();
                 if (codeTerms.some(term => term === cleanPart || term.toLowerCase() === cleanPart.toLowerCase())) {
                   return <code key={idx} style={{
-                    background: 'rgba(0,0,0,0.3)',
+                    background: '#F1F5F9',
                     padding: '2px 6px',
                     borderRadius: '4px',
                     fontSize: '0.9em',
                     fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                    color: '#e0e0e0'
+                    color: '#2563EB'
                   }}>{part}</code>;
                 }
                 return part;
@@ -430,18 +538,18 @@ function QuizPage() {
                   transition: 'all 0.3s ease',
                   background: showHighlight
                     ? isCorrect
-                      ? 'rgba(34, 197, 94, 0.1)'
+                      ? '#DCFCE7'
                       : isSelected
-                      ? 'rgba(239, 68, 68, 0.1)'
-                      : 'rgba(255,255,255,0.05)'
-                    : 'rgba(255,255,255,0.05)',
+                      ? '#FEE2E2'
+                      : '#FFFFFF'
+                    : '#FFFFFF',
                   borderColor: showHighlight
                     ? isCorrect
                       ? '#22c55e'
                       : isSelected
                       ? '#ef4444'
-                      : 'rgba(255,255,255,0.1)'
-                    : 'rgba(255,255,255,0.1)',
+                      : '#E2E8F0'
+                    : '#E2E8F0',
                   borderWidth: showHighlight ? '2px' : '1px',
                   borderStyle: 'solid',
                   borderRadius: '10px',
@@ -450,22 +558,22 @@ function QuizPage() {
                   cursor: answerLocked ? 'not-allowed' : 'pointer',
                   opacity: 1,
                   transform: answerLocked ? 'none' : 'translateY(0)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                 }}
                 onMouseEnter={(e) => {
                   if (!answerLocked) {
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                    e.currentTarget.style.borderColor = '#2563EB';
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!answerLocked) {
                     e.currentTarget.style.borderColor = showHighlight 
-                      ? (isCorrect ? '#22c55e' : isSelected ? '#ef4444' : 'rgba(255,255,255,0.1)')
-                      : 'rgba(255,255,255,0.1)';
+                      ? (isCorrect ? '#22c55e' : isSelected ? '#ef4444' : '#E2E8F0')
+                      : '#E2E8F0';
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
                   }
                 }}
               >
@@ -482,10 +590,10 @@ function QuizPage() {
                         setAnswerLocked(true);
                       }
                     }}
-                    style={{ marginRight: '12px', accentColor: '#667eea' }}
+                    style={{ marginRight: '12px', accentColor: '#2563EB' }}
                   />
                   <span style={{
-                    color: 'rgba(255,255,255,0.92)',
+                    color: '#1E293B',
                     fontWeight: '500',
                     opacity: 1,
                     flex: 1
@@ -493,27 +601,6 @@ function QuizPage() {
                     {highlightCode(opt)}
                   </span>
                 </div>
-                {/* Correct/Incorrect badge - only show for correct answer OR selected wrong answer */}
-                {showHighlight && (isCorrect || isSelected) && (
-                  <span style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    background: isCorrect ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                    color: isCorrect ? '#22c55e' : '#ef4444',
-                    marginLeft: '10px'
-                  }}>
-                    {isCorrect ? (
-                      <><span>✓</span> Correct</>
-                    ) : (
-                      <><span>✗</span> Incorrect</>
-                    )}
-                  </span>
-                )}
               </label>
             );
           })}
@@ -549,9 +636,9 @@ function QuizPage() {
               style={{
                 padding: '14px 24px',
                 borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
-                color: '#e0e0e0',
+                border: '1px solid #E2E8F0',
+                background: '#FFFFFF',
+                color: '#475569',
                 fontSize: '15px',
                 fontWeight: '500',
                 cursor: 'pointer',
@@ -559,18 +646,18 @@ function QuizPage() {
                 flex: '0 0 auto'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.borderColor = '#2563EB';
+                e.currentTarget.style.background = '#F8FAFC';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = '#E2E8F0';
+                e.currentTarget.style.background = '#FFFFFF';
               }}
             >
               ← Previous
             </button>
 
-            {/* Next Button - Primary gradient CTA */}
+            {/* Next Button - Primary CTA */}
             <button 
               onClick={nextQuestion} 
               disabled={!quizSelected}
@@ -581,26 +668,26 @@ function QuizPage() {
                 borderRadius: '10px',
                 border: 'none',
                 background: quizSelected 
-                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                  : 'rgba(102, 126, 234, 0.3)',
-                color: quizSelected ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                  ? '#2563EB'
+                  : '#94A3B8',
+                color: '#FFFFFF',
                 fontSize: '16px',
                 fontWeight: '600',
                 cursor: quizSelected ? 'pointer' : 'not-allowed',
                 opacity: quizSelected ? 1 : 0.5,
                 transition: 'all 0.3s ease',
-                boxShadow: quizSelected ? '0 4px 15px rgba(102, 126, 234, 0.4)' : 'none',
+                boxShadow: quizSelected ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none',
                 transform: quizSelected ? 'translateY(0)' : 'none'
               }}
               onMouseEnter={(e) => {
                 if (quizSelected) {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
               }}
             >
               {quizIndex + 1 < displayQuestions.length ? 'Next →' : 'Complete Quiz'}
@@ -616,108 +703,371 @@ function QuizPage() {
     // If quiz came from learning material, show different UI
     if (fromMaterial) {
       return (
-        <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}> Quiz Complete!</h2>
-
+        <div className="glass-card" style={{ maxWidth: "500px", margin: "0 auto", padding: "30px" }}>
+          {/* Score Card - Compact light theme */}
           <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "12px",
-            padding: "30px",
-            color: "white",
-            marginBottom: "20px"
+            background: "#FFFFFF",
+            borderRadius: "16px",
+            padding: "20px",
+            color: "#1E293B",
+            marginBottom: "25px",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+            animation: "fadeIn 0.5s ease-out"
           }}>
-            <p style={{ fontSize: "14px", opacity: 0.9 }}>Your Quiz Score</p>
-            <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
-            <p style={{ fontSize: "14px", opacity: 0.9 }}>
+            <p style={{ 
+              fontSize: "11px", 
+              color: "#475569",
+              margin: "0 0 10px 0",
+              textTransform: "uppercase",
+              letterSpacing: "1.5px",
+              fontWeight: "600"
+            }}>Technical Score</p>
+            <div style={{ position: "relative", width: "110px", height: "110px", margin: "0 auto" }}>
+              <svg width="110" height="110" style={{ transform: "rotate(-90deg)" }}>
+                <circle
+                  cx="55"
+                  cy="55"
+                  r="48"
+                  fill="none"
+                  stroke="#F1F5F9"
+                  strokeWidth="8"
+                />
+                <circle
+                  cx="55"
+                  cy="55"
+                  r="48"
+                  fill="none"
+                  stroke={technicalScore > 70 ? "#10b981" : "#3B82F6"}
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(technicalScore || 0) * 3.01} 301`}
+                  style={{ transition: "stroke-dasharray 1s ease-out, stroke 0.3s ease" }}
+                />
+              </svg>
+              <div style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "28px",
+                fontWeight: "bold",
+                fontFamily: "'Courier New', Courier, monospace",
+                color: "#1E293B"
+              }}>
+                {technicalScore}%
+              </div>
+            </div>
+            <p style={{ fontSize: "12px", margin: "10px 0 0 0", color: "#475569" }}>
               {correctCount}/{displayQuestions.length} correct
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              const storedMaterial = localStorage.getItem("learningMaterialData");
-              const learningMaterial = storedMaterial ? JSON.parse(storedMaterial) : null;
-              navigate("/learning-material", {
-                state: {
-                  learningMaterial: learningMaterial,
-                  topic: materialTopic,
-                  technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
-                  learningScore: parseInt(localStorage.getItem("learningScore") || "50")
-                }
-              });
-            }}
-            style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
-          >
+          {/* Action Buttons */}
+          <div style={{
+            animation: "fadeIn 0.5s ease-out 0.2s both"
+          }}>
+            <button
+              onClick={() => {
+                const storedMaterial = localStorage.getItem("learningMaterialData");
+                const learningMaterial = storedMaterial ? JSON.parse(storedMaterial) : null;
+                navigate("/learning-material", {
+                  state: {
+                    learningMaterial: learningMaterial,
+                    topic: materialTopic,
+                    technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
+                    learningScore: parseInt(localStorage.getItem("learningScore") || "50")
+                  }
+                });
+              }}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: "15px",
+                marginBottom: "12px",
+                background: "#2563EB",
+                border: "none",
+                borderRadius: "10px",
+                color: "#FFFFFF",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = "scale(1.02)";
+                e.target.style.filter = "brightness(1.1)";
+                e.target.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.5)";
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = "scale(1)";
+                e.target.style.filter = "brightness(1)";
+                e.target.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
+              }}
+            >
               Back to Learning Material
-          </button>
+            </button>
 
-          <button
-            onClick={() => {
-              setQuizIndex(0);
-              setQuizAnswers([]);
-              setQuizSelected("");
-              setStage("quiz");
-            }}
-            style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-          >
-             Try Again
-          </button>
+            <button
+              onClick={() => {
+                setRetakeLoading(true);
+                setTimeout(() => {
+                  setQuizIndex(0);
+                  setQuizAnswers([]);
+                  setQuizSelected("");
+                  setStage("quiz");
+                  setRetakeLoading(false);
+                }, 900);
+              }}
+              disabled={retakeLoading}
+              style={{
+                marginTop: "0",
+                background: "transparent",
+                border: "1px solid #E2E8F0",
+                padding: "10px 20px",
+                width: "100%",
+                borderRadius: "10px",
+                cursor: retakeLoading ? "not-allowed" : "pointer",
+                color: "#2563EB",
+                fontSize: "13px",
+                fontWeight: "500",
+                transition: "all 0.3s ease",
+                opacity: retakeLoading ? 0.7 : 1
+              }}
+              onMouseOver={(e) => {
+                if (!retakeLoading) {
+                  e.target.style.background = "#F8FAFC";
+                  e.target.style.borderColor = "#2563EB";
+                }
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = "transparent";
+                e.target.style.borderColor = "#E2E8F0";
+              }}
+            >
+              {retakeLoading ? (
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  <span style={{ 
+                    display: "inline-block",
+                    width: "14px", 
+                    height: "14px", 
+                    border: "2px solid #E2E8F0", 
+                    borderTopColor: "#2563EB", 
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite"
+                  }}></span>
+                  Resetting Quiz...
+                </span>
+              ) : (
+                "Try Again"
+              )}
+            </button>
+          </div>
         </div>
       );
     }
 
     // Original flow for quiz not from learning material
     return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Quiz Complete!</h2>
-
+      <div className="glass-card" style={{ maxWidth: "500px", margin: "0 auto", padding: "30px" }}>
+        {/* Score Card - Compact light theme with staggered animation */}
         <div style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          borderRadius: "12px",
-          padding: "30px",
-          color: "white",
-          marginBottom: "20px"
+          background: "#FFFFFF",
+          borderRadius: "16px",
+          padding: "20px",
+          color: "#1E293B",
+          marginBottom: "25px",
+          border: "1px solid #E2E8F0",
+          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+          animation: "fadeIn 0.5s ease-out"
         }}>
-          <p style={{ fontSize: "14px", opacity: 0.9 }}>Technical Score</p>
-          <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
-          <p style={{ fontSize: "14px", opacity: 0.9 }}>
+          <p style={{ 
+            fontSize: "11px", 
+            color: "#475569",
+            margin: "0 0 10px 0",
+            textTransform: "uppercase",
+            letterSpacing: "1.5px",
+            fontWeight: "600"
+          }}>Technical Score</p>
+          <div style={{ position: "relative", width: "110px", height: "110px", margin: "0 auto" }}>
+            <svg width="110" height="110" style={{ transform: "rotate(-90deg)" }}>
+              <circle
+                cx="55"
+                cy="55"
+                r="48"
+                fill="none"
+                stroke="#F1F5F9"
+                strokeWidth="8"
+              />
+              <circle
+                cx="55"
+                cy="55"
+                r="48"
+                fill="none"
+                stroke={technicalScore > 70 ? "#10b981" : "#3B82F6"}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${(technicalScore || 0) * 3.01} 301`}
+                style={{ transition: "stroke-dasharray 1s ease-out, stroke 0.3s ease" }}
+              />
+            </svg>
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              fontSize: "28px",
+              fontWeight: "bold",
+              fontFamily: "'Courier New', Courier, monospace",
+              color: "#1E293B"
+            }}>
+              {technicalScore}%
+            </div>
+          </div>
+          <p style={{ fontSize: "12px", margin: "10px 0 0 0", color: "#475569" }}>
             {correctCount}/{displayQuestions.length} correct
           </p>
         </div>
 
-        <h3>Step 1: Enter Topic to Learn</h3>
-        <input
-          type="text"
-          placeholder="What do you want to learn? (e.g., Python, React, AI)"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
-        />
+        {/* Learning Section with staggered animation */}
+        <div style={{
+          animation: "fadeIn 0.5s ease-out 0.2s both"
+        }}>
+          <h2 style={{ 
+            color: "#1E293B", 
+            textAlign: "center",
+            fontSize: "22px",
+            fontWeight: "700",
+            marginBottom: "8px"
+          }}>Master a New Skill</h2>
+          <p style={{ 
+            color: "#475569", 
+            textAlign: "center",
+            fontSize: "13px",
+            marginBottom: "20px"
+          }}>What do you want to master next? We'll generate a custom assessment for you.</p>
 
-        <button
-          onClick={() => {
-            if (topic.trim()) {
-              localStorage.setItem("quizTopic", topic);
-              setStage("learning");
-            }
-          }}
-          disabled={!topic.trim()}
-          style={{ width: "100%", padding: "14px", fontSize: "16px" }}
-        >
-          Begin Level Assessment  →
-        </button>
+          <input
+            type="text"
+            placeholder="e.g., Advanced React, Python for Data Science..."
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              fontSize: "14px",
+              borderRadius: "10px",
+              border: "1px solid #E2E8F0",
+              background: "#FFFFFF",
+              color: "#1E293B",
+              outline: "none",
+              marginBottom: "0",
+              boxSizing: "border-box",
+              transition: "all 0.25s ease"
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#2563EB";
+              e.target.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#E2E8F0";
+              e.target.style.boxShadow = "none";
+            }}
+          />
 
-        <button
-          onClick={() => {
-            setQuizIndex(0);
-            setQuizAnswers([]);
-            setQuizSelected("");
-            setStage("quiz");
-          }}
-          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Retake Quiz
-        </button>
+          <button
+            onClick={() => {
+              if (topic.trim()) {
+                localStorage.setItem("quizTopic", topic);
+                setStage("learning");
+              }
+            }}
+            disabled={!topic.trim()}
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              fontSize: "15px",
+              marginTop: "2rem",
+              background: "#2563EB",
+              border: "none",
+              borderRadius: "10px",
+              color: "#FFFFFF",
+              fontWeight: "600",
+              cursor: !topic.trim() ? "not-allowed" : "pointer",
+              transition: "all 0.3s ease",
+              boxShadow: topic.trim() ? "0 4px 15px rgba(102, 126, 234, 0.4)" : "none",
+              opacity: topic.trim() ? 1 : 0.6,
+              transform: topic.trim() ? "scale(1)" : "scale(1)"
+            }}
+            onMouseOver={(e) => {
+              if (topic.trim()) {
+                e.target.style.transform = "scale(1.03)";
+                e.target.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
+              }
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = "scale(1)";
+              e.target.style.boxShadow = topic.trim() ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none";
+            }}
+          >
+            Begin Level Assessment →
+          </button>
+
+          <button
+            onClick={() => {
+              setRetakeLoading(true);
+              setTimeout(() => {
+                setQuizIndex(0);
+                setQuizAnswers([]);
+                setQuizSelected("");
+                setStage("quiz");
+                setRetakeLoading(false);
+              }, 900);
+            }}
+            disabled={retakeLoading}
+            style={{
+              marginTop: "12px",
+              background: "transparent",
+              border: "1px solid #E2E8F0",
+              padding: "10px 20px",
+              width: "100%",
+              borderRadius: "10px",
+              cursor: retakeLoading ? "not-allowed" : "pointer",
+              color: "#2563EB",
+              fontSize: "13px",
+              fontWeight: "500",
+              transition: "all 0.3s ease",
+              opacity: retakeLoading ? 0.7 : 1
+            }}
+            onMouseOver={(e) => {
+              if (!retakeLoading) {
+                e.target.style.background = "#F8FAFC";
+                e.target.style.borderColor = "#2563EB";
+              }
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = "transparent";
+              e.target.style.borderColor = "#E2E8F0";
+            }}
+          >
+            {retakeLoading ? (
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                <span style={{ 
+                  display: "inline-block",
+                  width: "14px", 
+                  height: "14px", 
+                  border: "2px solid #E2E8F0", 
+                  borderTopColor: "#2563EB", 
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite"
+                }}></span>
+                Resetting Quiz...
+              </span>
+            ) : (
+              "← Retake Quiz"
+            )}
+          </button>
+        </div>
       </div>
     );
   }
@@ -751,7 +1101,7 @@ function QuizPage() {
     if (loading && learningQuestions.length === 0) {
       return (
         <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Loading Learner Level Assessment...</h2>
+          <h2 style={{ color: "#1E293B" }}>📊 Loading Learner Level Assessment...</h2>
         </div>
       );
     }
@@ -759,8 +1109,8 @@ function QuizPage() {
     if (learningQuestions.length === 0) {
       return (
         <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
-          <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
+          <h2 style={{ color: "#1E293B" }}>📊 Learner Level Assessment</h2>
+          <p style={{ marginBottom: "20px", color: "#475569" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
 
           {/* Back Button */}
           <button
@@ -770,7 +1120,7 @@ function QuizPage() {
               setLearningSelected("");
               setStage("score");
             }}
-            style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500", marginRight: "10px" }}
+            style={{ marginBottom: "15px", background: "#F8FAFC", border: "1px solid #E2E8F0", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#475569", fontSize: "14px", fontWeight: "500", marginRight: "10px" }}
           >
             ← Back
           </button>
@@ -886,26 +1236,107 @@ function QuizPage() {
     };
 
     return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
-        <p>Question {learningIndex + 1} of {learningQuestions.length}</p>
+      <div className="glass-card" style={{ maxWidth: "600px", margin: "0 auto", padding: "30px" }}>
+        {/* Progress Bar */}
+        <div style={{ 
+          width: "100%", 
+          height: "4px", 
+          background: "#F1F5F9", 
+          borderRadius: "2px",
+          marginBottom: "20px",
+          overflow: "hidden"
+        }}>
+          <div style={{
+            width: `${((learningIndex + 1) / learningQuestions.length) * 100}%`,
+            height: "100%",
+            background: "#3B82F6",
+            borderRadius: "2px",
+            transition: "width 0.4s ease"
+          }} />
+        </div>
 
-        <h3 style={{ margin: "20px 0" }}>{learningQuestions[learningIndex]?.question}</h3>
+        <h2 style={{ color: "#1E293B", marginBottom: "5px" }}>📊 Learner Level Assessment</h2>
+        <p style={{ color: "#475569", fontSize: "13px", marginBottom: "25px" }}>Question {learningIndex + 1} of {learningQuestions.length}</p>
 
-        {learningQuestions[learningIndex]?.options.map((opt, i) => (
-          <label key={i} className="option">
-            <input
-              type="radio"
-              name="learning-option"
-              value={opt}
-              checked={learningSelected === opt}
-              onChange={(e) => handleOptionChange(opt, i)}
-            />
-            <span>{opt}</span>
-          </label>
-        ))}
+        <div key={learningIndex} style={{ animation: "slideIn 0.4s ease-out" }}>
+          <h3 style={{ margin: "0 0 20px", color: "#1E293B", fontSize: "18px", lineHeight: "1.5" }}>{learningQuestions[learningIndex]?.question}</h3>
 
-        <button onClick={nextQuestion} disabled={!learningSelected} style={{ marginTop: "15px" }}>
+          {learningQuestions[learningIndex]?.options.map((opt, i) => (
+            <label 
+              key={i} 
+              style={{ 
+                display: "flex",
+                alignItems: "flex-start",
+                padding: "14px 16px",
+                marginBottom: "12px",
+                borderRadius: "10px",
+                border: learningSelected === opt ? "1px solid #2563EB" : "1px solid #E2E8F0",
+                background: learningSelected === opt ? "#DBEAFE" : "#FFFFFF",
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+                boxShadow: learningSelected === opt ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none"
+              }}
+              onMouseOver={(e) => {
+                if (learningSelected !== opt) {
+                  e.currentTarget.style.background = "#F8FAFC";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }
+              }}
+              onMouseOut={(e) => {
+                if (learningSelected !== opt) {
+                  e.currentTarget.style.background = "#FFFFFF";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }
+              }}
+            >
+              <input
+                type="radio"
+                name="learning-option"
+                value={opt}
+                checked={learningSelected === opt}
+                onChange={(e) => handleOptionChange(opt, i)}
+                style={{ 
+                  marginTop: "4px", 
+                  marginRight: "12px",
+                  accentColor: "#2563EB",
+                  width: "18px",
+                  height: "18px"
+                }}
+              />
+              <span style={{ color: "#1E293B", fontSize: "15px", lineHeight: "1.4" }}>{opt}</span>
+            </label>
+          ))}
+        </div>
+
+        <button 
+          onClick={nextQuestion} 
+          disabled={!learningSelected} 
+          style={{ 
+            marginTop: "25px",
+            width: "100%",
+            padding: "14px 20px",
+            fontSize: "16px",
+            fontWeight: "600",
+            border: "none",
+            borderRadius: "10px",
+            cursor: learningSelected ? "pointer" : "not-allowed",
+            opacity: learningSelected ? 1 : 0.5,
+            background: learningSelected ? "#2563EB" : "#94A3B8",
+            color: "#FFFFFF",
+            transition: "all 0.3s ease",
+            boxShadow: learningSelected ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none"
+          }}
+          onMouseOver={(e) => {
+            if (learningSelected) {
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
+            }
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = learningSelected ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none";
+          }}
+        >
           {learningIndex + 1 < learningQuestions.length ? "Next →" : "Complete Assessment"}
         </button>
 
@@ -916,7 +1347,27 @@ function QuizPage() {
             setLearningSelected("");
             setStage("score");
           }}
-          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+          style={{ 
+            marginTop: "12px", 
+            background: "transparent", 
+            border: "1px solid #E2E8F0",
+            padding: "10px 20px", 
+            width: "100%",
+            borderRadius: "8px",
+            cursor: "pointer", 
+            color: "#2563EB",
+            fontSize: "13px",
+            fontWeight: "500",
+            transition: "all 0.3s ease"
+          }}
+          onMouseOver={(e) => {
+            e.target.style.background = "#F8FAFC";
+            e.target.style.borderColor = "#2563EB";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = "transparent";
+            e.target.style.borderColor = "#E2E8F0";
+          }}
         >
           ← Back to Quiz Score
         </button>
@@ -948,25 +1399,47 @@ function QuizPage() {
     };
 
     return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Personalized Learning Dashboard</h2>
+      <div className="glass-card" style={{ maxWidth: "550px", margin: "0 auto", padding: "1.5rem" }}>
+        <h2 style={{ color: "#1E293B", marginBottom: "20px", fontSize: "22px" }}>Personalized Learning Dashboard</h2>
 
         {/* Assessment Summary */}
-        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
-          <h4 style={{ margin: "0 0 10px 0", color: "#1f2937", textShadow: "none" }}>📊 Your Assessment Profile:</h4>
-          <p style={{ color: "#1f2937" }}>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
-          <p style={{ color: "#1f2937" }}>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
-          <p style={{ color: "#1f2937" }}>Topic: <strong>{storedTopic}</strong></p>
+        <div style={{ 
+          background: "#FFFFFF", 
+          padding: "15px", 
+          borderRadius: "10px", 
+          marginBottom: "12px", 
+          textAlign: "left",
+          border: "1px solid #E2E8F0",
+          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+        }}>
+          <h4 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "14px" }}>📊 Your Assessment Profile:</h4>
+          <p style={{ color: "#475569", marginBottom: "5px", fontSize: "14px" }}>Technical Level: <strong style={{ color: "#1E293B" }}>{techLevel}</strong> ({techScore}%)</p>
+          <p style={{ color: "#475569", marginBottom: "5px", fontSize: "14px" }}>Learner Level: <strong style={{ color: "#1E293B" }}>{learnerLevel}</strong> ({learnScore}%)</p>
+          <p style={{ color: "#475569", marginBottom: "0", fontSize: "14px" }}>Topic: <strong style={{ color: "#1E293B" }}>{storedTopic}</strong></p>
+        </div>
 
-          <hr style={{ margin: "15px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
-          <h5 style={{ margin: "0 0 10px 0", color: "#1f2937" }}>Psychometric Assessment:</h5>
+        {/* Psychometric Assessment */}
+        <div style={{ 
+          background: "#FFFFFF", 
+          padding: "15px", 
+          borderRadius: "10px", 
+          marginBottom: "15px", 
+          textAlign: "left",
+          border: "1px solid #E2E8F0",
+          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+        }}>
+          <h5 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "13px" }}>Psychometric Assessment:</h5>
 
           {Object.entries(psychometricProfile).map(([key, value]) => (
-            <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px", color: "#1f2937" }}>
-              <span>{formatCategory(key)}:</span>
+            <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ color: "#475569", fontSize: "13px" }}>{formatCategory(key)}:</span>
               <span style={{
-                color: getLevelColor(value?.trim()),
-                fontWeight: "bold"
+                color: value?.trim() === "Advanced" ? "#059669" : value?.trim() === "Intermediate" ? "#D97706" : "#DC2626",
+                fontWeight: "600",
+                fontSize: "12px",
+                padding: "2px 10px",
+                borderRadius: "12px",
+                background: value?.trim() === "Advanced" ? "#D1FAE5" : value?.trim() === "Intermediate" ? "#FEF3C7" : "#FEE2E2"
               }}>{value?.trim()}</span>
             </div>
           ))}
@@ -991,13 +1464,34 @@ function QuizPage() {
               weakAreas
             }
           })}
-          style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
+          style={{ 
+            padding: "12px 20px", 
+            fontSize: "15px",
+            fontWeight: "600",
+            width: "100%",
+            marginBottom: "10px",
+            background: "#2563EB",
+            border: "none",
+            borderRadius: "8px",
+            color: "#FFFFFF",
+            cursor: "pointer",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+            transition: "all 0.3s ease"
+          }}
+          onMouseOver={(e) => {
+            e.target.style.transform = "translateY(-2px)";
+            e.target.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
+          }}
         >
           <strong>Create My Learning Plan</strong>
         </button>
 
         
-        {/* Back Button */}
+        {/* Back Button - Ghost Style */}
         <button
           onClick={() => {
             setLearningIndex(0);
@@ -1005,7 +1499,27 @@ function QuizPage() {
             setLearningSelected("");
             setStage("learning");
           }}
-          style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+          style={{ 
+            marginBottom: "5px", 
+            background: "transparent", 
+            border: "1px solid #E2E8F0",
+            padding: "8px 20px", 
+            borderRadius: "6px", 
+            cursor: "pointer", 
+            color: "#2563EB",
+            fontSize: "13px",
+            fontWeight: "500",
+            width: "100%",
+            transition: "all 0.3s ease"
+          }}
+          onMouseOver={(e) => {
+            e.target.style.borderColor = "#2563EB";
+            e.target.style.background = "#F8FAFC";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.borderColor = "#E2E8F0";
+            e.target.style.background = "transparent";
+          }}
         >
           ← Back to Learning Assessment
         </button>

@@ -19,8 +19,8 @@ function LearningMaterialPage() {
   if (!learningMaterial) {
     return (
       <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
+        minHeight: "75vh",
+        background: "#F8FAFC",
         padding: "20px",
         display: "flex",
         alignItems: "center",
@@ -239,17 +239,17 @@ function LearningMaterialPage() {
 
   return (
     <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
+      minHeight: "75vh",
+      background: "#F8FAFC",
       padding: "20px"
     }}>
       <div className="glass-card" style={{
         maxWidth: "900px",
         margin: "0 auto",
-        background: "#ffffff",
+        background: "#FFFFFF",
         borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-        padding: "40px"
+        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+        padding: "30px"
       }}>
         
 
@@ -278,12 +278,12 @@ function LearningMaterialPage() {
           <div style={{
             marginBottom: "30px",
             padding: "20px",
-            background: "#f8f9fa",
+            background: "#F8FAFC",
             borderRadius: "8px",
-            borderLeft: "4px solid #667eea"
+            borderLeft: "4px solid #2563EB"
           }}>
-            <h2 style={{ color: "#2c3e50", marginBottom: "15px", textAlign: "center" }}>📋 Overview</h2>
-            <p style={{ color: "#555", lineHeight: "1.8", margin: "0" }}>
+            <h2 style={{ color: "#1E293B", marginBottom: "15px", textAlign: "center" }}>📋 Overview</h2>
+            <p style={{ color: "#475569", lineHeight: "1.8", margin: "0" }}>
               {learningMaterial.summary}
             </p>
           </div>
@@ -293,19 +293,19 @@ function LearningMaterialPage() {
 
         {/* Main Content Sections */}
         <div style={{ marginBottom: "30px" }}>
-          <h2 style={{ color: "#2c3e50", marginBottom: "20px", textAlign: "center" }}>📖 Course Content</h2>
+          <h2 style={{ color: "#1E293B", marginBottom: "20px", textAlign: "center" }}>📖 Course Content</h2>
 
           {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
             <div key={idx} style={{
               marginBottom: "30px",
               padding: "25px",
-              background: "#fff",
+              background: "#FFFFFF",
               borderRadius: "8px",
-              borderLeft: "4px solid #667eea",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+              borderLeft: "4px solid #2563EB",
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
             }}>
               <h3 style={{
-                color: "#2c3e50",
+                color: "#1E293B",
                 marginBottom: "15px",
                 fontSize: "20px",
                 textAlign: "center"
@@ -315,7 +315,7 @@ function LearningMaterialPage() {
 
               {/* Main Content */}
               <p style={{
-                color: "#555",
+                color: "#475569",
                 lineHeight: "1.8",
                 marginBottom: "20px",
                 whiteSpace: "pre-wrap",
@@ -327,10 +327,10 @@ function LearningMaterialPage() {
               {/* Key Points */}
               {section.keyPoints && section.keyPoints.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🔑 Key Points:</h4>
+                  <h4 style={{ color: "#2563EB", marginBottom: "10px", textAlign: "center" }}>🔑 Key Points:</h4>
                   <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.keyPoints.map((point, pIdx) => (
-                      <li key={pIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
+                      <li key={pIdx} style={{ marginBottom: "8px", color: "#475569", textAlign: "left" }}>
                         {point}
                       </li>
                     ))}
@@ -341,10 +341,10 @@ function LearningMaterialPage() {
               {/* Real-World Applications */}
               {section.applications && section.applications.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🌍 Real-World Applications:</h4>
+                  <h4 style={{ color: "#2563EB", marginBottom: "10px", textAlign: "center" }}>🌍 Real-World Applications:</h4>
                   <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.applications.map((app, aIdx) => (
-                      <li key={aIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
+                      <li key={aIdx} style={{ marginBottom: "8px", color: "#475569", textAlign: "left" }}>
                         {app}
                       </li>
                     ))}
@@ -355,25 +355,25 @@ function LearningMaterialPage() {
               {/* Examples */}
               {section.examples && section.examples.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>💻 Examples & Demonstrations:</h4>
+                  <h4 style={{ color: "#2563EB", marginBottom: "10px", textAlign: "center" }}>💻 Examples & Demonstrations:</h4>
                   {section.examples.map((ex, exIdx) => (
                     <div key={exIdx} style={{
                       marginBottom: "15px",
                       padding: "15px",
-                      background: "#f5f5f5",
+                      background: "#F8FAFC",
                       borderRadius: "4px",
-                      border: "1px solid #e0e0e0"
+                      border: "1px solid #E2E8F0"
                     }}>
                       <p style={{
                         margin: "0 0 8px 0",
                         fontWeight: "bold",
-                        color: "#333"
+                        color: "#1E293B"
                       }}>
                         {ex.title}
                       </p>
                       <p style={{
                         margin: "0 0 10px 0",
-                        color: "#666",
+                        color: "#475569",
                         fontSize: "14px"
                       }}>
                         {ex.description}
@@ -382,12 +382,12 @@ function LearningMaterialPage() {
                         <pre style={{
                           margin: "10px 0 0 0",
                           padding: "12px",
-                          background: "#2c3e50",
+                          background: "#1E293B",
                           borderRadius: "4px",
                           overflow: "auto",
                           fontSize: "12px"
                         }}>
-                          <code style={{ color: "#f8f8f2" }}>
+                          <code style={{ color: "#F8FAFC" }}>
                             {ex.code}
                           </code>
                         </pre>
@@ -400,10 +400,10 @@ function LearningMaterialPage() {
               {/* Practice Questions */}
               {section.practiceQuestions && section.practiceQuestions.length > 0 && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>❓ Practice Questions:</h4>
+                  <h4 style={{ color: "#2563EB", marginBottom: "10px", textAlign: "center" }}>❓ Practice Questions:</h4>
                   <ol style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                     {section.practiceQuestions.map((q, qIdx) => (
-                      <li key={qIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
+                      <li key={qIdx} style={{ marginBottom: "8px", color: "#475569", textAlign: "left" }}>
                         {q}
                       </li>
                     ))}
@@ -414,9 +414,9 @@ function LearningMaterialPage() {
               {/* Estimated Time */}
               <p style={{
                 margin: "20px 0 0 0",
-                color: "#999",
+                color: "#64748B",
                 fontSize: "13px",
-                borderTop: "1px solid #eee",
+                borderTop: "1px solid #E2E8F0",
                 paddingTop: "15px"
               }}>
                 ⏱ Estimated Time: {section.estimatedTime}
@@ -430,9 +430,9 @@ function LearningMaterialPage() {
           <div style={{
             marginBottom: "30px",
             padding: "25px",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            background: "#2563EB",
             borderRadius: "8px",
-            color: "white"
+            color: "#FFFFFF"
           }}>
             <h3 style={{ marginTop: "0", marginBottom: "15px", textAlign: "center" }}>
               🎯 {learningMaterial.finalProject.title}
@@ -457,20 +457,20 @@ function LearningMaterialPage() {
           <div style={{
             marginBottom: "30px",
             padding: "25px",
-            background: "#FFF3E0",
+            background: "#FEF3C7",
             borderRadius: "8px",
-            borderLeft: "4px solid #F57C00"
+            borderLeft: "4px solid #D97706"
           }}>
-            <h3 style={{ color: "#E65100", marginBottom: "20px", textAlign: "center" }}>📝 Quick Reference Cheatsheet</h3>
+            <h3 style={{ color: "#92400E", marginBottom: "20px", textAlign: "center" }}>📝 Quick Reference Cheatsheet</h3>
 
             {learningMaterial.cheatsheet.commands && (
               <div style={{ marginBottom: "20px" }}>
-                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Commands/Syntax:</h5>
+                <h5 style={{ color: "#92400E", marginBottom: "10px", textAlign: "center" }}>Commands/Syntax:</h5>
                 <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                   {learningMaterial.cheatsheet.commands.map((cmd, idx) => (
                     <li key={idx} style={{
                       marginBottom: "8px",
-                      color: "#555",
+                      color: "#475569",
                       fontFamily: "monospace",
                       fontSize: "13px",
                       textAlign: "left"
@@ -484,12 +484,12 @@ function LearningMaterialPage() {
 
             {learningMaterial.cheatsheet.definitions && (
               <div>
-                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Definitions & Key Terms:</h5>
+                <h5 style={{ color: "#92400E", marginBottom: "10px", textAlign: "center" }}>Definitions & Key Terms:</h5>
                 <dl style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
                   {Object.entries(learningMaterial.cheatsheet.definitions).map(([term, def], idx) => (
                     <div key={idx} style={{ marginBottom: "10px" }}>
-                      <dt style={{ fontWeight: "bold", color: "#333", textAlign: "left" }}>{term}</dt>
-                      <dd style={{ margin: "4px 0 0 20px", color: "#666", textAlign: "left" }}>{def}</dd>
+                      <dt style={{ fontWeight: "bold", color: "#1E293B", textAlign: "left" }}>{term}</dt>
+                      <dd style={{ margin: "4px 0 0 20px", color: "#475569", textAlign: "left" }}>{def}</dd>
                     </div>
                   ))}
                 </dl>
@@ -503,14 +503,14 @@ function LearningMaterialPage() {
           <div style={{
             marginBottom: "30px",
             padding: "25px",
-            background: "#F3E5F5",
+            background: "#F0F9FF",
             borderRadius: "8px",
-            borderLeft: "4px solid #7B1FA2"
+            borderLeft: "4px solid #0284C7"
           }}>
-            <h3 style={{ color: "#7B1FA2", marginBottom: "15px", textAlign: "center" }}>📖 Further Reading & Resources</h3>
+            <h3 style={{ color: "#0369A1", marginBottom: "15px", textAlign: "center" }}>📖 Further Reading & Resources</h3>
             <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
               {learningMaterial.furtherReading.map((resource, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
+                <li key={idx} style={{ marginBottom: "8px", color: "#475569", textAlign: "left" }}>
                   {resource}
                 </li>
               ))}
@@ -524,7 +524,7 @@ function LearningMaterialPage() {
           gridTemplateColumns: "1fr 1fr",
           gap: "15px",
           marginTop: "30px",
-          borderTop: "2px solid #e5e7eb",
+          borderTop: "2px solid #E2E8F0",
           paddingTop: "20px"
         }}>
           <button
@@ -532,8 +532,8 @@ function LearningMaterialPage() {
             style={{
               padding: "16px",
               fontSize: "16px",
-              background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-              color: "white",
+              background: "#059669",
+              color: "#FFFFFF",
               border: "none",
               borderRadius: "8px",
               cursor: "pointer",
@@ -549,8 +549,8 @@ function LearningMaterialPage() {
             style={{
               padding: "16px",
               fontSize: "16px",
-              background: loading ? "#ccc" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
+              background: loading ? "#94A3B8" : "#2563EB",
+              color: "#FFFFFF",
               border: "none",
               borderRadius: "8px",
               cursor: loading ? "not-allowed" : "pointer",
@@ -575,11 +575,11 @@ function LearningMaterialPage() {
             style={{
               padding: "12px 24px",
               fontSize: "14px",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
+              background: "#F8FAFC",
+              border: "1px solid #E2E8F0",
               borderRadius: "8px",
               cursor: "pointer",
-              color: "#374151",
+              color: "#475569",
               fontWeight: "500"
             }}
           >
@@ -589,10 +589,10 @@ function LearningMaterialPage() {
 
         {error && (
           <p style={{
-            color: "#e74c3c",
+            color: "#DC2626",
             marginTop: "20px",
             padding: "12px",
-            background: "#fdeaea",
+            background: "#FEE2E2",
             borderRadius: "8px"
           }}>
             ❌ {error}

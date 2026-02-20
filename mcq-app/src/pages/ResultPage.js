@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
+// Debug log to verify component is loaded
+console.log("ACTIVE RESULTS COMPONENT LOADED");
+
 function ResultPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,8 +16,7 @@ function ResultPage() {
     technicalScore,
     learningScore,
     combinedAnalysis,
-    mode,
-    // Analysis data passed from QuizPage/HomePage
+    mode, // Analysis data passed from QuizPage/HomePage
     userId,
     sourceType,
     sourceUrl,
@@ -41,7 +43,8 @@ function ResultPage() {
   };
 
   // Handle backward compatibility (combinedData -> combinedAnalysis)
-  const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
+  const effectiveCombinedAnalysis =
+    combinedAnalysis || location.state?.combinedData || null;
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
   const [learningMaterial, setLearningMaterial] = useState(null);
@@ -49,6 +52,7 @@ function ResultPage() {
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
   const [analysisId, setAnalysisId] = useState(null);
+  const [learningTopic, setLearningTopic] = useState(topic || "");
 
   // Determine levels
   const getTechnicalLevel = () => {
@@ -69,7 +73,6 @@ function ResultPage() {
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
       const existingAnalysisId = localStorage.getItem("currentAnalysisId");
-      
       const analysisData = {
         userId: userId || "anonymous",
         sourceType: sourceType || "resume",
@@ -83,7 +86,7 @@ function ResultPage() {
         technicalLevel: getTechnicalLevel(),
         learningStyle: getLearningStyle(),
         overallScore: technicalScore || score || 0,
-        topic: topic || null,
+        topic: learningTopic || topic || null,
         learningScore: learningScore || null,
         technicalScore: technicalScore || score || null,
         psychometricProfile: combinedAnalysis?.psychometricProfile || null
@@ -102,7 +105,7 @@ function ResultPage() {
             learningRoadmap: roadmapData || contentData?.learningPath || null,
             technicalLevel: getTechnicalLevel(),
             learningStyle: getLearningStyle(),
-            topic: topic || null,
+            topic: learningTopic || topic || null,
             learningScore: learningScore || null,
             technicalScore: technicalScore || score || null,
             psychometricProfile: combinedAnalysis?.psychometricProfile || null
@@ -141,7 +144,7 @@ function ResultPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: topic || "General Technology",
+          topic: learningTopic || topic || "General Technology",
           technicalLevel: getTechnicalLevel(),
           technicalScore: technicalScore || score,
           learningStyle: getLearningStyle(),
@@ -158,10 +161,10 @@ function ResultPage() {
 
       const content = await res.json();
       console.log("Content received:", content);
-      
+
       setPersonalizedContent(content);
       setShowContent(true);
-      
+
       // Save analysis to database (background, doesn't block UI)
       saveAnalysisToDatabase(content, content.learningPath);
     } catch (err) {
@@ -182,7 +185,7 @@ function ResultPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: topic || "General Technology",
+          topic: learningTopic || topic || "General Technology",
           technicalLevel: getTechnicalLevel(),
           learningStyle: getLearningStyle()
         })
@@ -194,20 +197,22 @@ function ResultPage() {
 
       const material = await res.json();
       setLearningMaterial(material);
-      
+
       // Save analysis to database (background, doesn't block UI)
       const roadmapData = {
-        learningPath: material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) || [],
+        learningPath:
+          material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) ||
+          [],
         tips: material.learningTips || [],
         finalProject: material.finalProject
       };
       saveAnalysisToDatabase(material, roadmapData);
-      
+
       // Navigate to LearningMaterialPage instead of showing inline
       navigate("/learning-material", {
         state: {
           learningMaterial: material,
-          topic: topic,
+          topic: learningTopic || topic,
           technicalLevel: getTechnicalLevel(),
           learningStyle: getLearningStyle(),
           analysisId: analysisId
@@ -225,16 +230,34 @@ function ResultPage() {
   const renderQuizScore = () => {
     if (mode === "quiz" && score !== undefined) {
       return (
-        <div style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          borderRadius: "12px",
-          padding: "25px",
-          marginBottom: "20px",
-          color: "white"
-        }}>
-          <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Quiz Score</p>
-          <p style={{ fontSize: "36px", fontWeight: "bold", margin: "0" }}>{score}%</p>
-          <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>
+        <div
+          style={{
+            background: "#FFFFFF",
+            borderRadius: "12px",
+            padding: "16px 20px",
+            marginBottom: "16px",
+            color: "#1E293B",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+            width: "100%",
+            boxSizing: "border-box"
+          }}
+        >
+          <p style={{ fontSize: "13px", color: "#475569", margin: "0 0 6px 0" }}>
+            Quiz Score
+          </p>
+          <p
+            style={{
+              fontSize: "28px",
+              fontWeight: "bold",
+              margin: "0",
+              fontFamily: "'Courier New', Courier, monospace",
+              color: "#1E293B"
+            }}
+          >
+            {score}%
+          </p>
+          <p style={{ fontSize: "13px", margin: "6px 0 0 0", color: "#475569" }}>
             {correctCount}/{questions.length} correct
           </p>
         </div>
@@ -244,58 +267,271 @@ function ResultPage() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
-      padding: "20px"
-    }}>
-      <div className="glass-card" style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        background: "#ffffff",
-        borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-        padding: "40px"
-      }}>
-        <h2 style={{ textAlign: "center", color: "#2c3e50", marginBottom: "20px" }}>
-          🏆 Assessment Complete
-        </h2>
-
-        {topic && (
-          <p style={{ textAlign: "center", color: "#667eea", fontSize: "18px", fontWeight: "600", marginBottom: "20px" }}>
-            Topic: {topic}
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        background: "#F8FAFC",
+        padding: "16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box"
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "800px",
+          width: "100%",
+          minHeight: "auto",
+          margin: "0 auto",
+          background: "#FFFFFF",
+          borderRadius: "20px",
+          border: "1px solid #E2E8F0",
+          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+          padding: "28px 32px",
+          paddingBottom: "32px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "20px"
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center" }}>
+          <h2
+            style={{
+              color: "#1E293B",
+              margin: "0 0 6px 0",
+              fontSize: "24px",
+              fontWeight: "700"
+            }}
+          >
+            Your Learning Profile is Ready
+          </h2>
+          <p
+            style={{
+              color: "#475569",
+              fontSize: "13px",
+              margin: "0"
+            }}
+          >
+            We've analyzed your skills and learning style to build the perfect path for you.
           </p>
+        </div>
+
+        {/* Topic Badge */}
+        {topic && (
+          <span
+            style={{
+              padding: "6px 18px",
+              fontSize: "14px",
+              fontWeight: "500",
+              color: "#1E40AF",
+              background: "#DBEAFE",
+              borderRadius: "50px",
+              border: "none"
+            }}
+          >
+            Topic: {topic}
+          </span>
         )}
 
-        {/* Technical Score */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "20px",
-          marginBottom: "20px"
-        }}>
-          <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Technical Knowledge</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{technicalScore || score}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Level: {getTechnicalLevel()}</p>
+        {/* Score Cards - Compact Grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "20px",
+            width: "100%"
+          }}
+        >
+          {/* Technical Score Card */}
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: "12px",
+              padding: "18px",
+              color: "#1E293B",
+              textAlign: "center",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+            }}
+          >
+            <p
+              style={{
+                fontSize: "11px",
+                color: "#475569",
+                margin: "0 0 10px 0",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                fontWeight: "600"
+              }}
+            >
+              Technical Score
+            </p>
+            <div
+              style={{
+                position: "relative",
+                width: "80px",
+                height: "80px",
+                margin: "0 auto"
+              }}
+            >
+              <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="#F1F5F9"
+                  strokeWidth="5"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="#3B82F6"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(technicalScore || score || 0) * 2.14} 214`}
+                  style={{
+                    transition: "stroke-dasharray 1s ease-out"
+                  }}
+                />
+              </svg>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  fontFamily: "'Courier New', Courier, monospace",
+                  color: "#1E293B"
+                }}
+              >
+                {technicalScore || score}%
+              </div>
+            </div>
+            <p style={{ fontSize: "11px", margin: "10px 0 0 0" }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "2px 10px",
+                  borderRadius: "10px",
+                  background:
+                    getTechnicalLevel() === "Advanced"
+                      ? "#DCFCE7"
+                      : getTechnicalLevel() === "Intermediate"
+                      ? "#FEF3C7"
+                      : "#FEE2E2",
+                  color:
+                    getTechnicalLevel() === "Advanced"
+                      ? "#166534"
+                      : getTechnicalLevel() === "Intermediate"
+                      ? "#92400E"
+                      : "#DC2626",
+                  fontWeight: "600"
+                }}
+              >
+                {getTechnicalLevel()}
+              </span>
+            </p>
           </div>
 
-          <div style={{
-            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Learning Preference</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{learningScore || 50}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Style: {getLearningStyle()}</p>
+          {/* Learning Preference Card */}
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: "12px",
+              padding: "18px",
+              color: "#1E293B",
+              textAlign: "center",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+            }}
+          >
+            <p
+              style={{
+                fontSize: "11px",
+                color: "#475569",
+                margin: "0 0 10px 0",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                fontWeight: "600"
+              }}
+            >
+              Learning Preference
+            </p>
+            <div
+              style={{
+                position: "relative",
+                width: "80px",
+                height: "80px",
+                margin: "0 auto"
+              }}
+            >
+              <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="#F1F5F9"
+                  strokeWidth="5"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  fill="none"
+                  stroke="#3B82F6"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(learningScore || 50) * 2.14} 214`}
+                  style={{
+                    transition: "stroke-dasharray 1s ease-out"
+                  }}
+                />
+              </svg>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  fontFamily: "'Courier New', Courier, monospace",
+                  color: "#1E293B"
+                }}
+              >
+                {learningScore || 50}%
+              </div>
+            </div>
+            <p style={{ fontSize: "11px", margin: "10px 0 0 0" }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "2px 10px",
+                  borderRadius: "10px",
+                  background:
+                    getLearningStyle() === "Hands-On Learner"
+                      ? "#DCFCE7"
+                      : "#DBEAFE",
+                  color:
+                    getLearningStyle() === "Hands-On Learner"
+                      ? "#166534"
+                      : "#1E40AF",
+                  fontWeight: "600"
+                }}
+              >
+                {getLearningStyle()}
+              </span>
+            </p>
           </div>
         </div>
 
@@ -303,90 +539,165 @@ function ResultPage() {
 
         {/* Combined Analysis */}
         {combinedAnalysis && (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "20px",
-            marginBottom: "20px",
-            borderLeft: "4px solid #667eea",
-            textAlign: "left"
-          }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>📊 Combined Analysis</h4>
-            <p style={{ margin: "0", color: "#555", lineHeight: "1.6" }}>
+          <div
+            style={{
+              background: "#F0F9FF",
+              borderRadius: "10px",
+              padding: "14px 16px",
+              borderLeft: "4px solid #38BDF8",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+              textAlign: "left",
+              width: "100%",
+              boxSizing: "border-box"
+            }}
+          >
+            <h4
+              style={{
+                margin: "0 0 4px 0",
+                color: "#1E293B",
+                fontWeight: "600",
+                fontSize: "12px"
+              }}
+            >
+              📊 Combined Analysis
+            </h4>
+            <p
+              style={{
+                margin: "0",
+                color: "#475569",
+                lineHeight: "1.5",
+                fontSize: "13px"
+              }}
+            >
               {combinedAnalysis.combinedAnalysis}
             </p>
           </div>
         )}
 
+        {/* CTA Section */}
         {!showContent ? (
           <>
-            <button
-              onClick={generateContent}
-              disabled={loading}
+            <div
               style={{
                 width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                marginBottom: "15px",
-                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "4px"
               }}
             >
-              {loading ? "Generating..." : "🚀 Generate Personalized Learning Path"}
-            </button>
+              <button
+                onClick={generateContent}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  maxWidth: "400px",
+                  padding: "14px 28px",
+                  fontSize: "15px",
+                  background: "#2563EB",
+                  border: "none",
+                  borderRadius: "10px",
+                  color: "#FFFFFF",
+                  fontWeight: "600",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+                }}
+              >
+                {loading ? "Generating..." : "Generate Personalized Learning Path"}
+              </button>
+            </div>
 
-            {/* Back Button */}
+            {/* Retake Quiz Button */}
             <button
               onClick={() => navigate("/quiz")}
-              style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: "8px 16px",
+                cursor: "pointer",
+                borderRadius: "6px",
+                color: "#2563EB",
+                fontSize: "13px",
+                fontWeight: "500",
+                transition: "all 0.3s ease"
+              }}
             >
-              ↩️ Back to Quiz
+              🔄 Retake Quiz
             </button>
           </>
         ) : (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "30px",
-            textAlign: "left"
-          }}>
+          <div
+            style={{
+              background: "#F8FAFC",
+              borderRadius: "12px",
+              padding: "24px",
+              textAlign: "left",
+              width: "100%",
+              boxSizing: "border-box"
+            }}
+          >
             {personalizedContent && (
               <>
-                <h3 style={{ color: "#2c3e50", marginBottom: "20px" }}>
+                <h3 style={{ color: "#1E293B", marginBottom: "16px", fontSize: "18px" }}>
                   {personalizedContent.title || "Your Personalized Learning Guide"}
                 </h3>
 
                 {personalizedContent.overview && (
-                  <p style={{ color: "#555", fontSize: "16px", lineHeight: "1.6", marginBottom: "25px" }}>
+                  <p
+                    style={{
+                      color: "#475569",
+                      fontSize: "14px",
+                      lineHeight: "1.6",
+                      marginBottom: "20px"
+                    }}
+                  >
                     {personalizedContent.overview}
                   </p>
                 )}
 
                 {personalizedContent.learningPath && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📋 Learning Path:</h4>
-                    <ol style={{ paddingLeft: "20px", color: "#555" }}>
+                  <div style={{ marginBottom: "20px" }}>
+                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
+                      📋 Learning Path:
+                    </h4>
+                    <ol style={{ paddingLeft: "18px", color: "#475569", margin: 0 }}>
                       {personalizedContent.learningPath.map((step, idx) => (
-                        <li key={idx} style={{ marginBottom: "10px" }}>{step}</li>
+                        <li key={idx} style={{ marginBottom: "8px", fontSize: "13px" }}>
+                          {step}
+                        </li>
                       ))}
                     </ol>
                   </div>
                 )}
 
                 {personalizedContent.resources && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📚 Resources:</h4>
+                  <div style={{ marginBottom: "20px" }}>
+                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
+                      📚 Resources:
+                    </h4>
                     {personalizedContent.resources.map((resource, idx) => (
-                      <div key={idx} style={{
-                        background: "#ffffff",
-                        padding: "15px",
-                        borderRadius: "8px",
-                        marginBottom: "10px",
-                        borderLeft: "4px solid #667eea"
-                      }}>
-                        <p style={{ margin: "0 0 5px 0", fontWeight: "bold", color: "#667eea" }}>
+                      <div
+                        key={idx}
+                        style={{
+                          background: "#FFFFFF",
+                          padding: "12px",
+                          borderRadius: "6px",
+                          marginBottom: "8px",
+                          borderLeft: "3px solid #2563EB"
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: "0 0 4px 0",
+                            fontWeight: "bold",
+                            color: "#2563EB",
+                            fontSize: "13px"
+                          }}
+                        >
                           {resource.type}: {resource.title}
                         </p>
-                        <p style={{ margin: "0", color: "#666", fontSize: "14px" }}>
+                        <p style={{ margin: "0", color: "#475569", fontSize: "12px" }}>
                           {resource.description}
                         </p>
                       </div>
@@ -395,25 +706,31 @@ function ResultPage() {
                 )}
 
                 {personalizedContent.tips && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>💡 Tips:</h4>
-                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
+                  <div style={{ marginBottom: "20px" }}>
+                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
+                      💡 Tips:
+                    </h4>
+                    <ul style={{ paddingLeft: "18px", color: "#475569", margin: 0 }}>
                       {personalizedContent.tips.map((tip, idx) => (
-                        <li key={idx} style={{ marginBottom: "8px" }}>{tip}</li>
+                        <li key={idx} style={{ marginBottom: "6px", fontSize: "13px" }}>
+                          {tip}
+                        </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
                 {personalizedContent.nextSteps && (
-                  <div style={{
-                    background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                    padding: "20px",
-                    borderRadius: "8px",
-                    color: "white",
-                    textAlign: "center"
-                  }}>
-                    <p style={{ margin: "0", fontSize: "16px", fontWeight: "bold" }}>
+                  <div
+                    style={{
+                      background: "#DCFCE7",
+                      padding: "14px",
+                      borderRadius: "8px",
+                      color: "#166534",
+                      textAlign: "center"
+                    }}
+                  >
+                    <p style={{ margin: "0", fontSize: "14px", fontWeight: "bold" }}>
                       🚀 {personalizedContent.nextSteps}
                     </p>
                   </div>
@@ -425,11 +742,16 @@ function ResultPage() {
                   disabled={loading}
                   style={{
                     width: "100%",
-                    padding: "18px",
-                    fontSize: "18px",
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    marginTop: "20px",
-                    marginBottom: "15px"
+                    padding: "14px",
+                    fontSize: "15px",
+                    background: "#2563EB",
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "#FFFFFF",
+                    fontWeight: "600",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    marginTop: "16px",
+                    marginBottom: "12px"
                   }}
                 >
                   {loading ? "Generating..." : "📚 Generate Full Learning Material"}
@@ -437,11 +759,46 @@ function ResultPage() {
               </>
             )}
 
-            <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
-              <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                marginTop: "20px",
+                flexWrap: "wrap"
+              }}
+            >
+              <button
+                onClick={() => navigate("/pdf-chat")}
+                style={{
+                  flex: "1",
+                  minWidth: "130px",
+                  padding: "10px",
+                  background: "#2563EB",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "#FFFFFF",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontSize: "13px"
+                }}
+              >
                 💬 Chat with PDF
               </button>
-              <button onClick={() => navigate("/quiz")} style={{ flex: "1", minWidth: "150px", background: "#9C27B0" }}>
+              <button
+                onClick={() => navigate("/quiz")}
+                style={{
+                  flex: "1",
+                  minWidth: "130px",
+                  background: "#64748B",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "10px",
+                  color: "#FFFFFF",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontSize: "13px"
+                }}
+              >
                 🔄 New Assessment
               </button>
             </div>
@@ -449,7 +806,17 @@ function ResultPage() {
         )}
 
         {error && (
-          <p style={{ color: "#e74c3c", textAlign: "center", marginTop: "20px", padding: "10px", background: "#fdeaea", borderRadius: "8px" }}>
+          <p
+            style={{
+              color: "#DC2626",
+              textAlign: "center",
+              marginTop: "12px",
+              padding: "8px",
+              background: "#FEE2E2",
+              borderRadius: "6px",
+              fontSize: "13px"
+            }}
+          >
             {error}
           </p>
         )}

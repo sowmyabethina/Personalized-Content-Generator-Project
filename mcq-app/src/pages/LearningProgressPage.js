@@ -231,7 +231,7 @@ function LearningProgressPage() {
     return (
       <div style={{ 
         minHeight: "100vh", 
-        background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
+        background: "#F8FAFC",
         padding: "20px",
         display: "flex",
         justifyContent: "center",
@@ -240,13 +240,13 @@ function LearningProgressPage() {
         <div className="glass-card" style={{ textAlign: "center", padding: "40px" }}>
           <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
           <h2>Loading your learning progress...</h2>
-          <p style={{ color: "#6b7280" }}>Fetching your analysis history</p>
+          <p style={{ color: "#475569" }}>Fetching your analysis history</p>
           <div style={{ 
             marginTop: "20px", 
             width: "40px", 
             height: "40px", 
-            border: "4px solid #e5e7eb",
-            borderTop: "4px solid #667eea",
+            border: "4px solid #E2E8F0",
+            borderTop: "4px solid #2563EB",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
             margin: "20px auto"
@@ -265,15 +265,15 @@ function LearningProgressPage() {
   return (
     <div style={{ 
       minHeight: "100vh", 
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
+      background: "#F8FAFC",
       padding: "20px"
     }}>
       <div style={{ 
         maxWidth: "1400px", 
         margin: "0 auto", 
-        background: "#ffffff", 
+        background: "#FFFFFF", 
         borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
         padding: "30px"
       }}>
         {/* Header */}
@@ -286,8 +286,8 @@ function LearningProgressPage() {
           gap: "15px"
         }}>
           <div>
-            <h1 style={{ margin: 0, color: "#2c3e50", fontSize: "28px" }}>📚 Learning Dashboard</h1>
-            <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
+            <h1 style={{ margin: 0, color: "#1E293B", fontSize: "28px" }}>📚 Learning Dashboard</h1>
+            <p style={{ margin: "5px 0 0 0", color: "#475569" }}>
               Track your growth and continue learning
             </p>
           </div>
@@ -297,11 +297,11 @@ function LearningProgressPage() {
             disabled={loading}
             style={{
               padding: "10px 20px",
-              background: loading ? "#e5e7eb" : "#3b82f6",
+              background: loading ? "#94A3B8" : "#2563EB",
               border: "none",
               borderRadius: "8px",
               cursor: loading ? "not-allowed" : "pointer",
-              color: loading ? "#9ca3af" : "#ffffff",
+              color: loading ? "#FFFFFF" : "#FFFFFF",
               fontSize: "14px",
               fontWeight: "500"
             }}
@@ -340,9 +340,9 @@ function LearningProgressPage() {
 
         {/* Empty State */}
         {analyses.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "#6b7280" }}>
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#475569" }}>
             <div style={{ fontSize: "64px", marginBottom: "20px" }}>📊</div>
-            <h2 style={{ color: "#2c3e50", marginBottom: "10px" }}>No assessments yet</h2>
+            <h2 style={{ color: "#1E293B", marginBottom: "10px" }}>No assessments yet</h2>
             <p style={{ margin: "0 0 20px 0", fontSize: "16px" }}>
               Complete your first analysis to start tracking your progress
             </p>
@@ -350,8 +350,8 @@ function LearningProgressPage() {
               onClick={() => navigate("/")}
               style={{
                 padding: "14px 28px",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                color: "white",
+                background: "#2563EB",
+                color: "#FFFFFF",
                 border: "none",
                 borderRadius: "8px",
                 cursor: "pointer",
@@ -370,53 +370,53 @@ function LearningProgressPage() {
               {/* Score Trend Chart - Show last 3 assessments */}
               {analyses.length > 0 && (
                 <div style={{
-                  background: "#ffffff",
+                  background: "#FFFFFF",
                   borderRadius: "12px",
                   padding: "25px",
                   marginBottom: "25px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                  border: "1px solid #e5e7eb"
+                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                  border: "1px solid #E2E8F0"
                 }}>
-                  <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
+                  <h3 style={{ margin: "0 0 20px 0", color: "#1E293B", fontSize: "18px" }}>
                     📈 Learning Progress (Last 3 Assessments)
                   </h3>
                   {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
-                        <YAxis stroke="#6b7280" fontSize={12} domain={[0, 100]} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                        <XAxis dataKey="date" stroke="#475569" fontSize={12} />
+                        <YAxis stroke="#475569" fontSize={12} domain={[0, 100]} />
                         <Tooltip 
                           contentStyle={{ 
-                            background: "#fff", 
-                            border: "1px solid #e5e7eb",
+                            background: "#FFFFFF", 
+                            border: "1px solid #E2E8F0",
                             borderRadius: "8px",
-                            boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+                            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
                           }}
                         />
                         <Legend />
                         <Line 
                           type="monotone" 
                           dataKey="technicalScore" 
-                          stroke="#667eea" 
+                          stroke="#2563EB" 
                           strokeWidth={2}
                           name="Technical Score"
-                          dot={{ fill: "#667eea", strokeWidth: 2 }}
+                          dot={{ fill: "#2563EB", strokeWidth: 2 }}
                           activeDot={{ r: 6 }}
                         />
                         <Line 
                           type="monotone" 
                           dataKey="learningScore" 
-                          stroke="#11998e" 
+                          stroke="#059669" 
                           strokeWidth={2}
                           name="Learning Score"
-                          dot={{ fill: "#11998e", strokeWidth: 2 }}
+                          dot={{ fill: "#059669", strokeWidth: 2 }}
                           activeDot={{ r: 6 }}
                         />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
+                    <div style={{ textAlign: "center", padding: "40px", color: "#475569" }}>
                       <p>No score data available for chart display</p>
                     </div>
                   )}
@@ -425,10 +425,10 @@ function LearningProgressPage() {
 
               {/* Progress Summary Banner */}
               <div style={{
-                background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                background: "#2563EB",
                 borderRadius: "12px",
                 padding: "25px",
-                color: "white",
+                color: "#FFFFFF",
                 marginBottom: "25px",
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
@@ -456,13 +456,13 @@ function LearningProgressPage() {
 
               {/* Past Analyses List */}
               <div style={{
-                background: "#ffffff",
+                background: "#FFFFFF",
                 borderRadius: "12px",
                 padding: "25px",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                border: "1px solid #e5e7eb"
+                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                border: "1px solid #E2E8F0"
               }}>
-                <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
+                <h3 style={{ margin: "0 0 20px 0", color: "#1E293B", fontSize: "18px" }}>
                   📋 Past Assessments
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -480,8 +480,8 @@ function LearningProgressPage() {
                         key={analysisKey || index}
                         onClick={() => loadAnalysisDetail(analysisKey)}
                         style={{
-                          background: isSelected ? "#f0f9ff" : "#f8f9fa",
-                          border: isSelected ? "2px solid #667eea" : "1px solid #e5e7eb",
+                          background: isSelected ? "#DBEAFE" : "#F8FAFC",
+                          border: isSelected ? "2px solid #2563EB" : "1px solid #E2E8F0",
                           borderRadius: "10px",
                           padding: "18px",
                           cursor: "pointer",
@@ -495,16 +495,16 @@ function LearningProgressPage() {
                           marginBottom: "12px"
                         }}>
                           <div>
-                            <p style={{ margin: 0, fontSize: "15px", fontWeight: "600", color: "#2c3e50" }}>
+                            <p style={{ margin: 0, fontSize: "15px", fontWeight: "600", color: "#1E293B" }}>
                               {analysis.topic || analysis.sourceType || "Assessment"}
                             </p>
-                            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#6b7280" }}>
+                            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#475569" }}>
                               {formatDate(analysis.createdAt)}
                             </p>
                           </div>
                           <span style={{
                             background: readiness.color,
-                            color: "white",
+                            color: "#FFFFFF",
                             padding: "4px 12px",
                             borderRadius: "20px",
                             fontSize: "12px",
@@ -521,7 +521,7 @@ function LearningProgressPage() {
                           marginBottom: selectedAnalysis?.id === analysisKey ? "15px" : "0"
                         }}>
                           <div>
-                            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280", textTransform: "uppercase" }}>
+                            <p style={{ margin: 0, fontSize: "11px", color: "#475569", textTransform: "uppercase" }}>
                               Technical
                             </p>
                             <p style={{ margin: "3px 0 0 0", fontWeight: "600", color: getScoreColor(analysis.technicalScore || analysis.overallScore) }}>
@@ -529,7 +529,7 @@ function LearningProgressPage() {
                             </p>
                           </div>
                           <div>
-                            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280", textTransform: "uppercase" }}>
+                            <p style={{ margin: 0, fontSize: "11px", color: "#475569", textTransform: "uppercase" }}>
                               Tech Score
                             </p>
                             <p style={{ margin: "3px 0 0 0", fontWeight: "600", color: getScoreColor(analysis.technicalScore || analysis.overallScore) }}>
@@ -537,15 +537,15 @@ function LearningProgressPage() {
                             </p>
                           </div>
                           <div>
-                            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280", textTransform: "uppercase" }}>
+                            <p style={{ margin: 0, fontSize: "11px", color: "#475569", textTransform: "uppercase" }}>
                               Learning
                             </p>
-                            <p style={{ margin: "3px 0 0 0", fontWeight: "600", color: "#2c3e50" }}>
+                            <p style={{ margin: "3px 0 0 0", fontWeight: "600", color: "#1E293B" }}>
                               {analysis.learningStyle || "N/A"}
                             </p>
                           </div>
                           <div>
-                            <p style={{ margin: 0, fontSize: "11px", color: "#6b7280", textTransform: "uppercase" }}>
+                            <p style={{ margin: 0, fontSize: "11px", color: "#475569", textTransform: "uppercase" }}>
                               Learn Score
                             </p>
                             <p style={{ margin: "3px 0 0 0", fontWeight: "600", color: getScoreColor(analysis.learningScore) }}>
@@ -557,39 +557,39 @@ function LearningProgressPage() {
                         {/* Selected Analysis Detail */}
                         {isSelected && (
                           <div style={{
-                            background: "#ffffff",
+                            background: "#FFFFFF",
                             borderRadius: "8px",
                             padding: "20px",
                             marginTop: "15px",
-                            border: "1px solid #e5e7eb"
+                            border: "1px solid #E2E8F0"
                           }}>
                             {/* Topic & Scores */}
                             <div style={{ marginBottom: "20px" }}>
-                              <h4 style={{ margin: "0 0 12px 0", color: "#2c3e50", fontSize: "15px" }}>
+                              <h4 style={{ margin: "0 0 12px 0", color: "#1E293B", fontSize: "15px" }}>
                                 📊 Assessment Summary
                               </h4>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
-                                <div style={{ textAlign: "center", padding: "10px", background: "#f0f9ff", borderRadius: "8px" }}>
-                                  <p style={{ margin: 0, fontSize: "12px", color: "#6b7280" }}>Technical</p>
-                                  <p style={{ margin: "4px 0 0 0", fontSize: "18px", fontWeight: "bold", color: "#667eea" }}>
+                                <div style={{ textAlign: "center", padding: "10px", background: "#DBEAFE", borderRadius: "8px" }}>
+                                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Technical</p>
+                                  <p style={{ margin: "4px 0 0 0", fontSize: "18px", fontWeight: "bold", color: "#2563EB" }}>
                                     {analysis.technicalScore || analysis.overallScore || 0}%
                                   </p>
                                 </div>
-                                <div style={{ textAlign: "center", padding: "10px", background: "#ecfdf5", borderRadius: "8px" }}>
-                                  <p style={{ margin: 0, fontSize: "12px", color: "#6b7280" }}>Learning</p>
-                                  <p style={{ margin: "4px 0 0 0", fontSize: "18px", fontWeight: "bold", color: "#11998e" }}>
+                                <div style={{ textAlign: "center", padding: "10px", background: "#D1FAE5", borderRadius: "8px" }}>
+                                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Learning</p>
+                                  <p style={{ margin: "4px 0 0 0", fontSize: "18px", fontWeight: "bold", color: "#059669" }}>
                                     {analysis.learningScore || 0}%
                                   </p>
                                 </div>
-                                <div style={{ textAlign: "center", padding: "10px", background: "#fef3c7", borderRadius: "8px" }}>
-                                  <p style={{ margin: 0, fontSize: "12px", color: "#6b7280" }}>Readiness</p>
+                                <div style={{ textAlign: "center", padding: "10px", background: "#FEF3C7", borderRadius: "8px" }}>
+                                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Readiness</p>
                                   <p style={{ margin: "4px 0 0 0", fontSize: "18px", fontWeight: "bold", color: readiness.color }}>
                                     {readiness.percentage.toFixed(0)}%
                                   </p>
                                 </div>
-                                <div style={{ textAlign: "center", padding: "10px", background: "#f3e8ff", borderRadius: "8px" }}>
-                                  <p style={{ margin: 0, fontSize: "12px", color: "#6b7280" }}>Style</p>
-                                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", fontWeight: "bold", color: "#7c3aed" }}>
+                                <div style={{ textAlign: "center", padding: "10px", background: "#EDE9FE", borderRadius: "8px" }}>
+                                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Style</p>
+                                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", fontWeight: "bold", color: "#7C3AED" }}>
                                     {analysis.learningStyle || "N/A"}
                                   </p>
                                 </div>
@@ -599,13 +599,13 @@ function LearningProgressPage() {
                             {/* Skills & Strengths */}
                             {(analysis.skills?.length > 0 || analysis.strengths?.length > 0) && (
                               <div style={{ marginBottom: "20px" }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50", fontSize: "15px" }}>
+                                <h4 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "15px" }}>
                                   💪 Skills & Strengths
                                 </h4>
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                   {analysis.skills?.map((skill, i) => (
                                     <span key={i} style={{
-                                      background: "#ecfdf5",
+                                      background: "#D1FAE5",
                                       color: "#059669",
                                       padding: "5px 12px",
                                       borderRadius: "20px",
@@ -617,13 +617,13 @@ function LearningProgressPage() {
                                   ))}
                                   {analysis.strengths?.map((strength, i) => (
                                     <span key={`s-${i}`} style={{
-                                      background: "#d1fae5",
+                                      background: "#D1FAE5",
                                       color: "#047857",
                                       padding: "5px 12px",
                                       borderRadius: "20px",
                                       fontSize: "13px",
                                       fontWeight: "500",
-                                      border: "1px solid #10b981"
+                                      border: "1px solid #059669"
                                     }}>
                                       ✓ {strength}
                                     </span>
@@ -635,14 +635,14 @@ function LearningProgressPage() {
                             {/* Weak Areas */}
                             {analysis.weakAreas?.length > 0 && (
                               <div style={{ marginBottom: "20px" }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50", fontSize: "15px" }}>
+                                <h4 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "15px" }}>
                                   🎯 Areas to Improve
                                 </h4>
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                   {analysis.weakAreas.map((area, i) => (
                                     <span key={i} style={{
-                                      background: "#fee2e2",
-                                      color: "#dc2626",
+                                      background: "#FEE2E2",
+                                      color: "#DC2626",
                                       padding: "5px 12px",
                                       borderRadius: "20px",
                                       fontSize: "13px",
@@ -658,11 +658,11 @@ function LearningProgressPage() {
                             {/* Learning Roadmap */}
                             {analysis.learningRoadmap && (
                               <div style={{ marginBottom: "20px" }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50", fontSize: "15px" }}>
+                                <h4 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "15px" }}>
                                   🗺️ Learning Roadmap
                                 </h4>
                                 {Array.isArray(analysis.learningRoadmap) ? (
-                                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#555" }}>
+                                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#475569" }}>
                                     {analysis.learningRoadmap.slice(0, 5).map((step, i) => (
                                       <li key={i} style={{ marginBottom: "6px", fontSize: "14px" }}>{step}</li>
                                     ))}
@@ -671,22 +671,22 @@ function LearningProgressPage() {
                                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                                     {Object.entries(analysis.learningRoadmap).map(([phase, details], i) => (
                                       <div key={i} style={{
-                                        background: "#f8f9fa",
+                                        background: "#F8FAFC",
                                         padding: "12px",
                                         borderRadius: "8px",
-                                        borderLeft: "3px solid #667eea"
+                                        borderLeft: "3px solid #2563EB"
                                       }}>
-                                        <p style={{ margin: "0 0 5px 0", fontWeight: "600", color: "#2c3e50" }}>
+                                        <p style={{ margin: "0 0 5px 0", fontWeight: "600", color: "#1E293B" }}>
                                           {phase}
                                         </p>
-                                        <p style={{ margin: 0, fontSize: "13px", color: "#555" }}>
+                                        <p style={{ margin: 0, fontSize: "13px", color: "#475569" }}>
                                           {Array.isArray(details) ? details.join(", ") : details}
                                         </p>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <p style={{ margin: 0, color: "#555", fontSize: "14px" }}>
+                                  <p style={{ margin: 0, color: "#475569", fontSize: "14px" }}>
                                     {analysis.learningRoadmap}
                                   </p>
                                 )}
@@ -696,11 +696,11 @@ function LearningProgressPage() {
                             {/* AI Recommendations */}
                             {(analysis.aiRecommendations || analysis.recommendations) && (
                               <div>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50", fontSize: "15px" }}>
+                                <h4 style={{ margin: "0 0 10px 0", color: "#1E293B", fontSize: "15px" }}>
                                   💡 AI Recommendations
                                 </h4>
                                 {Array.isArray(analysis.aiRecommendations || analysis.recommendations) ? (
-                                  <ul style={{ margin: 0, paddingLeft: "20px", color: "#555" }}>
+                                  <ul style={{ margin: 0, paddingLeft: "20px", color: "#475569" }}>
                                     {(analysis.aiRecommendations || analysis.recommendations).slice(0, 5).map((rec, i) => (
                                       <li key={i} style={{ marginBottom: "6px", fontSize: "14px" }}>
                                         {typeof rec === 'object' ? rec.title || rec.type : rec}
@@ -708,7 +708,7 @@ function LearningProgressPage() {
                                     ))}
                                   </ul>
                                 ) : (
-                                  <p style={{ margin: 0, color: "#555", fontSize: "14px" }}>
+                                  <p style={{ margin: 0, color: "#475569", fontSize: "14px" }}>
                                     {analysis.aiRecommendations || analysis.recommendations}
                                   </p>
                                 )}
@@ -725,8 +725,8 @@ function LearningProgressPage() {
                                 width: "100%",
                                 marginTop: "20px",
                                 padding: "14px",
-                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                color: "white",
+                                background: "#2563EB",
+                                color: "#FFFFFF",
                                 border: "none",
                                 borderRadius: "8px",
                                 cursor: "pointer",
@@ -755,14 +755,14 @@ function LearningProgressPage() {
                 );
                 return (
                   <div style={{
-                    background: "#ffffff",
+                    background: "#FFFFFF",
                     borderRadius: "12px",
                     padding: "25px",
                     marginBottom: "25px",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                    border: "1px solid #e5e7eb"
+                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                    border: "1px solid #E2E8F0"
                   }}>
-                    <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
+                    <h3 style={{ margin: "0 0 20px 0", color: "#1E293B", fontSize: "18px" }}>
                       🎯 Placement Readiness
                     </h3>
                     <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -770,7 +770,7 @@ function LearningProgressPage() {
                         width: "120px",
                         height: "120px",
                         borderRadius: "50%",
-                        background: `conic-gradient(${readiness.color} ${readiness.percentage * 3.6}deg, #e5e7eb 0deg)`,
+                        background: `conic-gradient(${readiness.color} ${readiness.percentage * 3.6}deg, #E2E8F0 0deg)`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -780,7 +780,7 @@ function LearningProgressPage() {
                           width: "90px",
                           height: "90px",
                           borderRadius: "50%",
-                          background: "white",
+                          background: "#FFFFFF",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
@@ -801,11 +801,11 @@ function LearningProgressPage() {
                       </p>
                     </div>
                     <div style={{ 
-                      background: "#f8f9fa", 
+                      background: "#F8FAFC", 
                       borderRadius: "8px", 
                       padding: "15px",
                       fontSize: "13px",
-                      color: "#555"
+                      color: "#475569"
                     }}>
                       <p style={{ margin: "0 0 8px 0" }}>
                         <strong>Formula:</strong> (Technical × 0.6) + (Learning × 0.4)
@@ -822,14 +822,14 @@ function LearningProgressPage() {
               {/* Weak Areas Frequency */}
               {weakAreasSummary.length > 0 && (
                 <div style={{
-                  background: "#ffffff",
+                  background: "#FFFFFF",
                   borderRadius: "12px",
                   padding: "25px",
                   marginBottom: "25px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                  border: "1px solid #e5e7eb"
+                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                  border: "1px solid #E2E8F0"
                 }}>
-                  <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
+                  <h3 style={{ margin: "0 0 20px 0", color: "#1E293B", fontSize: "18px" }}>
                     🎯 Top Areas to Improve
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -837,8 +837,8 @@ function LearningProgressPage() {
                       <div
                         key={index}
                         style={{
-                          background: "#fef3c7",
-                          border: "1px solid #fcd34d",
+                          background: "#FEF3C7",
+                          border: "1px solid #FCD34D",
                           borderRadius: "8px",
                           padding: "12px 15px",
                           display: "flex",
@@ -848,8 +848,8 @@ function LearningProgressPage() {
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                           <span style={{ 
-                            background: "#f59e0b", 
-                            color: "white", 
+                            background: "#D97706", 
+                            color: "#FFFFFF", 
                             borderRadius: "50%", 
                             width: "24px", 
                             height: "24px",
@@ -861,11 +861,11 @@ function LearningProgressPage() {
                           }}>
                             {index + 1}
                           </span>
-                          <span style={{ fontWeight: "500", color: "#92400e", fontSize: "14px" }}>
+                          <span style={{ fontWeight: "500", color: "#92400E", fontSize: "14px" }}>
                             {item.area}
                           </span>
                         </div>
-                        <span style={{ color: "#b45309", fontSize: "13px" }}>
+                        <span style={{ color: "#B45309", fontSize: "13px" }}>
                           {item.count}×
                         </span>
                       </div>
@@ -880,9 +880,9 @@ function LearningProgressPage() {
                         width: "100%",
                         marginTop: "15px",
                         padding: "12px",
-                        background: "#fef3c7",
-                        color: "#92400e",
-                        border: "1px solid #fcd34d",
+                        background: "#FEF3C7",
+                        color: "#92400E",
+                        border: "1px solid #FCD34D",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontSize: "14px",
@@ -897,13 +897,13 @@ function LearningProgressPage() {
 
               {/* Quick Stats */}
               <div style={{
-                background: "#ffffff",
+                background: "#FFFFFF",
                 borderRadius: "12px",
                 padding: "25px",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-                border: "1px solid #e5e7eb"
+                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                border: "1px solid #E2E8F0"
               }}>
-                <h3 style={{ margin: "0 0 20px 0", color: "#2c3e50", fontSize: "18px" }}>
+                <h3 style={{ margin: "0 0 20px 0", color: "#1E293B", fontSize: "18px" }}>
                   📊 Quick Stats
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -911,11 +911,11 @@ function LearningProgressPage() {
                     display: "flex", 
                     justifyContent: "space-between", 
                     padding: "12px",
-                    background: "#f8f9fa",
+                    background: "#F8FAFC",
                     borderRadius: "8px"
                   }}>
-                    <span style={{ color: "#6b7280", fontSize: "14px" }}>Source Type</span>
-                    <span style={{ fontWeight: "600", color: "#2c3e50" }}>
+                    <span style={{ color: "#475569", fontSize: "14px" }}>Source Type</span>
+                    <span style={{ fontWeight: "600", color: "#1E293B" }}>
                       {latestAssessment?.sourceType === "resume" ? "Resume" : "GitHub"}
                     </span>
                   </div>
@@ -923,11 +923,11 @@ function LearningProgressPage() {
                     display: "flex", 
                     justifyContent: "space-between", 
                     padding: "12px",
-                    background: "#f8f9fa",
+                    background: "#F8FAFC",
                     borderRadius: "8px"
                   }}>
-                    <span style={{ color: "#6b7280", fontSize: "14px" }}>Latest Topic</span>
-                    <span style={{ fontWeight: "600", color: "#2c3e50", maxWidth: "150px", textAlign: "right" }}>
+                    <span style={{ color: "#475569", fontSize: "14px" }}>Latest Topic</span>
+                    <span style={{ fontWeight: "600", color: "#1E293B", maxWidth: "150px", textAlign: "right" }}>
                       {latestAssessment?.topic || latestAssessment?.sourceType || "N/A"}
                     </span>
                   </div>
@@ -935,11 +935,11 @@ function LearningProgressPage() {
                     display: "flex", 
                     justifyContent: "space-between", 
                     padding: "12px",
-                    background: "#f8f9fa",
+                    background: "#F8FAFC",
                     borderRadius: "8px"
                   }}>
-                    <span style={{ color: "#6b7280", fontSize: "14px" }}>Joined</span>
-                    <span style={{ fontWeight: "600", color: "#2c3e50" }}>
+                    <span style={{ color: "#475569", fontSize: "14px" }}>Joined</span>
+                    <span style={{ fontWeight: "600", color: "#1E293B" }}>
                       {formatDate(analyses[analyses.length - 1]?.createdAt)}
                     </span>
                   </div>
@@ -948,12 +948,12 @@ function LearningProgressPage() {
                     display: "flex", 
                     justifyContent: "space-between", 
                     padding: "12px",
-                    background: latestAssessment ? "#ecfdf5" : "#f8f9fa",
+                    background: latestAssessment ? "#D1FAE5" : "#F8FAFC",
                     borderRadius: "8px",
-                    border: latestAssessment ? "1px solid #10b981" : "none"
+                    border: latestAssessment ? "1px solid #059669" : "none"
                   }}>
-                    <span style={{ color: "#6b7280", fontSize: "14px" }}>Last Active</span>
-                    <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "#2c3e50" }}>
+                    <span style={{ color: "#475569", fontSize: "14px" }}>Last Active</span>
+                    <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "#1E293B" }}>
                       {latestAssessment ? formatDate(latestAssessment.createdAt) : "N/A"}
                     </span>
                   </div>
@@ -969,11 +969,11 @@ function LearningProgressPage() {
           <button onClick={() => navigate("/")}
             style={{
               padding: "10px 20px",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
+              background: "#F8FAFC",
+              border: "1px solid #E2E8F0",
               borderRadius: "8px",
               cursor: "pointer",
-              color: "#374151",
+              color: "#475569",
               fontSize: "14px",
               fontWeight: "500"
 
