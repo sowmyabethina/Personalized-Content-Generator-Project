@@ -8,12 +8,8 @@ function QuizPage() {
     questions,
     quizId,
     topic: initialTopic,
-
-    // material learning flow
     fromMaterial,
     materialTopic,
-
-    // resume / link analysis flow
     userId,
     sourceType,
     sourceUrl,
@@ -21,14 +17,12 @@ function QuizPage() {
     skills,
     strengths,
     weakAreas
-
   } = location.state || {
     questions: [],
     quizId: null,
     topic: "",
     fromMaterial: false,
     materialTopic: "",
-
     userId: null,
     sourceType: "resume",
     sourceUrl: null,
@@ -38,35 +32,37 @@ function QuizPage() {
     weakAreas: []
   };
 
-  // All hooks at the top
   const [stage, setStage] = useState("quiz");
   const [topic, setTopic] = useState(initialTopic || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Technical quiz state
   const [quizIndex, setQuizIndex] = useState(0);
   const [quizSelected, setQuizSelected] = useState("");
   const [quizAnswers, setQuizAnswers] = useState([]);
-  const [answerLocked, setAnswerLocked] = useState(false); // Lock answer after selection
+  const [answerLocked, setAnswerLocked] = useState(false);
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
 
-  // Learning questions state
   const [learningQuestions, setLearningQuestions] = useState([]);
   const [learningIndex, setLearningIndex] = useState(0);
   const [learningSelected, setLearningSelected] = useState("");
   const [learningSelectedScore, setLearningSelectedScore] = useState(0);
   const [learningAnswers, setLearningAnswers] = useState([]);
 
-  // State for storing auto-generated questions
   const [generatedQuizQuestions, setGeneratedQuizQuestions] = useState([]);
 
-  // Use either questions from state or auto-generated questions
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && topic.trim()) {
+      e.preventDefault();
+      localStorage.setItem("quizTopic", topic);
+      setStage("learning");
+    }
+  };
+
   const displayQuestions = questions && questions.length > 0 ? questions : generatedQuizQuestions;
 
-  // Helper function to parse questions from text (same as in HomePage)
   const parseQuestionsFromText = (text) => {
     const questions = [];
     if (!text || typeof text !== "string") return [];
@@ -86,7 +82,6 @@ function QuizPage() {
       const options = [];
       let correctAnswerLetter = null;
 
-      // First, check if the question line itself has the correct answer
       const questionLine = lines[0];
       const questionCorrectMatch = questionLine.match(/Correct Answer:\s*([A-D])/i);
       if (questionCorrectMatch) {
@@ -96,7 +91,6 @@ function QuizPage() {
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         
-        // Check if this line contains the correct answer marker
         const correctMatch = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
         if (correctMatch) {
           correctAnswerLetter = correctMatch[1];
@@ -105,7 +99,6 @@ function QuizPage() {
         const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)$/i);
         if (optionMatch) {
           let optionText = optionMatch[2].trim();
-          // Remove any "Correct Answer:" text from the option
           optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*/i, "").trim();
 
           if (optionText && optionText.length > 0) {
@@ -135,17 +128,14 @@ function QuizPage() {
     return questions;
   };
 
-  // Load learning questions when entering learning stage
   useEffect(() => {
     if (stage === "learning") {
       loadLearningQuestions();
     }
   }, [stage]);
 
-  // Auto-generate questions when navigated from HomePage with extractedText
   useEffect(() => {
     const autoGenerateQuestions = async () => {
-      // Check if we have extractedText but no questions
       if ((!questions || questions.length === 0) && extractedText) {
         setLoading(true);
         setError("");
@@ -186,16 +176,13 @@ function QuizPage() {
                 }));
               }
             } catch (e) {
-              // Fallback to text parsing
               parsedQuestions = parseQuestionsFromText(questionsText);
             }
           }
 
           if (parsedQuestions.length > 0) {
-            // Normalize answers
             const normalized = parsedQuestions.map(q => {
               let correct = q.answer;
-              // Convert letter answer (A, B, C, D) to actual answer text
               if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
                 const idx = correct.toUpperCase().charCodeAt(0) - 65;
                 correct = q.options[idx];
@@ -209,7 +196,6 @@ function QuizPage() {
               };
             });
 
-            // Update state with generated questions
             setGeneratedQuizQuestions(normalized);
           } else {
             setError("Could not parse questions from extracted content.");
@@ -246,44 +232,26 @@ function QuizPage() {
     setLoading(false);
   };
 
-  // Stage: Quiz Questions (from extracted PDF or auto-generated)
+  // Stage: Quiz Questions
   if (stage === "quiz") {
-    // Show loading when auto-generating questions
     if (!displayQuestions.length && (extractedText || localStorage.getItem("extractedContent"))) {
       return (
-        <div className="glass-card">
-          <h2>📝 Technical Quiz</h2>
-          <p style={{ marginBottom: "20px" }}>Generating questions from your document...</p>
-          {loading && (
-            <div style={{ textAlign: "center", padding: "20px" }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                border: "4px solid #f3f3f3",
-                borderTop: "4px solid #667eea",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-                margin: "0 auto 15px"
-              }}></div>
-              <p>Please wait while we generate quiz questions from your uploaded document...</p>
+        <div className="page-container">
+          <div className="content-wrapper">
+            <div className="content-card" style={{ textAlign: 'center' }}>
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📝 Technical Quiz</h2>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Generating questions from your document...</p>
+              {loading && (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <div className="loading-spinner"></div>
+                  <p style={{ color: 'var(--text-secondary)', marginTop: '16px' }}>
+                    Please wait while we generate quiz questions from your uploaded document...
+                  </p>
+                </div>
+              )}
+              {error && <p style={{ color: 'var(--color-error)', marginTop: '12px' }}>{error}</p>}
             </div>
-          )}
-          {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            @keyframes fadeIn {
-              0% { opacity: 0; transform: translateY(-10px); }
-              100% { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes pulse {
-              0% { transform: scale(1); }
-              50% { transform: scale(1.02); }
-              100% { transform: scale(1); }
-            }
-          `}</style>
+          </div>
         </div>
       );
     }
@@ -305,7 +273,6 @@ function QuizPage() {
           let correct = 0;
           if (data.error) {
             console.error("Scoring error:", data.error);
-            // Fallback to client-side scoring
             quizAnswers.forEach((ans, i) => {
               const correctAnswer = displayQuestions[i]?.answer;
               if (ans === correctAnswer) correct++;
@@ -320,7 +287,6 @@ function QuizPage() {
           setStage("score");
         } catch (err) {
           console.error("Failed to score quiz:", err);
-          // Fallback to client-side scoring
           let correct = 0;
           quizAnswers.forEach((ans, i) => {
             const correctAnswer = displayQuestions[i]?.answer;
@@ -334,18 +300,12 @@ function QuizPage() {
         }
       };
 
-      // Submit answer and show feedback
-      const submitAnswer = () => {
-        setQuizAnswerSubmitted(true);
-      };
-
-      // Move to next question after showing feedback
       const nextQuestion = () => {
         const nextAnswers = [...quizAnswers, quizSelected];
         setQuizAnswers(nextAnswers);
         setQuizSelected("");
         setQuizAnswerSubmitted(false);
-        setAnswerLocked(false); // Unlock for next question
+        setAnswerLocked(false);
 
         if (quizIndex + 1 < displayQuestions.length) {
           setQuizIndex(quizIndex + 1);
@@ -355,374 +315,244 @@ function QuizPage() {
       };
 
       return (
-        <div className="glass-card" style={{ padding: '30px' }}>
-          <h2 style={{ 
-            color: "#E0E0E0", 
-            marginBottom: '20px',
-            fontSize: '24px',
-            fontWeight: '600'
-          }}>Technical Quiz</h2>
-          
-          {/* Dual-row progress header */}
-          <div style={{ marginBottom: '15px' }}>
-            {/* Row 1: Animated progress bar */}
-            <div style={{
-              width: '100%',
-              height: '4px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '2px',
-              overflow: 'hidden',
-              marginBottom: '8px'
-            }}>
-              <div style={{
-                width: `${((quizIndex + 1) / displayQuestions.length) * 100}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: '2px',
-                transition: 'width 0.4s ease-out',
-                boxShadow: '0 0 10px rgba(102, 126, 234, 0.5)'
-              }} />
-            </div>
-            {/* Row 2: Question count text */}
-            <p style={{ 
-              color: '#888888', 
-              fontSize: '14px',
-              margin: 0,
-              fontWeight: '500'
-            }}>Question {quizIndex + 1} of {displayQuestions.length}</p>
-          </div>
+        <div className="page-container">
+          <div className="content-wrapper">
+            <div className="content-card">
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>📝 Technical Quiz</h2>
+              
+              {/* Progress */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  width: '100%',
+                  height: '6px',
+                  background: 'var(--color-gray-200)',
+                  borderRadius: 'var(--radius-full)',
+                  overflow: 'hidden',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{
+                    width: `${((quizIndex + 1) / displayQuestions.length) * 100}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%)',
+                    borderRadius: 'var(--radius-full)',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
+                  Question {quizIndex + 1} of {displayQuestions.length}
+                </p>
+              </div>
 
-          <h3 style={{ margin: "20px 0", color: '#E0E0E0' }}>{displayQuestions[quizIndex]?.question}</h3>
+              <h3 style={{ margin: '24px 0', color: 'var(--text-primary)' }}>
+                {displayQuestions[quizIndex]?.question}
+              </h3>
 
-          {displayQuestions[quizIndex]?.options.map((opt, i) => {
-            const isCorrect = opt === displayQuestions[quizIndex]?.answer;
-            const isSelected = quizSelected === opt;
-            const showHighlight = quizSelected !== "";
-            
-            // Helper function to highlight code terms
-            const highlightCode = (text) => {
-              const codeTerms = ['useEffect', 'useState', 'useCallback', 'useMemo', 'useRef', 'useContext', 'useReducer', 'useLayoutEffect', 'useImperativeHandle', 'useDebugValue', 'createElement', 'render', 'componentDidMount', 'componentDidUpdate', 'componentWillUnmount', 'constructor', 'getDerivedStateFromProps', 'getSnapshotBeforeUpdate', 'shouldComponentUpdate', 'React', 'Vue', 'Angular', 'Node', 'Express', 'MongoDB', 'SQL', 'API', 'JSON', 'AJAX', 'DOM', 'BOM', 'CSS', 'HTML', 'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Ruby', 'Go', 'Rust', 'Swift', 'Kotlin', 'PHP', 'Laravel', 'Django', 'Flask', 'Spring', 'ASP.NET', 'GraphQL', 'REST', 'WebSocket', 'HTTP', 'HTTPS', 'TCP', 'UDP', 'DNS', 'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'CI/CD', 'Git', 'GitHub', 'GitLab', 'npm', 'yarn', 'webpack', 'babel', 'eslint', 'prettier', 'jest', 'mocha', 'cypress', 'selenium', 'redux', 'mobx', 'vuex', 'pinia', 'axios', 'fetch', 'async', 'await', 'promise', 'callback', 'closure', 'hoisting', 'prototype', 'inheritance', 'polymorphism', 'encapsulation', 'abstraction', 'interface', 'abstract', 'class', 'function', 'variable', 'constant', 'array', 'object', 'string', 'number', 'boolean', 'null', 'undefined', 'NaN', 'Infinity', 'this', 'super', 'new', 'delete', 'typeof', 'instanceof', 'in', 'of', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'Error', 'Event', 'Listener', 'Handler', 'Component', 'Props', 'State', 'Ref', 'Context', 'Provider', 'Consumer', 'Hook', 'Effect', 'Memo', 'Callback', 'Portal', 'Fragment', 'Suspense', 'Lazy', 'ForwardRef', 'memo', 'lazy', 'Suspense'];
-              const parts = text.split(/(\s+)/);
-              return parts.map((part, idx) => {
-                const cleanPart = part.trim();
-                if (codeTerms.some(term => term === cleanPart || term.toLowerCase() === cleanPart.toLowerCase())) {
-                  return <code key={idx} style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.9em',
-                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                    color: '#e0e0e0'
-                  }}>{part}</code>;
-                }
-                return part;
-              });
-            };
-            
-            return (
-              <label
-                key={i}
-                className="option"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.3s ease',
-                  background: showHighlight
-                    ? isCorrect
-                      ? 'rgba(34, 197, 94, 0.1)'
-                      : isSelected
-                      ? 'rgba(239, 68, 68, 0.1)'
-                      : 'rgba(255,255,255,0.05)'
-                    : 'rgba(255,255,255,0.05)',
-                  borderColor: showHighlight
-                    ? isCorrect
-                      ? '#22c55e'
-                      : isSelected
-                      ? '#ef4444'
-                      : 'rgba(255,255,255,0.1)'
-                    : 'rgba(255,255,255,0.1)',
-                  borderWidth: showHighlight ? '2px' : '1px',
-                  borderStyle: 'solid',
-                  borderRadius: '10px',
-                  padding: '16px 20px',
-                  marginBottom: '12px',
-                  cursor: answerLocked ? 'not-allowed' : 'pointer',
-                  opacity: 1,
-                  transform: answerLocked ? 'none' : 'translateY(0)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!answerLocked) {
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!answerLocked) {
-                    e.currentTarget.style.borderColor = showHighlight 
-                      ? (isCorrect ? '#22c55e' : isSelected ? '#ef4444' : 'rgba(255,255,255,0.1)')
-                      : 'rgba(255,255,255,0.1)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                  }
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                  <input
-                    type="radio"
-                    name="quiz-option"
-                    value={opt}
-                    checked={quizSelected === opt}
-                    disabled={answerLocked}
-                    onChange={(e) => {
+              {displayQuestions[quizIndex]?.options.map((opt, i) => {
+                const isCorrect = opt === displayQuestions[quizIndex]?.answer;
+                const isSelected = quizSelected === opt;
+                const showHighlight = quizSelected !== "";
+                
+                return (
+                  <label
+                    key={i}
+                    className={`quiz-option ${isSelected ? 'selected' : ''} ${showHighlight && isCorrect ? 'correct' : ''} ${showHighlight && isSelected && !isCorrect ? 'incorrect' : ''} ${answerLocked ? 'disabled' : ''}`}
+                    onClick={() => {
                       if (!answerLocked) {
-                        setQuizSelected(e.target.value);
+                        setQuizSelected(opt);
                         setAnswerLocked(true);
                       }
                     }}
-                    style={{ marginRight: '12px', accentColor: '#667eea' }}
-                  />
-                  <span style={{
-                    color: 'rgba(255,255,255,0.92)',
-                    fontWeight: '500',
-                    opacity: 1,
-                    flex: 1
-                  }}>
-                    {highlightCode(opt)}
-                  </span>
-                </div>
-                {/* Correct/Incorrect badge - only show for correct answer OR selected wrong answer */}
-                {showHighlight && (isCorrect || isSelected) && (
-                  <span style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    background: isCorrect ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                    color: isCorrect ? '#22c55e' : '#ef4444',
-                    marginLeft: '10px'
-                  }}>
-                    {isCorrect ? (
-                      <><span>✓</span> Correct</>
-                    ) : (
-                      <><span>✗</span> Incorrect</>
+                  >
+                    <div className="quiz-option-content">
+                      <input
+                        type="radio"
+                        name="quiz-option"
+                        value={opt}
+                        checked={quizSelected === opt}
+                        disabled={answerLocked}
+                        onChange={() => {}}
+                      />
+                      <span className="quiz-option-text">{opt}</span>
+                    </div>
+                    {showHighlight && (isCorrect || isSelected) && (
+                      <span className={`quiz-option-badge ${isCorrect ? 'correct' : 'incorrect'}`}>
+                        {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                      </span>
                     )}
-                  </span>
-                )}
-              </label>
-            );
-          })}
+                  </label>
+                );
+              })}
 
-          {/* Action buttons container */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px', 
-            marginTop: '25px',
-            flexDirection: 'row',
-            alignItems: 'stretch'
-          }}>
-            {/* Previous Button - Ghost style */}
-            <button
-              onClick={() => {
-                if (quizIndex > 0) {
-                  const prevIndex = quizIndex - 1;
-                  const prevSelected = quizAnswers[prevIndex] || "";
-                  const newAnswers = quizAnswers.slice(0, prevIndex);
-                  setQuizAnswers(newAnswers);
-                  setQuizIndex(prevIndex);
-                  setQuizSelected(prevSelected);
-                  setQuizAnswerSubmitted(false);
-                  setAnswerLocked(false);
-                } else {
-                  setQuizIndex(0);
-                  setQuizAnswers([]);
-                  setQuizSelected("");
-                  setQuizAnswerSubmitted(false);
-                  setStage("score");
-                }
-              }}
-              style={{
-                padding: '14px 24px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
-                color: '#e0e0e0',
-                fontSize: '15px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                flex: '0 0 auto'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              ← Previous
-            </button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button
+                  onClick={() => {
+                    if (quizIndex > 0) {
+                      const prevIndex = quizIndex - 1;
+                      const prevSelected = quizAnswers[prevIndex] || "";
+                      const newAnswers = quizAnswers.slice(0, prevIndex);
+                      setQuizAnswers(newAnswers);
+                      setQuizIndex(prevIndex);
+                      setQuizSelected(prevSelected);
+                      setQuizAnswerSubmitted(false);
+                      setAnswerLocked(false);
+                    } else {
+                      setQuizIndex(0);
+                      setQuizAnswers([]);
+                      setQuizSelected("");
+                      setQuizAnswerSubmitted(false);
+                      setStage("score");
+                    }
+                  }}
+                  className="btn btn-outline"
+                  style={{ flex: '0 0 auto' }}
+                >
+                  ← Previous
+                </button>
 
-            {/* Next Button - Primary gradient CTA */}
-            <button 
-              onClick={nextQuestion} 
-              disabled={!quizSelected}
-              style={{ 
-                marginTop: 0,
-                flex: 1,
-                padding: '14px 32px',
-                borderRadius: '10px',
-                border: 'none',
-                background: quizSelected 
-                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                  : 'rgba(102, 126, 234, 0.3)',
-                color: quizSelected ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: quizSelected ? 'pointer' : 'not-allowed',
-                opacity: quizSelected ? 1 : 0.5,
-                transition: 'all 0.3s ease',
-                boxShadow: quizSelected ? '0 4px 15px rgba(102, 126, 234, 0.4)' : 'none',
-                transform: quizSelected ? 'translateY(0)' : 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (quizSelected) {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
-              }}
-            >
-              {quizIndex + 1 < displayQuestions.length ? 'Next →' : 'Complete Quiz'}
-            </button>
+                <button 
+                  onClick={nextQuestion} 
+                  disabled={!quizSelected}
+                  className="enterprise-btn"
+                  style={{ flex: 1 }}
+                >
+                  {quizIndex + 1 < displayQuestions.length ? 'Next →' : 'Complete Quiz'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       );
     }
-  }
 
-  // Stage: Show Score and Enter Topic
-  if (stage === "score") {
-    // If quiz came from learning material, show different UI
-    if (fromMaterial) {
-      return (
-        <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}> Quiz Complete!</h2>
-
-          <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "12px",
-            padding: "30px",
-            color: "white",
-            marginBottom: "20px"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9 }}>Your Quiz Score</p>
-            <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
-            <p style={{ fontSize: "14px", opacity: 0.9 }}>
-              {correctCount}/{displayQuestions.length} correct
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              const storedMaterial = localStorage.getItem("learningMaterialData");
-              const learningMaterial = storedMaterial ? JSON.parse(storedMaterial) : null;
-              navigate("/learning-material", {
-                state: {
-                  learningMaterial: learningMaterial,
-                  topic: materialTopic,
-                  technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
-                  learningScore: parseInt(localStorage.getItem("learningScore") || "50")
-                }
-              });
-            }}
-            style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
-          >
-              Back to Learning Material
-          </button>
-
-          <button
-            onClick={() => {
-              setQuizIndex(0);
-              setQuizAnswers([]);
-              setQuizSelected("");
-              setStage("quiz");
-            }}
-            style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-          >
-             Try Again
-          </button>
-        </div>
-      );
-    }
-
-    // Original flow for quiz not from learning material
+    // No questions state
     return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Quiz Complete!</h2>
-
-        <div style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          borderRadius: "12px",
-          padding: "30px",
-          color: "white",
-          marginBottom: "20px"
-        }}>
-          <p style={{ fontSize: "14px", opacity: 0.9 }}>Technical Score</p>
-          <p style={{ fontSize: "48px", fontWeight: "bold", margin: "10px 0" }}>{technicalScore}%</p>
-          <p style={{ fontSize: "14px", opacity: 0.9 }}>
-            {correctCount}/{displayQuestions.length} correct
-          </p>
+      <div className="page-container">
+        <div className="content-wrapper">
+          <div className="content-card" style={{ textAlign: 'center' }}>
+            <h2 style={{ color: 'var(--text-primary)' }}>No Quiz Available</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Please generate a quiz from the Home page first.
+            </p>
+            <button onClick={() => navigate("/")} className="enterprise-btn">
+              Go to Home
+            </button>
+          </div>
         </div>
-
-        <h3>Step 1: Enter Topic to Learn</h3>
-        <input
-          type="text"
-          placeholder="What do you want to learn? (e.g., Python, React, AI)"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          style={{ width: "100%", padding: "14px", fontSize: "16px", marginBottom: "15px" }}
-        />
-
-        <button
-          onClick={() => {
-            if (topic.trim()) {
-              localStorage.setItem("quizTopic", topic);
-              setStage("learning");
-            }
-          }}
-          disabled={!topic.trim()}
-          style={{ width: "100%", padding: "14px", fontSize: "16px" }}
-        >
-          Begin Level Assessment  →
-        </button>
-
-        <button
-          onClick={() => {
-            setQuizIndex(0);
-            setQuizAnswers([]);
-            setQuizSelected("");
-            setStage("quiz");
-          }}
-          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Retake Quiz
-        </button>
       </div>
     );
   }
 
-  // Helper function to analyze psychometric profile (must be defined before use)
+  // Stage: Show Score
+  if (stage === "score") {
+    if (fromMaterial) {
+      return (
+        <div className="page-container">
+          <div className="content-wrapper">
+            <div className="content-card">
+              <h2 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '24px' }}>✅ Quiz Complete!</h2>
+
+              <div className="score-display">
+                <p style={{ fontSize: '14px', opacity: 0.9 }}>Your Quiz Score</p>
+                <p className="score-value">{technicalScore}%</p>
+                <p style={{ fontSize: '14px', opacity: 0.9 }}>
+                  {correctCount}/{displayQuestions.length} correct
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  const storedMaterial = localStorage.getItem("learningMaterialData");
+                  const learningMaterial = storedMaterial ? JSON.parse(storedMaterial) : null;
+                  navigate("/learning-material", {
+                    state: {
+                      learningMaterial: learningMaterial,
+                      topic: materialTopic,
+                      technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
+                      learningScore: parseInt(localStorage.getItem("learningScore") || "50")
+                    }
+                  });
+                }}
+                className="enterprise-btn"
+                style={{ marginBottom: '16px' }}
+              >
+              ← Back to Learning Material
+              </button>
+
+              <button
+                onClick={() => {
+                  setQuizIndex(0);
+                  setQuizAnswers([]);
+                  setQuizSelected("");
+                  setStage("quiz");
+                }}
+                className="enterprise-btn secondary"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="page-container">
+        <div className="content-wrapper">
+          <div className="content-card">
+            <h2 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '24px' }}>📊 Quiz Complete!</h2>
+
+            <div className="score-display">
+              <p style={{ fontSize: '14px', opacity: 0.9 }}>Technical Score</p>
+              <p className="score-value">{technicalScore}%</p>
+              <p style={{ fontSize: '14px', opacity: 0.9 }}>
+                {correctCount}/{displayQuestions.length} correct
+              </p>
+            </div>
+
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px' , textAlign: "center"}}>Master a New Skill</h3>
+            <p style={{ textAlign: "center" }}> What do you want to master next? We'll generate a quiz tailored to your learning goals.</p>
+            <input
+              type="text"
+              placeholder="e.g., Java, React, Python for Data Science...."
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="enterprise-input"
+              style={{ marginBottom: '16px' }}
+            />
+
+            <button
+              onClick={() => {
+                if (topic.trim()) {
+                  localStorage.setItem("quizTopic", topic);
+                  setStage("learning");
+                }
+              }}
+              disabled={!topic.trim()}
+              className="enterprise-btn"
+              style={{ marginBottom: '16px' }}
+            >
+              Begin Level Assessment →
+            </button>
+
+            <button
+              onClick={() => {
+                setQuizIndex(0);
+                setQuizAnswers([]);
+                setQuizSelected("");
+                setStage("quiz");
+              }}
+              className="enterprise-btn secondary"
+            >
+              ← Retake Quiz
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Helper function for psychometric profile
   const analyzePsychometricProfile = (answers, questions) => {
     const levels = {};
     const categories = ["technicalFamiliarity", "documentationSkill", "learningGoal", "applicationConfidence", "learningBehavior"];
@@ -734,7 +564,6 @@ function QuizPage() {
       else levels[category] = "Advanced";
     });
 
-    // Calculate overall level
     const totalScore = answers.reduce((a, b) => a + b, 0);
     const maxScore = answers.length * 2;
     const percentage = (totalScore / maxScore) * 100;
@@ -750,41 +579,50 @@ function QuizPage() {
   if (stage === "learning") {
     if (loading && learningQuestions.length === 0) {
       return (
-        <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Loading Learner Level Assessment...</h2>
+        <div className="page-container">
+          <div className="content-wrapper">
+            <div className="content-card" style={{ textAlign: 'center' }}>
+              <h2 style={{ color: 'var(--text-primary)' }}>📊 Loading Learner Level Assessment...</h2>
+              <div className="loading-spinner"></div>
+            </div>
+          </div>
         </div>
       );
     }
 
     if (learningQuestions.length === 0) {
       return (
-        <div className="glass-card">
-          <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
-          <p style={{ marginBottom: "20px" }}>This diagnostic test measures your technical proficiency across multiple dimensions.</p>
+        <div className="page-container">
+          <div className="content-wrapper">
+            <div className="content-card">
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📊 Learner Level Assessment</h2>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                This diagnostic test measures your technical proficiency across multiple dimensions.
+              </p>
 
-          {/* Back Button */}
-          <button
-            onClick={() => {
-              setLearningIndex(0);
-              setLearningAnswers([]);
-              setLearningSelected("");
-              setStage("score");
-            }}
-            style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500", marginRight: "10px" }}
-          >
-            ← Back
-          </button>
+              <button
+                onClick={() => {
+                  setLearningIndex(0);
+                  setLearningAnswers([]);
+                  setLearningSelected("");
+                  setStage("score");
+                }}
+                className="btn btn-outline"
+                style={{ marginBottom: '16px', marginRight: '12px' }}
+              >
+                ← Back
+              </button>
 
-          <button onClick={loadLearningQuestions} disabled={loading} style={{ padding: "12px 24px", fontSize: "14px", fontWeight: "600" }}>
-            {loading ? "Loading..." : "Start Assessment →"}
-          </button>
+              <button onClick={loadLearningQuestions} disabled={loading} className="enterprise-btn">
+                {loading ? "Loading..." : "Start Assessment →"}
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
 
     const completeLearningAssessment = async () => {
-      // Calculate psychometric score (0-100 scale)
-      // Each question has 3 options: Beginner (0), Intermediate (1), Advanced (2)
       const totalPoints = learningAnswers.reduce((acc, val) => acc + val, 0);
       const maxPoints = learningQuestions.length * 2;
       const learnScore = Math.round((totalPoints / maxPoints) * 100);
@@ -795,235 +633,143 @@ function QuizPage() {
       const storedTopic = localStorage.getItem("quizTopic") || topic;
       const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
 
-      // Analyze psychometric profile
       const profile = analyzePsychometricProfile(learningAnswers, learningQuestions);
 
-      // Save/update analysis in database
-      let analysisId = localStorage.getItem("currentAnalysisId");
-
-      if (!analysisId) {
-        // Create new analysis if none exists
-        try {
-          const saveRes = await fetch("http://localhost:5000/save-analysis", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: null,
-              sourceType: location.state?.sourceType || "resume",
-              sourceUrl: location.state?.sourceUrl || null,
-              extractedText: location.state?.extractedText || null,
-              skills: [],
-              strengths: [],
-              weakAreas: [],
-              technicalLevel: techLevel,
-              learningStyle: profile.overallLevel,
-              overallScore: techScore,
-              topic: storedTopic,
-              learningScore: learnScore,
-              technicalScore: techScore,
-              psychometricProfile: profile.levels
-            })
-          });
-
-          if (saveRes.ok) {
-            const saveData = await saveRes.json();
-            analysisId = saveData.analysisId;
-            localStorage.setItem("currentAnalysisId", analysisId);
-            console.log("✅ Analysis created:", analysisId);
-          }
-        } catch (saveErr) {
-          console.error("Failed to create analysis:", saveErr);
+      navigate("/result", {
+        state: {
+          score: techScore,
+          questions: displayQuestions,
+          topic: storedTopic,
+          technicalScore: techScore,
+          learningScore: learnScore,
+          combinedAnalysis: {
+            combinedAnalysis: `Technical: ${techLevel} level based on quiz score. Learning preference determined through assessment.`,
+            psychometricProfile: profile
+          },
+          mode: "quiz",
+          userId,
+          sourceType,
+          sourceUrl,
+          extractedText,
+          skills,
+          strengths,
+          weakAreas
         }
-      } else {
-        // Update existing analysis
-        try {
-          await fetch(`http://localhost:5000/analysis/${analysisId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              learningStyle: profile.overallLevel,
-              topic: storedTopic,
-              learningScore: learnScore,
-              technicalScore: techScore,
-              psychometricProfile: profile.levels
-            })
-          });
-          console.log("✅ Analysis updated with learner assessment data");
-        } catch (updateErr) {
-          console.error("Failed to update analysis:", updateErr);
-        }
-      }
-
-      // Store combined data and navigate to options
-      localStorage.setItem("combinedData", JSON.stringify({
-        technicalLevel: techLevel,
-        technicalScore: techScore,
-        learnerLevel: profile.overallLevel,
-        learningScore: learnScore,
-        psychometricProfile: profile.levels,
-        combinedAnalysis: `Technical: ${techLevel} (${techScore}%), Learner: ${profile.overallLevel} (${learnScore}%)`
-      }));
-
-      setStage("options");
-    };
-
-    const nextQuestion = () => {
-      const nextAnswers = [...learningAnswers, learningSelectedScore];
-      setLearningAnswers(nextAnswers);
-      setLearningSelected("");
-      setLearningSelectedScore(0);
-
-      if (learningIndex + 1 < learningQuestions.length) {
-        setLearningIndex(learningIndex + 1);
-      } else {
-        completeLearningAssessment();
-      }
-    };
-
-    const handleOptionChange = (option, index) => {
-      setLearningSelected(option);
-      setLearningSelectedScore(index); // 0 = Beginner, 1 = Intermediate, 2 = Advanced
+      });
     };
 
     return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>📊 Learner Level Assessment</h2>
-        <p>Question {learningIndex + 1} of {learningQuestions.length}</p>
-
-        <h3 style={{ margin: "20px 0" }}>{learningQuestions[learningIndex]?.question}</h3>
-
-        {learningQuestions[learningIndex]?.options.map((opt, i) => (
-          <label key={i} className="option">
-            <input
-              type="radio"
-              name="learning-option"
-              value={opt}
-              checked={learningSelected === opt}
-              onChange={(e) => handleOptionChange(opt, i)}
-            />
-            <span>{opt}</span>
-          </label>
-        ))}
-
-        <button onClick={nextQuestion} disabled={!learningSelected} style={{ marginTop: "15px" }}>
-          {learningIndex + 1 < learningQuestions.length ? "Next →" : "Complete Assessment"}
-        </button>
-
-        <button
-          onClick={() => {
-            setLearningIndex(0);
-            setLearningAnswers([]);
-            setLearningSelected("");
-            setStage("score");
-          }}
-          style={{ marginTop: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "12px 20px", width: "100%", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Back to Quiz Score
-        </button>
-      </div>
-    );
-  }
-
-  // Stage: Two Options (PDF Chat or Direct Generation)
-  if (stage === "options") {
-    const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
-    const learnScore = parseInt(localStorage.getItem("learningScore") || "50");
-    const storedTopic = localStorage.getItem("quizTopic") || topic;
-    const storedCombined = JSON.parse(localStorage.getItem("combinedData") || "{}");
-    const psychometricProfile = storedCombined.psychometricProfile || {};
-
-    const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
-    const learnerLevel = storedCombined.learnerLevel || "Beginner";
-
-    // Helper to get level badge color
-    const getLevelColor = (level) => {
-      if (level === "Advanced") return "#10b981";
-      if (level === "Intermediate") return "#f59e0b";
-      return "#ef4444";
-    };
-
-    // Format category name for display
-    const formatCategory = (key) => {
-      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase()).trim();
-    };
-
-    return (
-      <div className="glass-card">
-        <h2 style={{ color: "#ffffff", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Personalized Learning Dashboard</h2>
-
-        {/* Assessment Summary */}
-        <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "10px", margin: "20px 0", textAlign: "left" }}>
-          <h4 style={{ margin: "0 0 10px 0", color: "#1f2937", textShadow: "none" }}>📊 Your Assessment Profile:</h4>
-          <p style={{ color: "#1f2937" }}>Technical Level: <strong>{techLevel}</strong> ({techScore}%)</p>
-          <p style={{ color: "#1f2937" }}>Learner Level: <strong>{learnerLevel}</strong> ({learnScore}%)</p>
-          <p style={{ color: "#1f2937" }}>Topic: <strong>{storedTopic}</strong></p>
-
-          <hr style={{ margin: "15px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
-          <h5 style={{ margin: "0 0 10px 0", color: "#1f2937" }}>Psychometric Assessment:</h5>
-
-          {Object.entries(psychometricProfile).map(([key, value]) => (
-            <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "14px", color: "#1f2937" }}>
-              <span>{formatCategory(key)}:</span>
-              <span style={{
-                color: getLevelColor(value?.trim()),
-                fontWeight: "bold"
-              }}>{value?.trim()}</span>
+      <div className="page-container">
+        <div className="content-wrapper">
+          <div className="content-card">
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>📊 Learner Level Assessment</h2>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{
+                width: '100%',
+                height: '6px',
+                background: 'var(--color-gray-200)',
+                borderRadius: 'var(--radius-full)',
+                overflow: 'hidden',
+                marginBottom: '8px'
+              }}>
+                <div style={{
+                  width: `${((learningIndex + 1) / learningQuestions.length) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%)',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
+                Question {learningIndex + 1} of {learningQuestions.length}
+              </p>
             </div>
-          ))}
+
+            <h3 style={{ color: 'var(--text-primary)', margin: '24px 0', fontSize: '20px', fontWeight: '600' }}>
+              {learningQuestions[learningIndex]?.question}
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {learningQuestions[learningIndex]?.options.map((option, idx) => {
+                // Handle both string and object formats
+                const optionLabel = typeof option === 'string' ? option : (option.label || option.text || '');
+                const isSelected = learningSelected === optionLabel;
+                
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setLearningSelected(optionLabel);
+                      setLearningSelectedScore(idx); // Use index as score (0, 1, 2)
+                    }}
+                    style={{ 
+                      textAlign: 'left', 
+                      justifyContent: 'flex-start', 
+                      padding: '16px 20px',
+                      backgroundColor: isSelected ? '#dbeafe' : '#ffffff',
+                      color: '#1e293b',
+                      border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: '500',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <span style={{ color: '#1e293b', fontSize: '16px', fontWeight: '500' }}>{optionLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={() => {
+                  if (learningIndex > 0) {
+                    const prevAnswers = learningAnswers.slice(0, -1);
+                    setLearningAnswers(prevAnswers);
+                    setLearningIndex(learningIndex - 1);
+                    setLearningSelected("");
+                  } else {
+                    setStage("score");
+                  }
+                }}
+                className="btn btn-outline"
+                style={{ flex: '0 0 auto' }}
+              >
+                ← Previous
+              </button>
+
+              <button
+                onClick={() => {
+                  const newAnswers = [...learningAnswers, learningSelectedScore];
+                  setLearningAnswers(newAnswers);
+
+                  if (learningIndex + 1 < learningQuestions.length) {
+                    setLearningIndex(learningIndex + 1);
+                    setLearningSelected("");
+                  } else {
+                    completeLearningAssessment();
+                  }
+                }}
+                disabled={!learningSelected}
+                className="enterprise-btn"
+                style={{ flex: 1 }}
+              >
+                {learningIndex + 1 < learningQuestions.length ? 'Next →' : 'Complete Assessment'}
+              </button>
+            </div>
+          </div>
         </div>
-
-        {/* Continue to Content Generation */}
-        <button
-          onClick={() => navigate("/result", {
-            state: {
-              topic: storedTopic,
-              technicalScore: techScore,
-              learningScore: learnScore,
-              combinedAnalysis: storedCombined,
-              mode: "direct",
-              // Pass through analysis data from HomePage
-              userId,
-              sourceType,
-              sourceUrl,
-              extractedText,
-              skills,
-              strengths,
-              weakAreas
-            }
-          })}
-          style={{ padding: "12px", fontSize: "16px", width: "100%", marginBottom: "15px" }}
-        >
-          <strong>Create My Learning Plan</strong>
-        </button>
-
-        
-        {/* Back Button */}
-        <button
-          onClick={() => {
-            setLearningIndex(0);
-            setLearningAnswers([]);
-            setLearningSelected("");
-            setStage("learning");
-          }}
-          style={{ marginBottom: "15px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-        >
-          ← Back to Learning Assessment
-        </button>
-        
       </div>
     );
   }
 
-  // Fallback - no questions and not loading
-  return (
-    <div className="glass-card">
-      <h2>No questions available</h2>
-      <p>Please go back and extract a PDF first.</p>
-      <button onClick={() => navigate("/")} style={{ marginTop: "10px" }}>
-        ← Back to Home
-      </button>
-    </div>
-  );
+  return null;
 }
 
 export default QuizPage;

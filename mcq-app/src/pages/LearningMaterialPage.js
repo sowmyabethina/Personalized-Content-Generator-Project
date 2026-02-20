@@ -18,26 +18,20 @@ function LearningMaterialPage() {
 
   if (!learningMaterial) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
-        padding: "20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <div className="glass-card" style={{ textAlign: "center" }}>
-          <h2>No Learning Material Found</h2>
-          <p>Please generate learning material first.</p>
-          <button onClick={() => navigate("/result")} style={{ marginTop: "20px" }}>
-            ← Back to Results
-          </button>
+      <div className="page-container">
+        <div className="content-wrapper">
+          <div className="content-card" style={{ textAlign: 'center' }}>
+            <h2 style={{ color: 'var(--text-primary)' }}>No Learning Material Found</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Please generate learning material first.</p>
+            <button onClick={() => navigate("/result")} className="enterprise-btn">
+              ← Back to Results
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Download learning material as PDF
   const downloadMaterial = async () => {
     if (!learningMaterial) return;
 
@@ -45,7 +39,6 @@ function LearningMaterialPage() {
     setError("");
 
     try {
-      // Build content string (same format as before, but sent to backend)
       let content = `${learningMaterial.title || "Learning Material"}\n`;
       content += `${"=".repeat(60)}\n\n`;
       content += `Topic: ${learningMaterial.topic}\n`;
@@ -143,7 +136,6 @@ function LearningMaterialPage() {
         });
       }
 
-      // Call backend API to generate PDF
       const response = await fetch("http://localhost:5000/download-pdf", {
         method: "POST",
         headers: {
@@ -159,26 +151,15 @@ function LearningMaterialPage() {
         throw new Error(`Server error: ${response.status}`);
       }
 
-      // Get the PDF blob from response
       const blob = await response.blob();
-      
-      // Create download link and trigger download - force to Downloads folder
       const downloadFilename = `${(learningMaterial.topic || "learning-material").replace(/\s+/g, "-").toLowerCase()}-complete-guide.pdf`;
-      
-      // Create blob URL with explicit MIME type
       const blobUrl = window.URL.createObjectURL(blob);
-      
-      // Create anchor element for download
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = downloadFilename;
       link.style.display = 'none';
-      
-      // Append to body, click, and remove - this triggers native browser download
       document.body.appendChild(link);
       link.click();
-      
-      // Clean up after a short delay to ensure download starts
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
@@ -193,7 +174,6 @@ function LearningMaterialPage() {
     setLoading(false);
   };
 
-  // Generate quiz from learning material
   const generateTestKnowledge = async () => {
     setLoading(true);
     setError("");
@@ -217,10 +197,8 @@ function LearningMaterialPage() {
       const questions = await res.json();
       const quizId = res.headers.get("X-Quiz-Id");
       
-      // Store learning material in localStorage for retrieval after quiz
       localStorage.setItem("learningMaterialData", JSON.stringify(learningMaterial));
       
-      // Navigate to quiz page with generated questions
       navigate("/quiz", {
         state: {
           questions: questions,
@@ -238,215 +216,176 @@ function LearningMaterialPage() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
-      padding: "20px"
-    }}>
-      <div className="glass-card" style={{
-        maxWidth: "900px",
-        margin: "0 auto",
-        background: "#ffffff",
-        borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-        padding: "40px"
-      }}>
-        
-
+    <div className="page-container">
+      <div className="content-wrapper">
         {/* Header */}
-        <h1 style={{ color: "#2c3e50", marginBottom: "10px", textAlign: "center" }}>
-          📚 {learningMaterial.title || "Complete Learning Material"}
-        </h1>
+        <div className="content-card" style={{ marginBottom: '24px' }}>
+          <h1 style={{ color: 'var(--text-primary)', marginBottom: '12px', textAlign: 'center' }}>
+            📚 {learningMaterial.title || "Complete Learning Material"}
+          </h1>
 
-        {/* Metadata Card */}
-        <div style={{
-          marginBottom: "30px",
-          padding: "20px",
-          background: "#E3F2FD",
-          borderRadius: "8px",
-          borderLeft: "4px solid #1976D2"
-        }}>
-          <p style={{ margin: "0", color: "#1976D2", fontWeight: "bold" }}>
-            📌 Topic: <span style={{ color: "#333" }}>{learningMaterial.topic}</span> | 
-            Level: <span style={{ color: "#333" }}>{learningMaterial.level}</span> | 
-            Style: <span style={{ color: "#333" }}>{learningMaterial.style}</span>
-          </p>
-        </div>
-
-        {/* Summary Section */}
-        {learningMaterial.summary && (
+          {/* Metadata */}
           <div style={{
-            marginBottom: "30px",
-            padding: "20px",
-            background: "#f8f9fa",
-            borderRadius: "8px",
-            borderLeft: "4px solid #667eea"
+            marginBottom: '24px',
+            padding: 'var(--space-4)',
+            background: 'var(--color-info-light)',
+            borderRadius: 'var(--radius-lg)',
+            borderLeft: '4px solid var(--color-info)'
           }}>
-            <h2 style={{ color: "#2c3e50", marginBottom: "15px", textAlign: "center" }}>📋 Overview</h2>
-            <p style={{ color: "#555", lineHeight: "1.8", margin: "0" }}>
-              {learningMaterial.summary}
+            <p style={{ margin: 0, color: 'var(--color-info)', fontWeight: 'var(--font-medium)' }}>
+              📌 Topic: <span style={{ color: 'var(--text-primary)' }}>{learningMaterial.topic}</span> | 
+              Level: <span style={{ color: 'var(--text-primary)' }}>{learningMaterial.level}</span> | 
+              Style: <span style={{ color: 'var(--text-primary)' }}>{learningMaterial.style}</span>
             </p>
           </div>
-        )}
 
-        
-
-        {/* Main Content Sections */}
-        <div style={{ marginBottom: "30px" }}>
-          <h2 style={{ color: "#2c3e50", marginBottom: "20px", textAlign: "center" }}>📖 Course Content</h2>
-
-          {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
-            <div key={idx} style={{
-              marginBottom: "30px",
-              padding: "25px",
-              background: "#fff",
-              borderRadius: "8px",
-              borderLeft: "4px solid #667eea",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+          {/* Summary */}
+          {learningMaterial.summary && (
+            <div style={{
+              marginBottom: '24px',
+              padding: 'var(--space-5)',
+              background: 'var(--color-gray-50)',
+              borderRadius: 'var(--radius-lg)',
+              borderLeft: '4px solid var(--color-primary)'
             }}>
-              <h3 style={{
-                color: "#2c3e50",
-                marginBottom: "15px",
-                fontSize: "20px",
-                textAlign: "center"
-              }}>
-                {idx + 1}. {section.title}
-              </h3>
-
-              {/* Main Content */}
-              <p style={{
-                color: "#555",
-                lineHeight: "1.8",
-                marginBottom: "20px",
-                whiteSpace: "pre-wrap",
-                textAlign: "left"
-              }}>
-                {section.content}
-              </p>
-
-              {/* Key Points */}
-              {section.keyPoints && section.keyPoints.length > 0 && (
-                <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🔑 Key Points:</h4>
-                  <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
-                    {section.keyPoints.map((point, pIdx) => (
-                      <li key={pIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Real-World Applications */}
-              {section.applications && section.applications.length > 0 && (
-                <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>🌍 Real-World Applications:</h4>
-                  <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
-                    {section.applications.map((app, aIdx) => (
-                      <li key={aIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
-                        {app}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Examples */}
-              {section.examples && section.examples.length > 0 && (
-                <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>💻 Examples & Demonstrations:</h4>
-                  {section.examples.map((ex, exIdx) => (
-                    <div key={exIdx} style={{
-                      marginBottom: "15px",
-                      padding: "15px",
-                      background: "#f5f5f5",
-                      borderRadius: "4px",
-                      border: "1px solid #e0e0e0"
-                    }}>
-                      <p style={{
-                        margin: "0 0 8px 0",
-                        fontWeight: "bold",
-                        color: "#333"
-                      }}>
-                        {ex.title}
-                      </p>
-                      <p style={{
-                        margin: "0 0 10px 0",
-                        color: "#666",
-                        fontSize: "14px"
-                      }}>
-                        {ex.description}
-                      </p>
-                      {ex.code && (
-                        <pre style={{
-                          margin: "10px 0 0 0",
-                          padding: "12px",
-                          background: "#2c3e50",
-                          borderRadius: "4px",
-                          overflow: "auto",
-                          fontSize: "12px"
-                        }}>
-                          <code style={{ color: "#f8f8f2" }}>
-                            {ex.code}
-                          </code>
-                        </pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Practice Questions */}
-              {section.practiceQuestions && section.practiceQuestions.length > 0 && (
-                <div style={{ marginBottom: "20px" }}>
-                  <h4 style={{ color: "#667eea", marginBottom: "10px", textAlign: "center" }}>❓ Practice Questions:</h4>
-                  <ol style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
-                    {section.practiceQuestions.map((q, qIdx) => (
-                      <li key={qIdx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
-                        {q}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              {/* Estimated Time */}
-              <p style={{
-                margin: "20px 0 0 0",
-                color: "#999",
-                fontSize: "13px",
-                borderTop: "1px solid #eee",
-                paddingTop: "15px"
-              }}>
-                ⏱ Estimated Time: {section.estimatedTime}
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '16px', textAlign: 'center' }}>📋 Overview</h2>
+              <p style={{ color: 'var(--text-secondary)', lineHeight: 'var(--leading-relaxed)', margin: 0 }}>
+                {learningMaterial.summary}
               </p>
             </div>
-          ))}
+          )}
         </div>
+
+        {/* Main Content Sections */}
+        {learningMaterial.sections && learningMaterial.sections.map((section, idx) => (
+          <div key={idx} className="content-card" style={{ marginBottom: '24px' }}>
+            <h3 style={{
+              color: 'var(--text-primary)',
+              marginBottom: '16px',
+              fontSize: 'var(--text-xl)',
+              textAlign: 'center'
+            }}>
+              {idx + 1}. {section.title}
+            </h3>
+
+            <p style={{
+              color: 'var(--text-secondary)',
+              lineHeight: 'var(--leading-relaxed)',
+              marginBottom: '20px',
+              whiteSpace: 'pre-wrap',
+              textAlign: 'left'
+            }}>
+              {section.content}
+            </p>
+
+            {section.keyPoints && section.keyPoints.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ color: 'var(--color-primary)', marginBottom: '12px', textAlign: 'center' }}>🔑 Key Points:</h4>
+                <ul style={{ paddingLeft: '20px', margin: 0, textAlign: 'left' }}>
+                  {section.keyPoints.map((point, pIdx) => (
+                    <li key={pIdx} style={{ marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {section.applications && section.applications.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ color: 'var(--color-primary)', marginBottom: '12px', textAlign: 'center' }}>🌍 Real-World Applications:</h4>
+                <ul style={{ paddingLeft: '20px', margin: 0, textAlign: 'left' }}>
+                  {section.applications.map((app, aIdx) => (
+                    <li key={aIdx} style={{ marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      {app}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {section.examples && section.examples.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ color: 'var(--color-primary)', marginBottom: '12px', textAlign: 'center' }}>💻 Examples & Demonstrations:</h4>
+                {section.examples.map((ex, exIdx) => (
+                  <div key={exIdx} style={{
+                    marginBottom: '16px',
+                    padding: 'var(--space-4)',
+                    background: 'var(--color-gray-50)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <p style={{ margin: '0 0 8px 0', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {ex.title}
+                    </p>
+                    <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                      {ex.description}
+                    </p>
+                    {ex.code && (
+                      <pre style={{
+                        margin: 0,
+                        padding: 'var(--space-3)',
+                        background: 'var(--color-gray-800)',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'auto',
+                        fontSize: 'var(--text-sm)'
+                      }}>
+                        <code style={{ color: '#f8f8f2', fontFamily: 'var(--font-family-mono)' }}>
+                          {ex.code}
+                        </code>
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {section.practiceQuestions && section.practiceQuestions.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ color: 'var(--color-primary)', marginBottom: '12px', textAlign: 'center' }}>❓ Practice Questions:</h4>
+                <ol style={{ paddingLeft: '20px', margin: 0, textAlign: 'left' }}>
+                  {section.practiceQuestions.map((q, qIdx) => (
+                    <li key={qIdx} style={{ marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      {q}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            <p style={{
+              margin: '20px 0 0 0',
+              color: 'var(--text-muted)',
+              fontSize: 'var(--text-sm)',
+              borderTop: '1px solid var(--border-color)',
+              paddingTop: 'var(--space-4)'
+            }}>
+              ⏱ Estimated Time: {section.estimatedTime}
+            </p>
+          </div>
+        ))}
 
         {/* Final Project */}
         {learningMaterial.finalProject && (
-          <div style={{
-            marginBottom: "30px",
-            padding: "25px",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "8px",
-            color: "white"
+          <div className="content-card" style={{
+            marginBottom: '24px',
+            background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%)',
+            borderRadius: 'var(--radius-xl)',
+            color: 'white'
           }}>
-            <h3 style={{ marginTop: "0", marginBottom: "15px", textAlign: "center" }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', textAlign: 'center' }}>
               🎯 {learningMaterial.finalProject.title}
             </h3>
-            <p style={{ marginBottom: "15px", lineHeight: "1.6" }}>
+            <p style={{ marginBottom: '16px', lineHeight: 'var(--leading-relaxed)' }}>
               {learningMaterial.finalProject.description}
             </p>
-            <h5 style={{ marginBottom: "10px", textAlign: "center" }}>Steps:</h5>
-            <ol style={{ paddingLeft: "20px", marginBottom: "15px", textAlign: "left" }}>
+            <h5 style={{ marginBottom: '12px', textAlign: 'center' }}>Steps:</h5>
+            <ol style={{ paddingLeft: '20px', marginBottom: '16px', textAlign: 'left' }}>
               {learningMaterial.finalProject.steps.map((step, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", textAlign: "left" }}>{step}</li>
+                <li key={idx} style={{ marginBottom: '8px' }}>{step}</li>
               ))}
             </ol>
-            <p style={{ marginTop: "15px", fontWeight: "bold" }}>
+            <p style={{ marginTop: '16px', fontWeight: 'var(--font-semibold)' }}>
               ✅ Expected Outcome: {learningMaterial.finalProject.expectedOutcome}
             </p>
           </div>
@@ -454,26 +393,24 @@ function LearningMaterialPage() {
 
         {/* Quick Reference Cheatsheet */}
         {learningMaterial.cheatsheet && (
-          <div style={{
-            marginBottom: "30px",
-            padding: "25px",
-            background: "#FFF3E0",
-            borderRadius: "8px",
-            borderLeft: "4px solid #F57C00"
+          <div className="content-card" style={{
+            marginBottom: '24px',
+            background: 'var(--color-warning-light)',
+            borderRadius: 'var(--radius-xl)',
+            borderLeft: '4px solid var(--color-warning)'
           }}>
-            <h3 style={{ color: "#E65100", marginBottom: "20px", textAlign: "center" }}>📝 Quick Reference Cheatsheet</h3>
+            <h3 style={{ color: '#b45309', marginBottom: '20px', textAlign: 'center' }}>📝 Quick Reference Cheatsheet</h3>
 
             {learningMaterial.cheatsheet.commands && (
-              <div style={{ marginBottom: "20px" }}>
-                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Commands/Syntax:</h5>
-                <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
+              <div style={{ marginBottom: '20px' }}>
+                <h5 style={{ color: '#b45309', marginBottom: '12px', textAlign: 'center' }}>Commands/Syntax:</h5>
+                <ul style={{ paddingLeft: '20px', margin: 0, textAlign: 'left' }}>
                   {learningMaterial.cheatsheet.commands.map((cmd, idx) => (
                     <li key={idx} style={{
-                      marginBottom: "8px",
-                      color: "#555",
-                      fontFamily: "monospace",
-                      fontSize: "13px",
-                      textAlign: "left"
+                      marginBottom: '8px',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-family-mono)',
+                      fontSize: 'var(--text-sm)'
                     }}>
                       {cmd}
                     </li>
@@ -484,12 +421,12 @@ function LearningMaterialPage() {
 
             {learningMaterial.cheatsheet.definitions && (
               <div>
-                <h5 style={{ color: "#E65100", marginBottom: "10px", textAlign: "center" }}>Definitions & Key Terms:</h5>
-                <dl style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
+                <h5 style={{ color: '#b45309', marginBottom: '12px', textAlign: 'center' }}>Definitions & Key Terms:</h5>
+                <dl style={{ paddingLeft: '20px', margin: 0, textAlign: 'left' }}>
                   {Object.entries(learningMaterial.cheatsheet.definitions).map(([term, def], idx) => (
-                    <div key={idx} style={{ marginBottom: "10px" }}>
-                      <dt style={{ fontWeight: "bold", color: "#333", textAlign: "left" }}>{term}</dt>
-                      <dd style={{ margin: "4px 0 0 20px", color: "#666", textAlign: "left" }}>{def}</dd>
+                    <div key={idx} style={{ marginBottom: '12px' }}>
+                      <dt style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', textAlign: 'left' }}>{term}</dt>
+                      <dd style={{ margin: '4px 0 0 20px', color: 'var(--text-secondary)' }}>{def}</dd>
                     </div>
                   ))}
                 </dl>
@@ -498,106 +435,35 @@ function LearningMaterialPage() {
           </div>
         )}
 
-        {/* Further Reading */}
-        {learningMaterial.furtherReading && learningMaterial.furtherReading.length > 0 && (
-          <div style={{
-            marginBottom: "30px",
-            padding: "25px",
-            background: "#F3E5F5",
-            borderRadius: "8px",
-            borderLeft: "4px solid #7B1FA2"
-          }}>
-            <h3 style={{ color: "#7B1FA2", marginBottom: "15px", textAlign: "center" }}>📖 Further Reading & Resources</h3>
-            <ul style={{ paddingLeft: "20px", margin: "0", textAlign: "left" }}>
-              {learningMaterial.furtherReading.map((resource, idx) => (
-                <li key={idx} style={{ marginBottom: "8px", color: "#555", textAlign: "left" }}>
-                  {resource}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "15px",
-          marginTop: "30px",
-          borderTop: "2px solid #e5e7eb",
-          paddingTop: "20px"
-        }}>
-          <button
-            onClick={downloadMaterial}
-            style={{
-              padding: "16px",
-              fontSize: "16px",
-              background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "600"
-            }}
-          >
-            Download Learning Material
-          </button>
-
-          <button
-            onClick={generateTestKnowledge}
-            disabled={loading}
-            style={{
-              padding: "16px",
-              fontSize: "16px",
-              background: loading ? "#ccc" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "600"
-            }}
-          >
-            {loading ? "Generating Quiz..." : "Test Your Knowledge"}
-          </button>
-        </div>
-
-        {/* Action Links */}
-        <div style={{
-          display: "flex",
-          gap: "10px",
-          marginTop: "15px",
-          justifyContent: "center",
-          flexWrap: "wrap"
-        }}>
-      
-          <button
-            onClick={() => navigate("/result")}
-            style={{
-              padding: "12px 24px",
-              fontSize: "14px",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              cursor: "pointer",
-              color: "#374151",
-              fontWeight: "500"
-            }}
-          >
-            ← Back to Results
-          </button>
-        </div>
-
         {error && (
-          <p style={{
-            color: "#e74c3c",
-            marginTop: "20px",
-            padding: "12px",
-            background: "#fdeaea",
-            borderRadius: "8px"
-          }}>
-            ❌ {error}
-          </p>
+          <p className="message error">{error}</p>
         )}
+
+        {/* Bottom Action Buttons */}
+        <div className="content-card" style={{ marginTop: '24px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={downloadMaterial}
+              disabled={loading}
+              className="enterprise-btn"
+            >
+              {loading ? "⏳ Downloading..." : "📥 Download PDF"}
+            </button>
+            <button
+              onClick={generateTestKnowledge}
+              disabled={loading}
+              className="enterprise-btn success"
+            >
+              {loading ? "⏳ Generating..." : "📝 Take Quiz"}
+            </button>
+            <button
+              onClick={() => navigate("/result")}
+              className="enterprise-btn secondary"
+            >
+              ← Back to Results
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

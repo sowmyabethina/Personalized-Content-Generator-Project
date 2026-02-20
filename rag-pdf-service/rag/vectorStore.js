@@ -44,9 +44,19 @@ export async function initVectorStore() {
         chunk_text TEXT NOT NULL,
         embedding JSONB NOT NULL,
         page_number INTEGER,
+        section_title VARCHAR(500),
+        section_level VARCHAR(50),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
+    
+    // Add columns if they don't exist (for existing databases)
+    try {
+      await pool.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_title VARCHAR(500)`);
+      await pool.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_level VARCHAR(50)`);
+    } catch (e) {
+      // Ignore if columns already exist
+    }
     
     // Create indexes for faster queries
     await pool.query(`
@@ -126,11 +136,18 @@ export async function addVectorsBatch(chunks, pdfId) {
       
       for (const chunk of batch) {
         const query = `
-          INSERT INTO document_chunks (pdf_id, chunk_text, embedding, page_number)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO document_chunks (pdf_id, chunk_text, embedding, page_number, section_title, section_level)
+          VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING id
         `;
-        await client.query(query, [pdfId, chunk.text, JSON.stringify(chunk.embedding), chunk.pageNumber || null]);
+        await client.query(query, [
+          pdfId, 
+          chunk.text, 
+          JSON.stringify(chunk.embedding), 
+          chunk.pageNumber || null,
+          chunk.sectionTitle || null,
+          chunk.sectionLevel || null
+        ]);
         inserted++;
       }
       
@@ -325,6 +342,30 @@ export async function getChunkCount(pdfId = null) {
     return parseInt(result.rows[0].count);
   } catch (error) {
     console.error('❌ Error getting chunk count:', error.message);
+    throw error;
+  }
+}
+
+// Get all text chunks with metadata (for mind map generation)
+export async function getAllChunkTexts(pdfId = null) {
+  try {
+    let query = 'SELECT chunk_text, section_title, section_level FROM document_chunks';
+    const params = [];
+    
+    if (pdfId) {
+      query += ' WHERE pdf_id = $1';
+      params.push(pdfId);
+    }
+    query += ' ORDER BY id ASC';
+    
+    const result = await pool.query(query, params);
+    return result.rows.map(row => ({
+      text: row.chunk_text,
+      title: row.section_title,
+      level: row.section_level
+    }));
+  } catch (error) {
+    console.error('❌ Error getting chunk texts:', error.message);
     throw error;
   }
 }

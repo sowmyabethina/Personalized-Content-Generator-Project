@@ -1,8 +1,125 @@
 import fs from "fs";
 import { getEmbedding } from "./embeddings.js";
 import { addVectorsBatch, clearVectorStore, generatePdfId } from "./vectorStore.js";
+import { splitIntoChunks } from "../services/pdfChunker.js";
 
-// Text splitter for semantic paragraphs (not fixed characters)
+// Regex patterns for detecting academic headings
+const HEADING_PATTERNS = [
+  /^UNIT\s+[IVXLC]+$/i,                    // UNIT I, UNIT II, etc.
+  /^CHAPTER\s+\d+$/i,                     // CHAPTER 1, etc.
+  /^SECTION\s+\d+/i,                      // SECTION 1.1, etc.
+  /^\d+\.\s+[A-Z][^.]+$/,                // 1. Introduction
+  /^\d+\.\d+\s+[A-Z][^.]+$/,            // 1.1 Background
+  /^\d+\.\d+\.\d+\s+[A-Z][^.]+$/,      // 1.1.1 Details
+  /^[A-Z][A-Z\s]{4,}$/,                   // ALL CAPS headings
+  /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*:$/,     // Title Case ending with colon
+  /^[A-Z][a-zA-Z\s]{10,60}$/,             // Title case lines (10-60 chars)
+];
+
+// Check if a line is a heading
+function isHeading(line) {
+  const trimmed = line.trim();
+  if (trimmed.length < 3 || trimmed.length > 100) return false;
+  
+  // Check against patterns
+  for (const pattern of HEADING_PATTERNS) {
+    if (pattern.test(trimmed)) return true;
+  }
+  
+  // Check for short lines with title case (few words, each capitalized)
+  const words = trimmed.split(/\s+/);
+  if (words.length >= 1 && words.length <= 8) {
+    const titleCaseCount = words.filter(w => /^[A-Z][a-z]+$/.test(w)).length;
+    if (titleCaseCount >= words.length * 0.7) return true;
+  }
+  
+  return false;
+}
+
+// Determine heading level
+function getHeadingLevel(line) {
+  const trimmed = line.trim();
+  
+  if (/^UNIT\s+[IVXLC]+$/i.test(trimmed)) return 'unit';
+  if (/^CHAPTER/i.test(trimmed)) return 'unit';
+  if (/^\d+\.\s+[A-Z]/.test(trimmed)) return 'topic';
+  if (/^\d+\.\d+\s+[A-Z]/.test(trimmed)) return 'subtopic';
+  if (/^\d+\.\d+\.\d+\s+[A-Z]/.test(trimmed)) return 'sub-subtopic';
+  if (/^[A-Z][A-Z\s]{4,}$/.test(trimmed)) return 'topic';
+  
+  return 'topic';
+}
+
+// Heading-aware text splitter
+function splitTextByHeadings(text, maxChunkSize = 1000, minChunkSize = 150) {
+  if (!text || typeof text !== "string") return [];
+  
+  // Split into lines
+  const lines = text.split(/\n/);
+  const chunks = [];
+  
+  let currentSection = {
+    title: "Introduction",
+    level: "topic",
+    content: "",
+    lines: []
+  };
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines
+    if (!trimmedLine) continue;
+    
+    // Check if this line is a heading
+    if (isHeading(trimmedLine)) {
+      // Save current section if it has content
+      if (currentSection.content.trim().length >= minChunkSize) {
+        chunks.push({
+          title: currentSection.title,
+          level: currentSection.level,
+          content: currentSection.content.trim(),
+          page_number: null
+        });
+      } else if (currentSection.content.trim().length > 0 && chunks.length > 0) {
+        // Append to previous chunk if too small
+        const lastChunk = chunks[chunks.length - 1];
+        lastChunk.content += "\n\n" + currentSection.content.trim();
+      }
+      
+      // Start new section
+      currentSection = {
+        title: trimmedLine,
+        level: getHeadingLevel(trimmedLine),
+        content: "",
+        lines: []
+      };
+    } else {
+      // Add to current section content
+      currentSection.content += (currentSection.content ? " " : "") + trimmedLine;
+    }
+  }
+  
+  // Don't forget last chunk
+  if (currentSection.content.trim().length >= minChunkSize) {
+    chunks.push({
+      title: currentSection.title,
+      level: currentSection.level,
+      content: currentSection.content.trim(),
+      page_number: null
+    });
+  }
+  
+  // If no heading-based chunks, fall back to paragraph splitting
+  if (chunks.length === 0) {
+    return splitText(text, maxChunkSize, minChunkSize);
+  }
+  
+  console.log(`📌 Split text into ${chunks.length} heading-aware chunks`);
+  return chunks;
+}
+
+// Legacy function for fallback
 function splitText(text, maxChunkSize = 800, minChunkSize = 100) {
   if (!text || typeof text !== "string") return [];
   
@@ -294,9 +411,9 @@ export async function ingestPdf(filePath, pdfId = null) {
 
     console.log(`📝 Total extracted: ${text.length} characters`);
 
-    // Split text into chunks
-    const chunks = splitText(text);
-    console.log(`📌 Split into ${chunks.length} chunks`);
+    // Use new chunking service
+    const rawChunks = splitIntoChunks(text);
+    console.log(`📌 Split into ${rawChunks.length} paragraphs-based chunks`);
 
     // Clear old vectors for this PDF before re-indexing
     console.log("🗑️ Clearing old vector store...");
@@ -306,20 +423,24 @@ export async function ingestPdf(filePath, pdfId = null) {
     const chunksWithEmbeddings = [];
 
     // Generate embeddings for all chunks
-    for (const chunk of chunks) {
-      if (chunk.trim().length < 10) continue;
+    for (const chunk of rawChunks) {
+      // Use content for embedding
+      const chunkText = chunk.content.trim();
+      if (chunkText.length < 10) continue;
       
       try {
-        const embedding = await getEmbedding(chunk);
+        const embedding = await getEmbedding(chunkText);
         chunksWithEmbeddings.push({
-          text: chunk,
+          text: chunkText,
           embedding: embedding,
-          pageNumber: null
+          // Store section metadata
+          sectionTitle: chunk.heading || null,
+          sectionLevel: null
         });
         count++;
         
         if (count % 5 === 0) {
-          console.log(`📌 Generated embeddings for ${count}/${chunks.length} chunks`);
+          console.log(`📌 Generated embeddings for ${count}/${rawChunks.length} chunks`);
         }
       } catch (embError) {
         console.warn("⚠️ Failed to embed chunk:", embError.message);
