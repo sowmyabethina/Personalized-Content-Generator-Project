@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
 import { ingestPdf } from "./rag/ingestPdf.js";
+
 import { getEmbedding } from "./rag/embeddings.js";
 import { 
   similaritySearch, 
@@ -611,3 +612,4 @@ async function startServer() {
 }
 
 startServer();
+ 
