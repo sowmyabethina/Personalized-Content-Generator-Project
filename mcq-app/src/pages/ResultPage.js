@@ -14,7 +14,6 @@ function ResultPage() {
     learningScore,
     combinedAnalysis,
     mode,
-    // Analysis data passed from QuizPage/HomePage
     userId,
     sourceType,
     sourceUrl,
@@ -40,7 +39,8 @@ function ResultPage() {
     weakAreas: []
   };
 
-  // Handle backward compatibility (combinedData -> combinedAnalysis)
+  const psychometricProfile = combinedAnalysis?.psychometricProfile || location.state?.psychometricProfile || null;
+
   const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
@@ -50,7 +50,6 @@ function ResultPage() {
   const [showContent, setShowContent] = useState(false);
   const [analysisId, setAnalysisId] = useState(null);
 
-  // Determine levels
   const getTechnicalLevel = () => {
     const techScore = technicalScore || score;
     if (techScore >= 80) return "Advanced";
@@ -65,7 +64,6 @@ function ResultPage() {
     return "Theory-First Learner";
   };
 
-  // Save analysis to database
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
       const existingAnalysisId = localStorage.getItem("currentAnalysisId");
@@ -89,7 +87,6 @@ function ResultPage() {
         psychometricProfile: combinedAnalysis?.psychometricProfile || null
       };
 
-      // If we have an existing analysis, update it
       if (existingAnalysisId) {
         await fetch(`http://localhost:5000/analysis/${existingAnalysisId}`, {
           method: "PUT",
@@ -111,7 +108,6 @@ function ResultPage() {
         setAnalysisId(existingAnalysisId);
         console.log("✅ Analysis updated:", existingAnalysisId);
       } else {
-        // Create new analysis
         const saveRes = await fetch("http://localhost:5000/save-analysis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -130,13 +126,11 @@ function ResultPage() {
     }
   };
 
-  // Generate personalized content using combined analysis
   const generateContent = async () => {
     setLoading(true);
     setError("");
 
     try {
-      console.log("Fetching combined content...");
       const res = await fetch("http://localhost:5000/generate-combined-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,19 +144,13 @@ function ResultPage() {
         })
       });
 
-      console.log("Response status:", res.status);
-
       if (!res.ok) {
         throw new Error(`Server ${res.status}`);
       }
 
       const content = await res.json();
-      console.log("Content received:", content);
-      
       setPersonalizedContent(content);
       setShowContent(true);
-      
-      // Save analysis to database (background, doesn't block UI)
       saveAnalysisToDatabase(content, content.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
@@ -172,7 +160,6 @@ function ResultPage() {
     setLoading(false);
   };
 
-  // Generate exact learning material
   const generateLearningMaterial = async () => {
     setLoading(true);
     setError("");
@@ -195,7 +182,6 @@ function ResultPage() {
       const material = await res.json();
       setLearningMaterial(material);
       
-      // Save analysis to database (background, doesn't block UI)
       const roadmapData = {
         learningPath: material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) || [],
         tips: material.learningTips || [],
@@ -203,7 +189,6 @@ function ResultPage() {
       };
       saveAnalysisToDatabase(material, roadmapData);
       
-      // Navigate to LearningMaterialPage instead of showing inline
       navigate("/learning-material", {
         state: {
           learningMaterial: material,
@@ -221,238 +206,232 @@ function ResultPage() {
     setLoading(false);
   };
 
-  // Quiz score card
-  const renderQuizScore = () => {
-    if (mode === "quiz" && score !== undefined) {
-      return (
-        <div style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          borderRadius: "12px",
-          padding: "25px",
-          marginBottom: "20px",
-          color: "white"
-        }}>
-          <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Quiz Score</p>
-          <p style={{ fontSize: "36px", fontWeight: "bold", margin: "0" }}>{score}%</p>
-          <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>
-            {correctCount}/{questions.length} correct
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
-      padding: "20px"
-    }}>
-      <div className="glass-card" style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        background: "#ffffff",
-        borderRadius: "16px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-        padding: "40px"
-      }}>
-        <h2 style={{ textAlign: "center", color: "#2c3e50", marginBottom: "20px" }}>
-          🏆 Assessment Complete
-        </h2>
+    <div className="page-container">
+      <div className="content-wrapper">
+        <div className="content-card">
+          <h2 style={{ textAlign: 'center', color: 'var(--text-primary)', marginBottom: '24px' }}>
+            Your Learning Profile is Ready
+          </h2>
 
-        {topic && (
-          <p style={{ textAlign: "center", color: "#667eea", fontSize: "18px", fontWeight: "600", marginBottom: "20px" }}>
-            Topic: {topic}
-          </p>
-        )}
-
-        {/* Technical Score */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "20px",
-          marginBottom: "20px"
-        }}>
-          <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Technical Knowledge</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{technicalScore || score}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Level: {getTechnicalLevel()}</p>
-          </div>
-
-          <div style={{
-            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-            borderRadius: "12px",
-            padding: "25px",
-            color: "white",
-            textAlign: "center"
-          }}>
-            <p style={{ fontSize: "14px", opacity: 0.9, margin: "0 0 10px 0" }}>Learning Preference</p>
-            <p style={{ fontSize: "32px", fontWeight: "bold", margin: "0" }}>{learningScore || 50}%</p>
-            <p style={{ fontSize: "14px", margin: "10px 0 0 0", opacity: 0.9 }}>Style: {getLearningStyle()}</p>
-          </div>
-        </div>
-
-        {renderQuizScore()}
-
-        {/* Combined Analysis */}
-        {combinedAnalysis && (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "20px",
-            marginBottom: "20px",
-            borderLeft: "4px solid #667eea",
-            textAlign: "left"
-          }}>
-            <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>📊 Combined Analysis</h4>
-            <p style={{ margin: "0", color: "#555", lineHeight: "1.6" }}>
-              {combinedAnalysis.combinedAnalysis}
+          {topic && (
+            <p style={{ textAlign: 'center', color: 'var(--color-primary)', fontSize: 'var(--text-lg)', fontWeight: 'var(--font-medium)', marginBottom: '24px' }}>
+              Topic: {topic}
             </p>
+          )}
+
+          {/* Score Cards */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Technical Knowledge</p>
+              <p className="stat-value" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {technicalScore || score}%
+              </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Level: {getTechnicalLevel()}</p>
+            </div>
+
+            <div className="stat-card">
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Learning Preference</p>
+              <p className="stat-value" style={{ background: 'linear-gradient(135deg, var(--color-success) 0%, #38ef7d 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {learningScore || 50}%
+              </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Style: {getLearningStyle()}</p>
+            </div>
           </div>
-        )}
 
-        {!showContent ? (
-          <>
-            <button
-              onClick={generateContent}
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                marginBottom: "15px",
-                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
-              }}
-            >
-              {loading ? "Generating..." : "🚀 Generate Personalized Learning Path"}
-            </button>
-
-            {/* Back Button */}
-            <button
-              onClick={() => navigate("/quiz")}
-              style={{ marginBottom: "20px", background: "#f3f4f6", border: "1px solid #d1d5db", padding: "10px 20px", cursor: "pointer", borderRadius: "8px", color: "#374151", fontSize: "14px", fontWeight: "500" }}
-            >
-              ↩️ Back to Quiz
-            </button>
-          </>
-        ) : (
-          <div style={{
-            background: "#f8f9fa",
-            borderRadius: "12px",
-            padding: "30px",
-            textAlign: "left"
-          }}>
-            {personalizedContent && (
-              <>
-                <h3 style={{ color: "#2c3e50", marginBottom: "20px" }}>
-                  {personalizedContent.title || "Your Personalized Learning Guide"}
-                </h3>
-
-                {personalizedContent.overview && (
-                  <p style={{ color: "#555", fontSize: "16px", lineHeight: "1.6", marginBottom: "25px" }}>
-                    {personalizedContent.overview}
-                  </p>
-                )}
-
-                {personalizedContent.learningPath && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📋 Learning Path:</h4>
-                    <ol style={{ paddingLeft: "20px", color: "#555" }}>
-                      {personalizedContent.learningPath.map((step, idx) => (
-                        <li key={idx} style={{ marginBottom: "10px" }}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {personalizedContent.resources && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>📚 Resources:</h4>
-                    {personalizedContent.resources.map((resource, idx) => (
-                      <div key={idx} style={{
-                        background: "#ffffff",
-                        padding: "15px",
-                        borderRadius: "8px",
-                        marginBottom: "10px",
-                        borderLeft: "4px solid #667eea"
-                      }}>
-                        <p style={{ margin: "0 0 5px 0", fontWeight: "bold", color: "#667eea" }}>
-                          {resource.type}: {resource.title}
-                        </p>
-                        <p style={{ margin: "0", color: "#666", fontSize: "14px" }}>
-                          {resource.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {personalizedContent.tips && (
-                  <div style={{ marginBottom: "25px" }}>
-                    <h4 style={{ color: "#2c3e50", marginBottom: "15px" }}>💡 Tips:</h4>
-                    <ul style={{ paddingLeft: "20px", color: "#555" }}>
-                      {personalizedContent.tips.map((tip, idx) => (
-                        <li key={idx} style={{ marginBottom: "8px" }}>{tip}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {personalizedContent.nextSteps && (
-                  <div style={{
-                    background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                    padding: "20px",
-                    borderRadius: "8px",
-                    color: "white",
-                    textAlign: "center"
-                  }}>
-                    <p style={{ margin: "0", fontSize: "16px", fontWeight: "bold" }}>
-                      🚀 {personalizedContent.nextSteps}
+          {/* Psychometric Assessment Profile */}
+          {psychometricProfile && (
+            <div style={{
+              background: 'white',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              marginBottom: 'var(--space-5)',
+              border: '1px solid var(--border-color)',
+              textAlign: 'left'
+            }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: 'var(--text-lg)', color: 'var(--text-primary)' }}>Psychometric Assessment Profile</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                {/* Technical Familiarity */}
+                {psychometricProfile.levels?.technicalFamiliarity && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Technical Familiarity</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.technicalFamiliarity}
                     </p>
                   </div>
                 )}
 
-                {/* Generate Full Learning Material Button */}
-                <button
-                  onClick={generateLearningMaterial}
-                  disabled={loading}
-                  style={{
-                    width: "100%",
-                    padding: "18px",
-                    fontSize: "18px",
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    marginTop: "20px",
-                    marginBottom: "15px"
-                  }}
-                >
-                  {loading ? "Generating..." : "📚 Generate Full Learning Material"}
-                </button>
-              </>
-            )}
+                {/* Documentation Skill */}
+                {psychometricProfile.levels?.documentationSkill && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Documentation Skill</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.documentationSkill}
+                    </p>
+                  </div>
+                )}
 
-            <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
-              <button onClick={() => navigate("/pdf-chat")} style={{ flex: "1", minWidth: "150px" }}>
-                💬 Chat with PDF
-              </button>
-              <button onClick={() => navigate("/quiz")} style={{ flex: "1", minWidth: "150px", background: "#9C27B0" }}>
-                🔄 New Assessment
-              </button>
+                {/* Learning Goal */}
+                {psychometricProfile.levels?.learningGoal && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Learning Goal</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.learningGoal}
+                    </p>
+                  </div>
+                )}
+
+                {/* Application Confidence */}
+                {psychometricProfile.levels?.applicationConfidence && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Application Confidence</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.applicationConfidence}
+                    </p>
+                  </div>
+                )}
+
+                {/* Learning Behavior */}
+                {psychometricProfile.levels?.learningBehavior && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Learning Behavior</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.learningBehavior}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Overall Level */}
+              {psychometricProfile.overallLevel && (
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Overall Assessment Level</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: 'var(--color-primary)' }}>
+                    {psychometricProfile.overallLevel}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {error && (
-          <p style={{ color: "#e74c3c", textAlign: "center", marginTop: "20px", padding: "10px", background: "#fdeaea", borderRadius: "8px" }}>
-            {error}
-          </p>
-        )}
+          {!showContent ? (
+            <>
+              <button
+                onClick={generateContent}
+                disabled={loading}
+                className="enterprise-btn success"
+                style={{ marginBottom: '16px' }}
+              >
+                {loading ? "Generating..." : "Generate Personalized Learning Path"}
+              </button>
+
+              <button
+                onClick={() => navigate("/quiz")}
+                className="enterprise-btn secondary"
+              >
+                ↩ Back to Quiz
+              </button>
+            </>
+          ) : (
+            <div style={{
+              background: 'var(--color-gray-50)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-6)',
+              textAlign: 'left'
+            }}>
+              {personalizedContent && (
+                <>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>
+                    {personalizedContent.title || "Your Personalized Learning Guide"}
+                  </h3>
+
+                  {personalizedContent.overview && (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-base)', lineHeight: 'var(--leading-relaxed)', marginBottom: '24px' }}>
+                      {personalizedContent.overview}
+                    </p>
+                  )}
+
+                  {personalizedContent.learningPath && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📋 Learning Path:</h4>
+                      <ol style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
+                        {personalizedContent.learningPath.map((step, idx) => (
+                          <li key={idx} style={{ marginBottom: '10px' }}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {personalizedContent.resources && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📚 Resources:</h4>
+                      {personalizedContent.resources.map((resource, idx) => (
+                        <div key={idx} style={{
+                          background: 'var(--color-white)',
+                          padding: 'var(--space-4)',
+                          borderRadius: 'var(--radius-md)',
+                          marginBottom: '12px',
+                          borderLeft: '4px solid var(--color-primary)'
+                        }}>
+                          <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
+                            {resource.type}: {resource.title}
+                          </p>
+                          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                            {resource.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {personalizedContent.tips && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>💡 Tips:</h4>
+                      <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
+                        {personalizedContent.tips.map((tip, idx) => (
+                          <li key={idx} style={{ marginBottom: '8px' }}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {personalizedContent.nextSteps && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, var(--color-success) 0%, #38ef7d 100%)',
+                      padding: 'var(--space-5)',
+                      borderRadius: 'var(--radius-lg)',
+                      color: 'white',
+                      textAlign: 'center'
+                    }}>
+                      <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)' }}>
+                        🚀 {personalizedContent.nextSteps}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={generateLearningMaterial}
+                    disabled={loading}
+                    className="enterprise-btn"
+                    style={{ marginTop: '24px', marginBottom: '16px' }}
+                  >
+                    {loading ? "Generating..." : "📚 Generate Full Learning Material"}
+                  </button>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+                </div>
+            </div>
+          )}
+
+          {error && (
+            <p style={{ color: 'var(--color-error)', textAlign: 'center', marginTop: '20px', padding: '12px', background: 'var(--color-error-light)', borderRadius: 'var(--radius-md)' }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

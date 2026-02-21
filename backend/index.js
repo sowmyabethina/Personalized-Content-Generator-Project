@@ -1134,12 +1134,40 @@ Return ONLY valid JSON, no additional text.`;
 
     console.log("✅ Learning material generated successfully");
 
+    // Try to extract JSON from the response, handling markdown code blocks
+    let jsonStr = rawText.trim();
+    
+    // Remove markdown code block markers if present
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.slice(7);
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.slice(3);
+    }
+    
+    if (jsonStr.endsWith("```")) {
+      jsonStr = jsonStr.slice(0, -3);
+    }
+    
+    jsonStr = jsonStr.trim();
+
     let material;
     try {
-      material = JSON.parse(rawText);
+      material = JSON.parse(jsonStr);
     } catch (e) {
-      console.error("❌ Failed to parse learning material JSON");
-      throw new Error("Invalid JSON response from AI");
+      console.error("❌ Failed to parse learning material JSON, attempting fallback extraction");
+      
+      // Try to find JSON object in the text using regex
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          material = JSON.parse(jsonMatch[0]);
+        } catch (e2) {
+          console.error("❌ Fallback JSON extraction also failed");
+          throw new Error("Invalid JSON response from AI");
+        }
+      } else {
+        throw new Error("Invalid JSON response from AI");
+      }
     }
 
     return res.json(material);

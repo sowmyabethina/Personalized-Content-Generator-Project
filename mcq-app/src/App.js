@@ -10,7 +10,6 @@ import PdfChatPage from "./pages/PdfChatPage";
 import LearningProgressPage from "./pages/LearningProgressPage";
 import About from "./pages/About";
 import Help from "./pages/Help";
-import "./App.css";
 
 function App() {
   const { user } = useUser();
