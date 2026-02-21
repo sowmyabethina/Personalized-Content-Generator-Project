@@ -839,7 +839,7 @@ input:disabled, textarea:disabled, select:disabled {
 
 /* Button Variants */
 .btn-primary {
-  background: linear-gradient(to right, #5FB0B7, #4A9A9F);
+  background: linear-gradient(to right, #58A7A0, #66B6D2);
   color: var(--text-inverse);
   border-radius: 10px;
   box-shadow: 0 4px 6px -1px rgba(95, 176, 183, 0.3);

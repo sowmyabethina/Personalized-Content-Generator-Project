@@ -897,7 +897,7 @@ section[class*="socialButtons"] > * {
 /* Buttons - Enterprise Style */
 .enterprise-btn {
   padding: var(--space-3) var(--space-6);
-  background: linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%);
+  background: linear-gradient(to right, #58A7A0, #66B6D2);
   border: none;
   border-radius: var(--radius-md);
   color: var(--text-inverse);
@@ -973,11 +973,11 @@ section[class*="socialButtons"] > * {
 }
 
 .enterprise-btn.success {
-  background: linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%);
+  background: linear-gradient(to right, #58A7A0, #66B6D2);
 }
 
 .enterprise-btn.success:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4A9A9F 0%, #3D888C 100%);
+  background: linear-gradient(to right, #4A958C, #5AA3C0);
 }
 
 .enterprise-btn.danger {
@@ -1421,7 +1421,7 @@ section[class*="socialButtons"] > * {
 .quiz-nav-next {
   flex: 1;
   padding: var(--space-3) var(--space-6);
-  background: linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%);
+  background: linear-gradient(to right, #58A7A0, #66B6D2);
   border: none;
   border-radius: 10px;
   color: white;
