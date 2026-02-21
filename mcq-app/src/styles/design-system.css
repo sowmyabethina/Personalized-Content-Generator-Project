@@ -60,6 +60,10 @@
   --color-secondary-hover: #0F766E;
   --color-secondary-light: #F0FDFA;
 
+  /* Navbar Teal - Custom brand color for navbar */
+  --color-navbar-teal: #5FB0B7;
+  --color-navbar-teal-hover: #4A9A9F;
+
   /* Accent - Violet */
   --color-accent: #8B5CF6;
   --color-accent-hover: #7C3AED;
@@ -444,13 +448,13 @@ a:hover {
   transform: translateX(-50%);
   width: 0;
   height: 2px;
-  background: #5FB0B7;
+  background: var(--color-navbar-teal);
   transition: all var(--transition-fast);
   border-radius: 1px;
 }
 
 .nav-link:hover {
-  color: #4A9A9F;
+  color: var(--color-navbar-teal-hover);
   background: transparent;
 }
 
@@ -459,7 +463,7 @@ a:hover {
 }
 
 .nav-link.active {
-  color: #5FB0B7;
+  color: var(--color-navbar-teal);
   background: transparent;
 }
 

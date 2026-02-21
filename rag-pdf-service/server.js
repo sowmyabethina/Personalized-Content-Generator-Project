@@ -19,9 +19,6 @@ import {
   getChunksByPdfId
 } from "./rag/vectorStore.js";
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5001;
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES !== 'false';
@@ -62,10 +59,10 @@ app.get("/health", async (req, res) => {
   }
 });
 
-// Mind Map Generation - Uses existing database chunks
+// Mind Map Generation - Uses RAG retrieval to get relevant chunks, then OpenAI to generate hierarchical JSON mind map
 app.post("/mindmap", async (req, res) => {
   console.log("🧠 Mind map generation API called");
-  
+   
   try {
     const chunkCount = await getChunkCount();
     if (chunkCount === 0) {
@@ -75,23 +72,14 @@ app.post("/mindmap", async (req, res) => {
 
     console.log(`📚 Total chunks in DB: ${chunkCount}`);
 
-    // Get all chunk texts from the database
-    const allTexts = await getAllChunkTexts();
+    // Use RAG retrieval: semantic search for most relevant chunks
+    const syntheticQuery = "Identify the main concepts, topics, and learning structure of this document";
+    console.log(`🔍 Using synthetic query: "${syntheticQuery}"`);
     
-    if (!allTexts || allTexts.length === 0) {
-      return res.status(400).json({ error: 'No content found in PDF' });
-    }
-
-    // Combine all text
-    const fullText = allTexts.map(t => t.text).join('\n\n');
-    console.log(`📄 Total text length: ${fullText.length} characters`);
-
-    // Use similarity search to get diverse chunks for mind map
-    const queryText = "main topics chapters concepts syllabus learning";
-    const queryEmbedding = await getEmbedding(queryText);
+    const queryEmbedding = await getEmbedding(syntheticQuery);
     
-    // Get top chunks with low threshold to get more content
-    const results = await similaritySearchWithThreshold(queryEmbedding, 20, 0.10);
+    // Get TOP 10 most semantically similar chunks (lower threshold to get more results)
+    const results = await similaritySearchWithThreshold(queryEmbedding, 10, 0.2);
     
     console.log(`🔍 Retrieved ${results.length} chunks for mind map`);
     
@@ -99,14 +87,139 @@ app.post("/mindmap", async (req, res) => {
       return res.status(400).json({ error: 'No relevant content found in PDF' });
     }
 
-    // Extract headings and topics from retrieved chunks
-    const topics = extractTopicsFromChunks(results);
+    // Log retrieved chunk scores and preview for debugging
+    console.log("📋 Retrieved chunks with scores:");
+    results.forEach((r, i) => {
+      const score = r.score || r.similarity || 'N/A';
+      const textPreview = (r.text || r.chunk_text || '').substring(0, 100).replace(/\n/g, ' ');
+      console.log(`  [${i+1}] Score: ${score} | ${textPreview}...`);
+    });
+
+    // Preprocess chunks to extract relevant content
+    let contextText = '';
     
-    console.log("✅ Generated Mind Map:", JSON.stringify(topics).substring(0, 300) + "...");
+    for (const result of results) {
+      let text = result.text || result.chunk_text || '';
+      
+      // Preprocessing: remove unwanted content
+      // Remove acknowledgements
+      text = text.replace(/acknowledgement[s]?[:.]?[\s\S]*?(?=\n\n|\n|Chapter|Section|\d+\.)/gi, '');
+      
+      // Remove references/bibliography section
+      text = text.replace(/references[:.]?[\s\S]*?(?=\n\n|\n)/gi, '');
+      text = text.replace(/bibliography[:.]?[\s\S]*?(?=\n\n|\n)/gi, '');
+      text = text.replace(/\[[\d,\s]+\]/g, ''); // Remove citation markers like [1], [2, 3]
+      
+      // Remove page numbers
+      text = text.replace(/\bpage\s*\d+\b/gi, '');
+      text = text.replace(/\b\d+\s*of\s*\d+\b/gi, '');
+      
+      // Remove copyright/footer/header text
+      text = text.replace(/©\s*\d{4}.*/gi, '');
+      text = text.replace(/copyright\s*\d{4}.*/gi, '');
+      text = text.replace(/all\s*rights\s*reserved/gi, '');
+      
+      // Clean up extra whitespace
+      text = text.replace(/\s+/g, ' ').trim();
+      
+      // Only include text that's at least 50 characters (meaningful content)
+      if (text.length >= 50) {
+        contextText += text + '\n\n';
+      }
+    }
+
+    // Limit context to ~6000 chars to stay within token limits
+    contextText = contextText.slice(0, 6000);
+    console.log(`📄 Processed context length: ${contextText.length} characters`);
+
+    // Strict prompt that enforces JSON output format
+    const prompt = `Analyze the following technical text and generate a hierarchical mind map in JSON.
+
+STRICT RULES:
+
+1. IGNORE: Page numbers, citations (e.g., [1], Smith et al.), table of contents, headers/footers.
+2. FOCUS: Only extract core concepts, definitions, and their logical relationships.
+3. STRUCTURE: Maximum depth 3 levels.
+4. TITLES: Each node title must be less than 5 words and meaningful (no fragments like "My deep respects for" or "of machine learning").
+
+TEXT CONTENT:
+${contextText}
+
+RETURN ONLY VALID JSON (no explanations, no markdown):
+{
+"title": "Central Theme",
+"children": [
+{ "title": "Subtopic", "children": [] }
+]
+}`;
+
+    console.log("🤖 Calling OpenAI for mind map generation...");
     
-    res.json(topics);
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are an expert mind map generator. Always return valid JSON only. Never return sentence fragments." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
+      response_format: { type: "json_object" }
+    });
+
+    const rawResponse = completion.choices[0]?.message?.content;
+    console.log("📨 Raw AI response received, length:", rawResponse?.length);
+    console.log("📝 Raw AI response (first 500 chars):", rawResponse?.substring(0, 500));
+
+    if (!rawResponse) {
+      throw new Error("Empty response from AI");
+    }
+
+    // Validate JSON - NO FALLBACK to sentence splitting
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(rawResponse);
+      console.log("✅ JSON parsed successfully");
+    } catch (parseError) {
+      console.error("❌ JSON parsing failed:", parseError.message);
+      console.error("📝 Raw response was:", rawResponse.substring(0, 500));
+      
+      // Try to extract JSON from the response if it has extra text
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedJson = JSON.parse(jsonMatch[0]);
+          console.log("✅ JSON extracted from response");
+        } catch (e2) {
+          console.error("❌ JSON extraction also failed - returning error (no fallback)");
+          return res.status(500).json({ 
+            error: 'AI response is not valid JSON. Cannot render mind map.',
+            details: parseError.message
+          });
+        }
+      } else {
+        console.error("❌ No JSON found in response - returning error (no fallback)");
+        return res.status(500).json({ 
+          error: 'AI response is not valid JSON. Cannot render mind map.',
+          details: 'No JSON object found in response'
+        });
+      }
+    }
+
+    // Validate the structure - must have title and children
+    if (!parsedJson.title || !parsedJson.children || !Array.isArray(parsedJson.children)) {
+      console.error("❌ Invalid mind map structure:", parsedJson);
+      return res.status(500).json({ 
+        error: 'Invalid mind map structure from AI response',
+        details: 'The AI response does not have the required title and children fields'
+      });
+    }
+
+    console.log("✅ Generated Mind Map:", JSON.stringify(parsedJson).substring(0, 300) + "...");
+    
+    res.json(parsedJson);
   } catch (error) {
-    console.error('Mind map generation error:', error);
+    console.error('❌ Mind map generation error:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to generate mind map' 
     });
@@ -136,8 +249,8 @@ function extractTopicsFromChunks(results) {
   // Build mind map structure
   const fullText = allContent.join(' ');
   
-  // Extract key phrases
-  const phrases = extractKeyPhrasesSimple(fullText);
+  // Extract key phrases with improved filtering
+  const phrases = extractKeyPhrasesImproved(fullText);
   
   // Determine root title from first chunk
   let rootTitle = "Document Overview";
@@ -151,8 +264,8 @@ function extractTopicsFromChunks(results) {
     }
   }
   
-  // Group phrases into categories
-  const categories = groupPhrasesSimple(phrases);
+  // Group phrases into categories with better organization
+  const categories = groupPhrasesImproved(phrases);
   
   return {
     title: rootTitle,
@@ -161,48 +274,211 @@ function extractTopicsFromChunks(results) {
 }
 
 /**
- * Simple key phrase extraction
+ * Improved key phrase extraction with better filtering
  */
-function extractKeyPhrasesSimple(text) {
+function extractKeyPhrasesImproved(text) {
   const phraseMap = new Map();
   
-  // Extract bigrams
+  // Comprehensive stopwords including academic/common words
+  const stopWords = new Set([
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+    'may', 'might', 'must', 'shall', 'can', 'need', 'to', 'of', 'in', 'for', 'on',
+    'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after',
+    'above', 'below', 'between', 'under', 'and', 'or', 'but', 'if', 'while', 'because',
+    'it', 'its', 'this', 'that', 'these', 'those', 'they', 'them', 'their',
+    'what', 'which', 'who', 'whom', 'we', 'you', 'he', 'she', 'me', 'him', 'her', 'us',
+    'my', 'your', 'his', 'our', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
+    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too',
+    'very', 'just', 'also', 'now', 'about', 'up', 'down', 'out', 'off', 'over', 'then',
+    'here', 'there', 'when', 'where', 'why', 'how', 'all', 'ever', 'never', 'always',
+    'however', 'therefore', 'otherwise', 'thus', 'hence', 'even', 'still', 'yet',
+    'get', 'got', 'make', 'made', 'take', 'took', 'see', 'saw', 'come', 'came', 'go', 'went',
+    'say', 'said', 'know', 'knew', 'think', 'thought', 'want', 'use', 'find', 'give', 'tell',
+    'try', 'call', 'keep', 'let', 'put', 'seem', 'provide', 'following', 'based', 'using',
+    'done', 'given', 'shown', 'seen', 'called', 'included', 'containing', 'consists',
+    'form', 'written', 'known', 'considered', 'able', 'certain', 'likely', 'possible',
+    'required', 'needed', 'wanted', 'helps', 'allows', 'enables', 'works', 'well',
+    // Academic/educational words to filter
+    'learn', 'learning', 'study', 'studying', 'teach', 'teaching', 'understand',
+    'understand', 'knowledge', 'explain', 'explain', 'example', 'chapter', 'section',
+    'page', 'pages', 'figure', 'table', 'note', 'notes', 'reference', 'references',
+    'according', 'paper', 'author', 'book', 'textbook', 'lecture', 'topic', 'topics',
+    'subtopic', 'objective', 'objectives', 'goal', 'goals', 'aim', 'aims', 'purpose',
+    'introduction', 'conclusion', 'summary', 'abstract', 'overview', 'review',
+    'exercise', 'exercises', 'question', 'questions', 'answer', 'answers', 'solution',
+    'solutions', 'problem', 'problems', 'concept', 'concepts', 'definition', 'definitions',
+    'term', 'terms', 'meaning', 'importance', 'benefits', 'advantages', 'disadvantages',
+    'types', 'kind', 'kinds', 'sort', 'sorts', 'various', 'different', 'similar',
+    // Generic words
+    'way', 'means', 'method', 'methods', 'process', 'processes', 'system', 'systems',
+    'thing', 'things', 'stuff', 'case', 'cases', 'point', 'points', 'fact', 'facts',
+    'part', 'parts', 'side', 'area', 'field', 'level', 'result', 'results', 'effect',
+    'effects', 'issue', 'issues', 'reason', 'reasons', 'idea', 'ideas', 'word', 'words',
+    'number', 'numbers', 'name', 'names', 'person', 'people', 'time', 'year', 'years',
+    'day', 'days', 'new', 'first', 'last', 'next', 'previous', 'important', 'main',
+    'general', 'common', 'particular', 'specific', 'various', 'available', 'used', 'using',
+    // Common phrase patterns to filter
+    'set', 'sets', 'collection', 'collections', 'allow', 'allows', 'allowing',
+    'enable', 'enables', 'enabling', 'provide', 'provides', 'providing',
+    'consist', 'consists', 'containing', 'contain', 'contains',
+    'include', 'includes', 'including', 'included',
+    'represent', 'represents', 'representing', 'represented',
+    'describe', 'describes', 'describing', 'described',
+    'explain', 'explains', 'explaining', 'explained',
+    'define', 'defines', 'defining', 'defined',
+    'identify', 'identifies', 'identifying', 'identified',
+    'determine', 'determines', 'determining', 'determined',
+    'understand', 'understands', 'understanding', 'understood',
+    'obtain', 'obtains', 'obtaining', 'obtained',
+    'offer', 'offers', 'offering', 'offered',
+    'present', 'presents', 'presenting', 'presented',
+    'discuss', 'discusses', 'discussing', 'discussed',
+    'examine', 'examines', 'examining', 'examined',
+    'analyze', 'analyzes', 'analyzing', 'analyzed',
+    'address', 'addresses', 'addressing', 'addressed',
+    'deal', 'deals', 'dealing', 'dealt',
+    'cover', 'covers', 'covering', 'covered',
+    'handle', 'handles', 'handling', 'handled',
+    'involve', 'involves', 'involving', 'involved',
+    'relate', 'relates', 'relating', 'related',
+    'associate', 'associates', 'associating', 'associated',
+    'need', 'needs', 'needing', 'needed',
+    'use', 'uses', 'using', 'used',
+    'make', 'makes', 'making', 'made',
+    'give', 'gives', 'giving', 'gave',
+    'get', 'gets', 'getting', 'got',
+    'become', 'becomes', 'becoming', 'became',
+    'appear', 'appears', 'appearing', 'appeared',
+    'remain', 'remains', 'remaining', 'remained'
+  ]);
+  
+  // Check if phrase is valid with improved logic
+  function isValidImprovedPhrase(phrase) {
+    const words = phrase.toLowerCase().split(/\s+/);
+    
+    // Must have at least 2 content words that are not in stopwords
+    const contentWords = words.filter(w => !stopWords.has(w) && w.length > 3);
+    if (contentWords.length < 2) return false;
+    
+    // Filter out phrases with numbers
+    if (/\d/.test(phrase)) return false;
+    
+    // Filter out single character words
+    if (words.some(w => w.length <= 1)) return false;
+    
+    // Filter out phrases that are mostly stopwords
+    if (contentWords.length / words.length < 0.4) return false;
+    
+    // Filter out common generic phrase patterns
+    const phraseLower = phrase.toLowerCase();
+    const genericPatterns = [
+      /^a\s+/, /^the\s+/, /^an\s+/, /^this\s+/, /^that\s+/,
+      /\s+a$/, /\s+the$/, /\s+an$/, /\s+of$/, /\s+to$/, /\s+for$/,
+      /^the\s+\w+\s+of$/, /^a\s+\w+\s+of$/,
+      /^the\s+\w+\s+is$/, /^a\s+\w+\s+is$/,
+      /\s+in\s+the$/, /\s+of\s+the$/, /\s+of\s+a$/,
+      /^set\s+of/, /^collection\s+of/, /^group\s+of/, /^number\s+of/,
+      /^way\s+to/, /^method\s+of/, /^process\s+of/, /^type\s+of/,
+      /^kind\s+of/, /^sort\s+of/, /^type\s+of/
+    ];
+    
+    for (const pattern of genericPatterns) {
+      if (pattern.test(phraseLower)) return false;
+    }
+    
+    return true;
+  }
+  
+  // Extract bigrams (2-word phrases)
   const words = text.split(/\s+/);
   for (let i = 0; i < words.length - 1; i++) {
     const bigram = words[i] + ' ' + words[i + 1];
-    if (isValidKeyPhrase(bigram)) {
+    if (isValidImprovedPhrase(bigram)) {
       phraseMap.set(bigram, (phraseMap.get(bigram) || 0) + 1);
     }
   }
   
-  // Extract trigrams
+  // Extract trigrams (3-word phrases)
   for (let i = 0; i < words.length - 2; i++) {
     const trigram = words[i] + ' ' + words[i + 1] + ' ' + words[i + 2];
-    if (isValidKeyPhrase(trigram)) {
+    if (isValidImprovedPhrase(trigram)) {
       phraseMap.set(trigram, (phraseMap.get(trigram) || 0) + 1);
     }
   }
   
-  // Sort by frequency and return top phrases
-  return Array.from(phraseMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 30)
-    .map(([phrase]) => phrase);
+  // Sort by frequency and take top phrases
+  const allPhrases = Array.from(phraseMap.entries())
+    .sort((a, b) => b[1] - a[1]);
+  
+  return allPhrases.slice(0, 30).map(([phrase]) => phrase);
 }
 
 /**
- * Check if phrase is valid
+ * Improved phrase grouping with better organization
  */
-function isValidKeyPhrase(phrase) {
-  const stopWords = ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-    'may', 'might', 'must', 'shall', 'can', 'need', 'to', 'of', 'in', 'for', 'on',
-    'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after',
-    'above', 'below', 'between', 'under', 'and', 'or', 'but', 'if', 'while', 'because'];
+function groupPhrasesImproved(phrases) {
+  const categories = [];
+  const used = new Set();
   
-  const words = phrase.toLowerCase().split(/\s+/);
-  const contentWords = words.filter(w => !stopWords.includes(w) && w.length > 2);
-  return contentWords.length >= 1;
+  // Remove phrases that are substrings of other phrases
+  const filteredPhrases = phrases.filter(phrase => {
+    for (const other of phrases) {
+      if (phrase !== other && other.includes(phrase) && other.length > phrase.length) {
+        return false;
+      }
+    }
+    return true;
+  });
+  
+  // Create categories from top phrases
+  for (const phrase of filteredPhrases) {
+    if (used.has(phrase)) continue;
+    
+    used.add(phrase);
+    
+    const category = {
+      title: phrase,
+      children: []
+    };
+    
+    // Find related sub-phrases that share significant words
+    for (const other of filteredPhrases) {
+      if (used.has(other)) continue;
+      
+      // Check for common meaningful words
+      const words1 = phrase.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const words2 = other.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const common = words1.filter(w => words2.includes(w));
+      
+      // Only group if they share at least one significant word
+      if (common.length > 0) {
+        category.children.push({ title: other, children: [] });
+        used.add(other);
+      }
+    }
+    
+    // Only add category if it has children
+    if (category.children.length > 0) {
+      categories.push(category);
+    } else {
+      // Add as standalone category if it's an important phrase
+      if (phrase.split(/\s+/).length >= 2 || phrase.length > 8) {
+        categories.push(category);
+      }
+    }
+  }
+  
+  // Add remaining phrases as individual categories (limit to top 8)
+  let count = 0;
+  for (const phrase of filteredPhrases) {
+    if (!used.has(phrase) && count < 8) {
+      categories.push({ title: phrase, children: [] });
+      count++;
+    }
+  }
+  
+  return categories.slice(0, 8);
 }
 
 /**
@@ -326,7 +602,7 @@ async function generateAnswer(context, question, history = []) {
   messages.push({ role: "user", content: question });
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-5-nano",
+    model: "gpt-4o-mini",
     messages
   });
 

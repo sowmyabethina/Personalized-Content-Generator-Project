@@ -1481,7 +1481,7 @@ section[class*="socialButtons"] > * {
 .score-display {
   text-align: center;
   padding: var(--space-8);
-  background: var(--color-primary);
+  background: linear-gradient(to right, #58A7A0, #66B6D2);
   border-radius: var(--radius-xl);
   color: white;
   margin-bottom: var(--space-6);

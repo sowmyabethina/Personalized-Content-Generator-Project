@@ -440,8 +440,8 @@ function LearningMaterialPage() {
         )}
 
         {/* Bottom Action Buttons */}
-        <div className="content-card" style={{ marginTop: '24px' }}>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div className="content-card" style={{ marginTop: '8px', padding: '12px !important', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', margin: 0 }}>
             <button
               onClick={downloadMaterial}
               disabled={loading}

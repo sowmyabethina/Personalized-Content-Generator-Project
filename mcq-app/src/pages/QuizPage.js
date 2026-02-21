@@ -165,7 +165,9 @@ function QuizPage() {
             parsedQuestions = data.map(q => ({
               question: q.question,
               options: Array.isArray(q.options) ? q.options : [q.options],
-              answer: q.answer || q.options[0]
+              answer: q.answer || q.options[0],
+              explanation: q.explanation || "",
+              category: q.category || ""
             }));
           } else if (data.questions) {
             let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
@@ -175,7 +177,9 @@ function QuizPage() {
                 parsedQuestions = jsonParsed.map(q => ({
                   question: q.question,
                   options: Array.isArray(q.options) ? q.options : [q.options],
-                  answer: q.answer || q.options[0]
+                  answer: q.answer || q.options[0],
+                  explanation: q.explanation || "",
+                  category: q.category || ""
                 }));
               }
             } catch (e) {
@@ -195,7 +199,9 @@ function QuizPage() {
               }
               return {
                 ...q,
-                answer: correct?.trim()
+                answer: correct?.trim(),
+                explanation: q.explanation || "",
+                category: q.category || ""
               };
             });
 
@@ -616,13 +622,13 @@ function QuizPage() {
         <div className="glass-card" style={{ textAlign: "center", padding: "40px" }}>
           <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
           <h2>Loading assessment questions...</h2>
-          <p style={{ color: "#4B5563" }}>Preparing your personalized assessment</p>
+          <p style={{ color: "var(--text-muted)" }}>Preparing your personalized assessment</p>
           <div style={{ 
             marginTop: "20px", 
             width: "40px", 
             height: "40px", 
-            border: "4px solid #E5E7EB",
-            borderTop: "4px solid #2563EB",
+            border: "4px solid var(--color-gray-200)",
+            borderTop: "4px solid var(--color-primary)",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
             margin: "20px auto"
@@ -751,9 +757,9 @@ function QuizPage() {
                       textAlign: 'left', 
                       justifyContent: 'flex-start', 
                       padding: '16px 20px',
-                      backgroundColor: isSelected ? '#DBEAFE' : '#ffffff',
-                      color: '#1F2937',
-                      border: isSelected ? '2px solid #2563EB' : '1px solid #E5E7EB',
+                      backgroundColor: isSelected ? 'var(--color-primary-light)' : '#ffffff',
+                      color: 'var(--text-primary)',
+                      border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-gray-200)',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '16px',
@@ -769,6 +775,25 @@ function QuizPage() {
                 );
               })}
             </div>
+
+            {/* Learning Style Info Box - Same styling as explanation box */}
+            {learningQuestions[learningIndex]?.category && (
+              <div className="explanation-box">
+                <h4 className="explanation-title">Learning Style Insight</h4>
+                <p className="explanation-text">
+                  {learningQuestions[learningIndex]?.category === 'technical_familiarity' && 
+                    "This helps us understand your current knowledge level to personalize content difficulty."}
+                  {learningQuestions[learningIndex]?.category === 'documentation_skill' && 
+                    "Understanding your documentation comfort helps us recommend appropriate learning resources."}
+                  {learningQuestions[learningIndex]?.category === 'learning_goal' && 
+                    "Your learning goal determines the depth and scope of the material we'll generate."}
+                  {learningQuestions[learningIndex]?.category === 'application_confidence' && 
+                    "This insight helps us tailor practical exercises to match your confidence level."}
+                  {learningQuestions[learningIndex]?.category === 'learning_behavior' && 
+                    "Knowing your learning behavior helps us suggest the most effective study approaches."}
+                </p>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button

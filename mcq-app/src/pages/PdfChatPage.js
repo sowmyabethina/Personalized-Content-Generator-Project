@@ -645,6 +645,7 @@ function PdfChatPage() {
 
           {/* Messages area */}
           <div
+            className="chat-section"
             style={{
               height: "400px",
               overflowY: "auto",
@@ -653,6 +654,8 @@ function PdfChatPage() {
               borderRadius: "var(--radius-lg)",
               marginBottom: "var(--space-4)",
               border: "1px solid var(--border-color)",
+              maxWidth: "800px",
+              margin: "0 auto var(--space-4) auto",
             }}
           >
             {messages.length === 0 && (
@@ -720,7 +723,10 @@ function PdfChatPage() {
           </div>
 
           {/* Input area */}
-          <div style={{ display: "flex", gap: "12px", marginBottom: '16px' }}>
+          <div 
+            className="chat-section"
+            style={{ display: "flex", gap: "12px", marginBottom: '16px', justifyContent: 'center' }}
+          >
             <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
@@ -729,12 +735,13 @@ function PdfChatPage() {
               disabled={isLoading}
               rows={2}
               className="textarea"
+              style={{ maxWidth: '600px' }}
             />
             <button
               onClick={sendMessage}
               disabled={isLoading || !inputMessage.trim()}
               className="enterprise-btn"
-              style={{ width: 'auto', padding: '12px 24px' }}
+              style={{ width: 'auto', padding: '12px 24px', alignSelf: 'center' }}
             >
               ➤ Ask
             </button>

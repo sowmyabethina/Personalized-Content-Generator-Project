@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS quiz_results (
     id SERIAL PRIMARY KEY,
     quiz_id VARCHAR(100) NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     user_answers JSONB NOT NULL,
-    score VARCHAR(20),
+    score INTEGER,
     correct_count INTEGER,
     total_count INTEGER,
     completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

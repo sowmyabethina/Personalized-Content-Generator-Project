@@ -219,7 +219,9 @@ function HomePage() {
         parsedQuestions = data.map(q => ({
           question: q.question,
           options: Array.isArray(q.options) ? q.options : [q.options],
-          answer: q.answer || q.options[0]
+          answer: q.answer || q.options[0],
+          explanation: q.explanation || "",
+          category: q.category || ""
         }));
       } else if (data.questions) {
         let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
@@ -230,7 +232,9 @@ function HomePage() {
             parsedQuestions = jsonParsed.map(q => ({
               question: q.question,
               options: Array.isArray(q.options) ? q.options : [q.options],
-              answer: q.answer || q.options[0]
+              answer: q.answer || q.options[0],
+              explanation: q.explanation || "",
+              category: q.category || ""
             }));
           } else {
             throw new Error("Not an array");
@@ -252,7 +256,9 @@ function HomePage() {
           }
           return {
             ...q,
-            answer: correct?.trim()
+            answer: correct?.trim(),
+            explanation: q.explanation || "",
+            category: q.category || ""
           };
         });
 
@@ -288,7 +294,7 @@ function HomePage() {
       <div className="page-container">
         <div className="content-wrapper">
           <div className="page-header">
-            <h1 className="page-title">Intelligent Personalized <span style={{ color: '#5FB0B7' }}>Learning Platform</span></h1>
+            <h1 className="page-title">Intelligent Personalized <span style={{ color: 'var(--color-navbar-teal)' }}>Learning Platform</span></h1>
             
           </div>
           
@@ -409,7 +415,7 @@ function HomePage() {
     <div className="page-container">
       <div className="content-wrapper">
         <div className="page-header">
-          <h1 className="page-title">Intelligent Personalized <span style={{ color: '#5FB0B7' }}>Learning Platform</span></h1>
+          <h1 className="page-title">Intelligent Personalized <span style={{ color: 'var(--color-navbar-teal)' }}>Learning Platform</span></h1>
           <p className="page-subtitle">Content extracted successfully</p>
         </div>
         
