@@ -14,6 +14,13 @@ function HomePage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      extractDocument();
+    }
+  };
+
   const parseQuestionsFromText = (text) => {
     const questions = [];
     if (!text || typeof text !== "string") return [];
@@ -78,9 +85,7 @@ function HomePage() {
     setSuccessMessage("");
 
     try {
-      // Priority: Resume PDF over GitHub URL
       if (inputType === "resume") {
-        // Resume PDF upload path
         if (!resumeFile) {
           setError("Please upload a Resume PDF file");
           setLoading(false);
@@ -105,12 +110,10 @@ function HomePage() {
 
         setExtractedContent(data.text);
         setIsExtracted(true);
-        setSuccessMessage("✅ Resume PDF extracted successfully!");
+        setSuccessMessage("Resume PDF extracted successfully!");
         
-        // Store extracted content in localStorage for QuizPage to access
         localStorage.setItem("extractedContent", data.text);
         localStorage.setItem("documentSourceType", inputType);
-        // Clear previous analysis ID to ensure fresh assessment is created
         localStorage.removeItem("currentAnalysisId");
         if (inputType === "github") {
           localStorage.setItem("documentSourceUrl", githubLink);
@@ -121,7 +124,6 @@ function HomePage() {
         setTimeout(() => setSuccessMessage(""), 3000);
 
       } else {
-        // GitHub URL path (existing logic)
         if (!githubLink.trim()) {
           setError("Please paste a GitHub PDF link");
           setLoading(false);
@@ -144,12 +146,10 @@ function HomePage() {
 
         setExtractedContent(data.text);
         setIsExtracted(true);
-        setSuccessMessage("✅ PDF extracted successfully!");
+        setSuccessMessage("PDF extracted successfully!");
         
-        // Store extracted content in localStorage for QuizPage to access
         localStorage.setItem("extractedContent", data.text);
         localStorage.setItem("documentSourceType", inputType);
-        // Clear previous analysis ID to ensure fresh assessment is created
         localStorage.removeItem("currentAnalysisId");
         if (inputType === "github") {
           localStorage.setItem("documentSourceUrl", githubLink);
@@ -171,7 +171,7 @@ function HomePage() {
     setLoading(true);
     setError("");
     setSuccessMessage("");
-    // Client-side guard: ensure there's enough extracted content
+    
     if (!extractedContent || extractedContent.trim().length < 200) {
       setError("Document too short to generate questions. Provide a longer PDF or use a topic.");
       setLoading(false);
@@ -191,7 +191,7 @@ function HomePage() {
 
       if (!res.ok) {
         const bodyText = await res.text();
-        console.error(" Server error:", res.status, bodyText);
+        console.error("Server error:", res.status, bodyText);
 
         try {
           const parsed = JSON.parse(bodyText);
@@ -256,20 +256,15 @@ function HomePage() {
           };
         });
 
-        setSuccessMessage(" Questions generated successfully!");
+        setSuccessMessage("Questions generated successfully!");
         setTimeout(() => setSuccessMessage(""), 3000);
 
-        // Clear previous analysis ID to ensure fresh assessment is created
         localStorage.removeItem("currentAnalysisId");
 
-        // Navigate to quiz page with questions
-        // Analysis will be saved after content generation in ResultPage
-        // to avoid duplicate/empty inserts
         navigate("/quiz", {
           state: { 
             questions: normalized, 
             quizId: res.headers.get("X-Quiz-Id"),
-            // Pass analysis data for saving later
             userId: null,
             sourceType: inputType,
             sourceUrl: inputType === "github" ? githubLink : null,
@@ -280,193 +275,210 @@ function HomePage() {
         setError("Could not parse questions. Please try again.");
       }
     } catch (err) {
-      console.error("  Error:", err);
+      console.error("Error:", err);
       setError(`Error: ${err.message}`);
     }
 
     setLoading(false);
   };
 
-  // Extraction step - Initial state with glassmorphism card
+  // Initial state - Document extraction
   if (!isExtracted) {
     return (
-      <>
-        <h1 className="page-title">Intelligent Personalized Learning Platform</h1>
-        <div className="glass-card">
-        <h3>Get Started with Your Profile</h3>
-        
-        {/* Input Type Toggle */}
-        <div className="toggle-group">
-          <button
-            onClick={() => {
-              setInputType("github");
-              setResumeFile(null);
-              if (fileInputRef.current) fileInputRef.current.value = "";
-            }}
-            className={`toggle-btn ${inputType === "github" ? "active" : ""}`}
-          >
-            GitHub URL
-          </button>
-          <button
-            onClick={() => {
-              setInputType("resume");
-              setGithubLink("");
-            }}
-            className={`toggle-btn ${inputType === "resume" ? "active" : ""}`}
-          >
-            Upload Resume
-          </button>
-        </div>
-        
-        {/* Loading State with Pulsing Animation */}
-        {loading && (
-          <div className="extracting-progress">
-            <div className="pulsing-orb"></div>
-            <p className="extracting-text">Extracting Document...</p>
-            <p className="extracting-subtext">Our AI is analyzing your content</p>
-            <div className="progress-bar-container">
-              <div className="progress-bar"></div>
-            </div>
+      <div className="page-container">
+        <div className="content-wrapper">
+          <div className="page-header">
+            <h1 className="page-title">Intelligent Personalized <span style={{ color: '#5FB0B7' }}>Learning Platform</span></h1>
+            
           </div>
-        )}
-        
-        {!loading && (
-          <>
-            {inputType === "github" ? (
+          
+          <div className="content-card">
+            <h3 style={{ textAlign: 'center', marginBottom: '24px', color: 'var(--text-primary)' }}>
+              Get Started with Your Profile
+            </h3>
+            
+            {/* Input Type Toggle */}
+            <div className="toggle-group">
+              <button
+                onClick={() => {
+                  setInputType("github");
+                  setResumeFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className={`toggle-btn ${inputType === "github" ? "active" : ""}`}
+              >
+                GitHub URL
+              </button>
+              <button
+                onClick={() => {
+                  setInputType("resume");
+                  setGithubLink("");
+                }}
+                className={`toggle-btn ${inputType === "resume" ? "active" : ""}`}
+              >
+                Upload Resume
+              </button>
+            </div>
+            
+            {/* Loading State */}
+            {loading && (
+              <div className="extracting-progress">
+                <div className="pulsing-orb"></div>
+                <p className="extracting-text">Extracting Document...</p>
+                <p className="extracting-subtext">Our AI is analyzing your content</p>
+                <div className="progress-bar-container">
+                  <div className="progress-bar"></div>
+                </div>
+              </div>
+            )}
+            
+            {!loading && (
               <>
-                <div className="info-box">
-                  <p>
-                    Paste the direct PDF link from your GitHub repository.<br />
-                    Make sure the file is public and accessible.
-                  </p>
-                </div>
-                <input
-                  type="text"
-                  id="github-link"
-                  name="githubLink"
-                  placeholder="Paste GitHub PDF link"
-                  value={githubLink}
-                  onChange={(e) => setGithubLink(e.target.value)}
-                  className="glass-input"
-                />
-              </>
-            ) : (
-              <>
-                <div className="info-box">
-                  <p>
-                    Upload your resume in PDF format to analyze your skills and generate personalized recommendations.
-                  </p>
-                </div>
-                <div className="file-input-wrapper">
-                  <input
-                    type="file"
-                    id="resume-file"
-                    name="resumeFile"
-                    accept=".pdf"
-                    ref={fileInputRef}
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file && file.type === "application/pdf") {
-                        setResumeFile(file);
-                      } else {
-                        setError("Please select a valid PDF file");
-                        setResumeFile(null);
-                      }
-                    }}
-                  />
-                </div>
-                {resumeFile && (
-                  <p className="selected-file">
-                      Selected: {resumeFile.name}
-                  </p>
+                {inputType === "github" ? (
+                  <>
+                    <div className="info-box">
+                      <p>
+                        Paste the direct PDF link from your GitHub repository.<br />
+                        Make sure the file is public and accessible.
+                      </p>
+                    </div>
+                    <input
+                      type="text"
+                      id="github-link"
+                      name="githubLink"
+                      placeholder="Paste GitHub PDF link"
+                      value={githubLink}
+                      onChange={(e) => setGithubLink(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      className="enterprise-input"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div className="info-box">
+                      <p>
+                        Upload your resume in PDF format to analyze your skills and generate personalized recommendations.
+                      </p>
+                    </div>
+                    <div className="file-input-wrapper">
+                      <input
+                        type="file"
+                        id="resume-file"
+                        name="resumeFile"
+                        accept=".pdf"
+                        ref={fileInputRef}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file && file.type === "application/pdf") {
+                            setResumeFile(file);
+                          } else {
+                            setError("Please select a valid PDF file");
+                            setResumeFile(null);
+                          }
+                        }}
+                      />
+                    </div>
+                    {resumeFile && (
+                      <p className="selected-file">
+                        ✓ Selected: {resumeFile.name}
+                      </p>
+                    )}
+                  </>
                 )}
+
+                <button
+                  onClick={extractDocument}
+                  disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
+                  className={`enterprise-btn ${loading ? 'loading' : ''}`}
+                  style={{ marginTop: '16px' }}
+                >
+                  {loading ? "Analyzing Document..." : " Analyze Document"}
+                </button>
+
+                {error && <p className="message error">{error}</p>}
               </>
             )}
-
-            <button
-              onClick={extractDocument}
-              disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
-              className="glow-btn"
-            >
-              {loading ? "⏳ Extracting..." : "🔍 Analyze Document"}
-            </button>
-
-            {error && <p className="message error">{error}</p>}
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </>
     );
   }
 
-  // Extracted content preview - Second state with glassmorphism card
+  // Extracted content preview - Second state
   return (
-    <>
-      <h1 className="page-title">Intelligent Personalized Learning Platform</h1>
-      <div className="glass-card">
-      <h3>{loading ? "Preparing Your Quiz..." : "Content Extracted"}</h3>
-      
-      {/* Loading State for Quiz Generation */}
-      {loading && (
-        <div className="extracting-progress">
-          <div className="pulsing-orb"></div>
-          <p className="extracting-text">Generating Quiz...</p>
-          <p className="extracting-subtext">Creating personalized questions for you</p>
-          <div className="progress-bar-container">
-            <div className="progress-bar"></div>
-          </div>
+    <div className="page-container">
+      <div className="content-wrapper">
+        <div className="page-header">
+          <h1 className="page-title">Intelligent Personalized <span style={{ color: '#5FB0B7' }}>Learning Platform</span></h1>
+          <p className="page-subtitle">Content extracted successfully</p>
         </div>
-      )}
-      
-      {!loading && (
-        <>
-          <div className="content-preview">
-            <label>Source:</label>
-            <span className="source-badge">
-              {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
-            </span>
-            <textarea
-              id="extracted-preview"
-              name="extractedPreview"
-              rows="4"
-              value={extractedContent.substring(0, 500) + "..."}
-              readOnly
-              className="glass-textarea"
-            />
-          </div>
+        
+        <div className="content-card">
+          <h3 style={{ textAlign: 'center', marginBottom: '24px', color: 'var(--text-primary)' }}>
+            {loading ? "Preparing Your Quiz..." : "Content Extracted"}
+          </h3>
+          
+          {/* Loading State for Quiz Generation */}
+          {loading && (
+            <div className="extracting-progress">
+              <div className="pulsing-orb"></div>
+              <p className="extracting-text">Generating Quiz...</p>
+              <p className="extracting-subtext">Creating personalized questions for you</p>
+              <div className="progress-bar-container">
+                <div className="progress-bar"></div>
+              </div>
+            </div>
+          )}
+          
+          {!loading && (
+            <>
+              <div className="content-preview">
+                <label>Source:</label>
+                <span className="source-badge">
+                  {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
+                </span>
+                <textarea
+                  id="extracted-preview"
+                  name="extractedPreview"
+                  rows="4"
+                  value={extractedContent.substring(0, 500) + "..."}
+                  readOnly
+                />
+              </div>
 
-          <div className="button-group">
-            <button
-              onClick={generateQuiz}
-              disabled={loading}
-              className="glow-btn"
-            >
-              {loading ? "⏳ Generating..." : "📚 Start Quiz"}
-            </button>
+              <div className="button-group">
+                <button
+                  onClick={generateQuiz}
+                  disabled={loading}
+                  className={`enterprise-btn success ${loading ? 'loading' : ''}`}
+                >
+                  {loading ? "⏳ Generating Quiz..." : " Start Quiz"}
+                </button>
 
-            <button
-              onClick={() => {
-                setGithubLink("");
-                setResumeFile(null);
-                setExtractedContent("");
-                setIsExtracted(false);
-                setError("");
-                if (fileInputRef.current) fileInputRef.current.value = "";
-              }}
-              className="glow-btn secondary"
-            >
-              🔄 Start Over
-            </button>
-          </div>
-        </>
-      )}
+                <button
+                  onClick={() => {
+                    setGithubLink("");
+                    setResumeFile(null);
+                    setExtractedContent("");
+                    setIsExtracted(false);
+                    setError("");
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="enterprise-btn secondary"
+                >
+                   Start Over
+                </button>
+              </div>
+            </>
+          )}
 
-      {successMessage && !loading && (
-        <p className="message success">{successMessage}</p>
-      )}
-      {error && !loading && <p className="message error">{error}</p>}
+          {successMessage && !loading && (
+            <p className="message success">{successMessage}</p>
+          )}
+          {error && !loading && <p className="message error">{error}</p>}
+        </div>
+      </div>
     </div>
-    </>
   );
 }
 

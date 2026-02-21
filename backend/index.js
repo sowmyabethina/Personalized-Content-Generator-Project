@@ -595,6 +595,12 @@ app.post("/generate", async (req, res) => {
     const questions = await generateQuestions(text);
     if (!Array.isArray(questions)) throw new Error("Invalid Gemini response");
 
+    // Debug: Log first question's explanation to verify AI is generating it
+    if (questions.length > 0) {
+      console.log("🔍 DEBUG - First question explanation:", questions[0].explanation);
+      console.log("🔍 DEBUG - First question category:", questions[0].category);
+    }
+
     const quizId = `quiz_${Date.now()}`;
     
     // Normalize stored answers: convert letter/index to actual option text
@@ -622,7 +628,9 @@ app.post("/generate", async (req, res) => {
         originalIndex: idx,
         question: q.question,
         options: opts,
-        correctAnswer: normalizedAns
+        correctAnswer: normalizedAns,
+        explanation: q.explanation || "",
+        category: q.category || ""
       };
     });
 
@@ -1134,12 +1142,40 @@ Return ONLY valid JSON, no additional text.`;
 
     console.log("✅ Learning material generated successfully");
 
+    // Try to extract JSON from the response, handling markdown code blocks
+    let jsonStr = rawText.trim();
+    
+    // Remove markdown code block markers if present
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.slice(7);
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.slice(3);
+    }
+    
+    if (jsonStr.endsWith("```")) {
+      jsonStr = jsonStr.slice(0, -3);
+    }
+    
+    jsonStr = jsonStr.trim();
+
     let material;
     try {
-      material = JSON.parse(rawText);
+      material = JSON.parse(jsonStr);
     } catch (e) {
-      console.error("❌ Failed to parse learning material JSON");
-      throw new Error("Invalid JSON response from AI");
+      console.error("❌ Failed to parse learning material JSON, attempting fallback extraction");
+      
+      // Try to find JSON object in the text using regex
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          material = JSON.parse(jsonMatch[0]);
+        } catch (e2) {
+          console.error("❌ Fallback JSON extraction also failed");
+          throw new Error("Invalid JSON response from AI");
+        }
+      } else {
+        throw new Error("Invalid JSON response from AI");
+      }
     }
 
     return res.json(material);
@@ -1182,13 +1218,34 @@ Generate questions that:
 4. Have clear, distinct options
 5. Are relevant to ${technicalLevel} level learners
 
+🚨🚨🚨 CRITICAL EXPLANATION RULES - FOLLOW STRICTLY 🚨🚨🚨
+
+1. NEVER say "The correct answer is" or quote the answer text
+2. NEVER say "Option X is correct" or "This option is correct"
+3. NEVER say "This assesses your knowledge"
+4. ALWAYS explain the CONCEPT purely (what it is, how it works)
+5. ALWAYS explain WHY the correct option works (the technical reasoning)
+6. Do NOT repeat or quote the answer text in the explanation
+7. Keep to exactly 2 sentences
+
+📝 EXPLANATION FORMAT:
+Explain the concept first, then explain why the correct option works. Don't mention which option is correct.
+
+✅ CORRECT FORMAT:
+"JWT enables secure identity exchange by embedding signed information in a token, allowing the server to verify authenticity without maintaining session state."
+
+❌ WRONG - DO NOT USE:
+"The correct answer is JWT because it securely transmits identity."
+"Option A is correct because it allows stateless authentication."
+"This assesses your understanding of authentication tokens."
+
 Return ONLY valid JSON in this format:
 [
   {
     "question": "Question text?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "answer": "Option A",
-    "explanation": "Why this is the correct answer and explanation"
+    "explanation": "[Explain the concept in 1 sentence]. [Explain why this works - the technical reason]."
   }
 ]
 
@@ -1215,6 +1272,12 @@ No additional text, only JSON.`;
     let questions;
     try {
       questions = JSON.parse(rawText);
+      
+      // Debug: Log first question's explanation
+      if (questions && questions.length > 0) {
+        console.log("🔍 DEBUG - First question explanation:", questions[0].explanation);
+        console.log("🔍 DEBUG - First question category:", questions[0].category);
+      }
     } catch (e) {
       console.error("❌ Failed to parse quiz JSON");
       throw new Error("Invalid JSON response from AI");

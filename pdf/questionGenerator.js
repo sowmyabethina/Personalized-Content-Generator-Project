@@ -15,46 +15,44 @@ export async function generateQuestions(text) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-You are an expert technical interviewer.
-
 Your task is to convert resume/PDF content into SKILL TESTING questions.
 
-VERY IMPORTANT:
+VERY IMPORTANT - YOU MUST INCLUDE THESE FIELDS FOR EACH QUESTION:
+1. question - The question text
+2. options - Array of 4 options (full text, not just letters)
+3. answer - The correct answer (MUST be the full text from options, e.g., "Option A")
+4. explanation - A detailed explanation of why the answer is correct (MUST be included)
+5. category - The technical category (MUST be included)
 
-You are NOT allowed to ask questions about:
+🚨🚨🚨 CRITICAL EXPLANATION RULES - FOLLOW STRICTLY 🚨🚨🚨
 
-❌ NEVER create questions like:
+1. NEVER say "The correct answer is" or quote the answer text
+2. NEVER say "Option X is correct" or "This option is correct"
+3. NEVER say "This assesses your knowledge"
+4. ALWAYS explain the CONCEPT purely (what it is, how it works)
+5. ALWAYS explain WHY the correct option works (the technical reasoning)
+6. Do NOT repeat or quote the answer text in the explanation
+7. Keep to exactly 2 sentences
 
-These are FORBIDDEN.
+📝 EXPLANATION FORMAT:
+Explain the concept first, then explain why the correct option works. Don't mention which option is correct.
 
+✅ CORRECT FORMAT:
+"JWT enables secure identity exchange by embedding signed information in a token, allowing the server to verify authenticity without maintaining session state."
 
-You MUST do this instead:
+❌ WRONG - DO NOT USE:
+"The correct answer is JWT because it securely transmits identity."
+"Option A is correct because it allows stateless authentication."
+"This assesses your understanding of authentication tokens."
 
-If PDF mentions:
-
+If the PDF mentions:
 📌 A Skill → Ask a concept/practical question on that skill  
 📌 A Project → Ask about how it was implemented  
 📌 A Tool → Ask how/why it is used  
 📌 Experience → Ask role-based technical questions  
-📌 Certification → Ask a question on that topic (NOT about certificate)
-
-Examples:
-
-If PDF says "Python":
-✅ Ask: "Which data structure is best for fast lookups in Python?"
-
-If PDF says "React Project":
-✅ Ask: "Why is useEffect used in React applications?"
-
-If PDF says "MongoDB":
-✅ Ask: "What is indexing in MongoDB and why is it used?"
-
-If PDF says "Git":
-✅ Ask: "What is the purpose of git rebase?"
-
+📌 Certification → Ask a question on that topic
 
 RULES:
-
 1. Generate exactly 10 MCQs
 2. Each question must test real knowledge
 3. No biography questions
@@ -63,17 +61,18 @@ RULES:
 6. Return ONLY valid JSON
 7. No extra text
 
-FORMAT:
-
+REQUIRED JSON FORMAT:
 [
   {
-    "question": "...",
-    "options": ["A","B","C","D"],
-    "answer": "A"
+    "question": "Your question here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "Option A",
+    "explanation": "[Explain the concept in 1 sentence]. [Explain why this works - the technical reason].",
+    "category": "Data Structures"
   }
 ]
 
-CONTENT:
+CONTENT TO ANALYZE:
 ${text}
 `;
 

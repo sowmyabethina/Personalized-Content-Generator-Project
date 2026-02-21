@@ -16,7 +16,7 @@ function ResultPage() {
     technicalScore,
     learningScore,
     combinedAnalysis,
-    mode, // Analysis data passed from QuizPage/HomePage
+    mode,
     userId,
     sourceType,
     sourceUrl,
@@ -42,9 +42,11 @@ function ResultPage() {
     weakAreas: []
   };
 
-  // Handle backward compatibility (combinedData -> combinedAnalysis)
-  const effectiveCombinedAnalysis =
-    combinedAnalysis || location.state?.combinedData || null;
+
+  const psychometricProfile = combinedAnalysis?.psychometricProfile || location.state?.psychometricProfile || null;
+
+  const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
+
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
   const [learningMaterial, setLearningMaterial] = useState(null);
@@ -54,7 +56,6 @@ function ResultPage() {
   const [analysisId, setAnalysisId] = useState(null);
   const [learningTopic, setLearningTopic] = useState(topic || "");
 
-  // Determine levels
   const getTechnicalLevel = () => {
     const techScore = technicalScore || score;
     if (techScore >= 80) return "Advanced";
@@ -69,7 +70,6 @@ function ResultPage() {
     return "Theory-First Learner";
   };
 
-  // Save analysis to database
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
       const existingAnalysisId = localStorage.getItem("currentAnalysisId");
@@ -92,7 +92,6 @@ function ResultPage() {
         psychometricProfile: combinedAnalysis?.psychometricProfile || null
       };
 
-      // If we have an existing analysis, update it
       if (existingAnalysisId) {
         await fetch(`http://localhost:5000/analysis/${existingAnalysisId}`, {
           method: "PUT",
@@ -114,7 +113,6 @@ function ResultPage() {
         setAnalysisId(existingAnalysisId);
         console.log("✅ Analysis updated:", existingAnalysisId);
       } else {
-        // Create new analysis
         const saveRes = await fetch("http://localhost:5000/save-analysis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -133,13 +131,11 @@ function ResultPage() {
     }
   };
 
-  // Generate personalized content using combined analysis
   const generateContent = async () => {
     setLoading(true);
     setError("");
 
     try {
-      console.log("Fetching combined content...");
       const res = await fetch("http://localhost:5000/generate-combined-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,19 +149,15 @@ function ResultPage() {
         })
       });
 
-      console.log("Response status:", res.status);
-
       if (!res.ok) {
         throw new Error(`Server ${res.status}`);
       }
 
       const content = await res.json();
-      console.log("Content received:", content);
 
       setPersonalizedContent(content);
       setShowContent(true);
 
-      // Save analysis to database (background, doesn't block UI)
       saveAnalysisToDatabase(content, content.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
@@ -175,7 +167,6 @@ function ResultPage() {
     setLoading(false);
   };
 
-  // Generate exact learning material
   const generateLearningMaterial = async () => {
     setLoading(true);
     setError("");
@@ -198,7 +189,8 @@ function ResultPage() {
       const material = await res.json();
       setLearningMaterial(material);
 
-      // Save analysis to database (background, doesn't block UI)
+      
+
       const roadmapData = {
         learningPath:
           material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) ||
@@ -208,7 +200,8 @@ function ResultPage() {
       };
       saveAnalysisToDatabase(material, roadmapData);
 
-      // Navigate to LearningMaterialPage instead of showing inline
+      
+
       navigate("/learning-material", {
         state: {
           learningMaterial: material,
@@ -226,600 +219,240 @@ function ResultPage() {
     setLoading(false);
   };
 
-  // Quiz score card
-  const renderQuizScore = () => {
-    if (mode === "quiz" && score !== undefined) {
-      return (
-        <div
-          style={{
-            background: "#FFFFFF",
-            borderRadius: "12px",
-            padding: "16px 20px",
-            marginBottom: "16px",
-            color: "#1E293B",
-            border: "1px solid #E2E8F0",
-            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-            width: "100%",
-            boxSizing: "border-box"
-          }}
-        >
-          <p style={{ fontSize: "13px", color: "#475569", margin: "0 0 6px 0" }}>
-            Quiz Score
-          </p>
-          <p
-            style={{
-              fontSize: "28px",
-              fontWeight: "bold",
-              margin: "0",
-              fontFamily: "'Courier New', Courier, monospace",
-              color: "#1E293B"
-            }}
-          >
-            {score}%
-          </p>
-          <p style={{ fontSize: "13px", margin: "6px 0 0 0", color: "#475569" }}>
-            {correctCount}/{questions.length} correct
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        background: "#F8FAFC",
-        padding: "16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxSizing: "border-box"
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "800px",
-          width: "100%",
-          minHeight: "auto",
-          margin: "0 auto",
-          background: "#FFFFFF",
-          borderRadius: "20px",
-          border: "1px solid #E2E8F0",
-          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-          padding: "28px 32px",
-          paddingBottom: "32px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "20px"
-        }}
-      >
-        {/* Header */}
-        <div style={{ textAlign: "center" }}>
-          <h2
-            style={{
-              color: "#1E293B",
-              margin: "0 0 6px 0",
-              fontSize: "24px",
-              fontWeight: "700"
-            }}
-          >
+    <div className="page-container">
+      <div className="content-wrapper">
+        <div className="content-card">
+          <h2 style={{ textAlign: 'center', color: 'var(--text-primary)', marginBottom: '24px' }}>
             Your Learning Profile is Ready
           </h2>
-          <p
-            style={{
-              color: "#475569",
-              fontSize: "13px",
-              margin: "0"
-            }}
-          >
-            We've analyzed your skills and learning style to build the perfect path for you.
-          </p>
-        </div>
 
-        {/* Topic Badge */}
-        {topic && (
-          <span
-            style={{
-              padding: "6px 18px",
-              fontSize: "14px",
-              fontWeight: "500",
-              color: "#1E40AF",
-              background: "#DBEAFE",
-              borderRadius: "50px",
-              border: "none"
-            }}
-          >
-            Topic: {topic}
-          </span>
-        )}
+          {topic && (
+            <p style={{ textAlign: 'center', color: 'var(--color-primary)', fontSize: 'var(--text-lg)', fontWeight: 'var(--font-medium)', marginBottom: '24px' }}>
+              Topic: {topic}
 
-        {/* Score Cards - Compact Grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "20px",
-            width: "100%"
-          }}
-        >
-          {/* Technical Score Card */}
-          <div
-            style={{
-              background: "#FFFFFF",
-              borderRadius: "12px",
-              padding: "18px",
-              color: "#1E293B",
-              textAlign: "center",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
-            }}
-          >
-            <p
-              style={{
-                fontSize: "11px",
-                color: "#475569",
-                margin: "0 0 10px 0",
-                textTransform: "uppercase",
-                letterSpacing: "1px",
-                fontWeight: "600"
-              }}
-            >
-              Technical Score
             </p>
-            <div
-              style={{
-                position: "relative",
-                width: "80px",
-                height: "80px",
-                margin: "0 auto"
-              }}
-            >
-              <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="#F1F5F9"
-                  strokeWidth="5"
-                />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="#3B82F6"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(technicalScore || score || 0) * 2.14} 214`}
-                  style={{
-                    transition: "stroke-dasharray 1s ease-out"
-                  }}
-                />
-              </svg>
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                  fontFamily: "'Courier New', Courier, monospace",
-                  color: "#1E293B"
-                }}
-              >
+          )}
+
+          {/* Score Cards */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Technical Knowledge</p>
+              <p className="stat-value" style={{ color: 'var(--color-primary)' }}>
                 {technicalScore || score}%
-              </div>
+              </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Level: {getTechnicalLevel()}</p>
             </div>
-            <p style={{ fontSize: "11px", margin: "10px 0 0 0" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "2px 10px",
-                  borderRadius: "10px",
-                  background:
-                    getTechnicalLevel() === "Advanced"
-                      ? "#DCFCE7"
-                      : getTechnicalLevel() === "Intermediate"
-                      ? "#FEF3C7"
-                      : "#FEE2E2",
-                  color:
-                    getTechnicalLevel() === "Advanced"
-                      ? "#166534"
-                      : getTechnicalLevel() === "Intermediate"
-                      ? "#92400E"
-                      : "#DC2626",
-                  fontWeight: "600"
-                }}
-              >
-                {getTechnicalLevel()}
-              </span>
-            </p>
-          </div>
 
-          {/* Learning Preference Card */}
-          <div
-            style={{
-              background: "#FFFFFF",
-              borderRadius: "12px",
-              padding: "18px",
-              color: "#1E293B",
-              textAlign: "center",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
-            }}
-          >
-            <p
-              style={{
-                fontSize: "11px",
-                color: "#475569",
-                margin: "0 0 10px 0",
-                textTransform: "uppercase",
-                letterSpacing: "1px",
-                fontWeight: "600"
-              }}
-            >
-              Learning Preference
-            </p>
-            <div
-              style={{
-                position: "relative",
-                width: "80px",
-                height: "80px",
-                margin: "0 auto"
-              }}
-            >
-              <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="#F1F5F9"
-                  strokeWidth="5"
-                />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="#3B82F6"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(learningScore || 50) * 2.14} 214`}
-                  style={{
-                    transition: "stroke-dasharray 1s ease-out"
-                  }}
-                />
-              </svg>
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                  fontFamily: "'Courier New', Courier, monospace",
-                  color: "#1E293B"
-                }}
-              >
+            <div className="stat-card">
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Learning Preference</p>
+              <p className="stat-value" style={{ color: 'var(--color-success)' }}>
                 {learningScore || 50}%
-              </div>
+              </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Style: {getLearningStyle()}</p>
             </div>
-            <p style={{ fontSize: "11px", margin: "10px 0 0 0" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "2px 10px",
-                  borderRadius: "10px",
-                  background:
-                    getLearningStyle() === "Hands-On Learner"
-                      ? "#DCFCE7"
-                      : "#DBEAFE",
-                  color:
-                    getLearningStyle() === "Hands-On Learner"
-                      ? "#166534"
-                      : "#1E40AF",
-                  fontWeight: "600"
-                }}
-              >
-                {getLearningStyle()}
-              </span>
-            </p>
           </div>
-        </div>
 
-        {renderQuizScore()}
 
-        {/* Combined Analysis */}
-        {combinedAnalysis && (
-          <div
-            style={{
-              background: "#F0F9FF",
-              borderRadius: "10px",
-              padding: "14px 16px",
-              borderLeft: "4px solid #38BDF8",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-              textAlign: "left",
-              width: "100%",
-              boxSizing: "border-box"
-            }}
-          >
-            <h4
-              style={{
-                margin: "0 0 4px 0",
-                color: "#1E293B",
-                fontWeight: "600",
-                fontSize: "12px"
-              }}
-            >
-              📊 Combined Analysis
-            </h4>
-            <p
-              style={{
-                margin: "0",
-                color: "#475569",
-                lineHeight: "1.5",
-                fontSize: "13px"
-              }}
-            >
-              {combinedAnalysis.combinedAnalysis}
-            </p>
-          </div>
-        )}
+          {/* Psychometric Assessment Profile */}
+          {psychometricProfile && (
+            <div style={{
+              background: 'white',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              marginBottom: 'var(--space-5)',
+              border: '1px solid var(--border-color)',
+              textAlign: 'left'
+            }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: 'var(--text-lg)', color: 'var(--text-primary)' }}>Psychometric Assessment Profile</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                {/* Technical Familiarity */}
+                {psychometricProfile.levels?.technicalFamiliarity && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Technical Familiarity</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.technicalFamiliarity}
 
-        {/* CTA Section */}
-        {!showContent ? (
-          <>
-            <div
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "center",
-                marginTop: "4px"
-              }}
-            >
-              <button
-                onClick={generateContent}
-                disabled={loading}
-                style={{
-                  width: "100%",
-                  maxWidth: "400px",
-                  padding: "14px 28px",
-                  fontSize: "15px",
-                  background: "#2563EB",
-                  border: "none",
-                  borderRadius: "10px",
-                  color: "#FFFFFF",
-                  fontWeight: "600",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
-                }}
-              >
-                {loading ? "Generating..." : "Generate Personalized Learning Path"}
-              </button>
-            </div>
-
-            {/* Retake Quiz Button */}
-            <button
-              onClick={() => navigate("/quiz")}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: "8px 16px",
-                cursor: "pointer",
-                borderRadius: "6px",
-                color: "#2563EB",
-                fontSize: "13px",
-                fontWeight: "500",
-                transition: "all 0.3s ease"
-              }}
-            >
-              🔄 Retake Quiz
-            </button>
-          </>
-        ) : (
-          <div
-            style={{
-              background: "#F8FAFC",
-              borderRadius: "12px",
-              padding: "24px",
-              textAlign: "left",
-              width: "100%",
-              boxSizing: "border-box"
-            }}
-          >
-            {personalizedContent && (
-              <>
-                <h3 style={{ color: "#1E293B", marginBottom: "16px", fontSize: "18px" }}>
-                  {personalizedContent.title || "Your Personalized Learning Guide"}
-                </h3>
-
-                {personalizedContent.overview && (
-                  <p
-                    style={{
-                      color: "#475569",
-                      fontSize: "14px",
-                      lineHeight: "1.6",
-                      marginBottom: "20px"
-                    }}
-                  >
-                    {personalizedContent.overview}
-                  </p>
-                )}
-
-                {personalizedContent.learningPath && (
-                  <div style={{ marginBottom: "20px" }}>
-                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
-                      📋 Learning Path:
-                    </h4>
-                    <ol style={{ paddingLeft: "18px", color: "#475569", margin: 0 }}>
-                      {personalizedContent.learningPath.map((step, idx) => (
-                        <li key={idx} style={{ marginBottom: "8px", fontSize: "13px" }}>
-                          {step}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {personalizedContent.resources && (
-                  <div style={{ marginBottom: "20px" }}>
-                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
-                      📚 Resources:
-                    </h4>
-                    {personalizedContent.resources.map((resource, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          background: "#FFFFFF",
-                          padding: "12px",
-                          borderRadius: "6px",
-                          marginBottom: "8px",
-                          borderLeft: "3px solid #2563EB"
-                        }}
-                      >
-                        <p
-                          style={{
-                            margin: "0 0 4px 0",
-                            fontWeight: "bold",
-                            color: "#2563EB",
-                            fontSize: "13px"
-                          }}
-                        >
-                          {resource.type}: {resource.title}
-                        </p>
-                        <p style={{ margin: "0", color: "#475569", fontSize: "12px" }}>
-                          {resource.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {personalizedContent.tips && (
-                  <div style={{ marginBottom: "20px" }}>
-                    <h4 style={{ color: "#1E293B", marginBottom: "12px", fontSize: "14px" }}>
-                      💡 Tips:
-                    </h4>
-                    <ul style={{ paddingLeft: "18px", color: "#475569", margin: 0 }}>
-                      {personalizedContent.tips.map((tip, idx) => (
-                        <li key={idx} style={{ marginBottom: "6px", fontSize: "13px" }}>
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {personalizedContent.nextSteps && (
-                  <div
-                    style={{
-                      background: "#DCFCE7",
-                      padding: "14px",
-                      borderRadius: "8px",
-                      color: "#166534",
-                      textAlign: "center"
-                    }}
-                  >
-                    <p style={{ margin: "0", fontSize: "14px", fontWeight: "bold" }}>
-                      🚀 {personalizedContent.nextSteps}
                     </p>
                   </div>
                 )}
 
-                {/* Generate Full Learning Material Button */}
-                <button
-                  onClick={generateLearningMaterial}
-                  disabled={loading}
-                  style={{
-                    width: "100%",
-                    padding: "14px",
-                    fontSize: "15px",
-                    background: "#2563EB",
-                    border: "none",
-                    borderRadius: "10px",
-                    color: "#FFFFFF",
-                    fontWeight: "600",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    marginTop: "16px",
-                    marginBottom: "12px"
-                  }}
-                >
-                  {loading ? "Generating..." : "📚 Generate Full Learning Material"}
-                </button>
-              </>
-            )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                marginTop: "20px",
-                flexWrap: "wrap"
-              }}
-            >
+                {/* Documentation Skill */}
+                {psychometricProfile.levels?.documentationSkill && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Documentation Skill</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.documentationSkill}
+                    </p>
+                  </div>
+                )}
+
+                {/* Learning Goal */}
+                {psychometricProfile.levels?.learningGoal && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Learning Goal</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.learningGoal}
+                    </p>
+                  </div>
+                )}
+
+                {/* Application Confidence */}
+                {psychometricProfile.levels?.applicationConfidence && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Application Confidence</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.applicationConfidence}
+                    </p>
+                  </div>
+                )}
+
+                {/* Learning Behavior */}
+                {psychometricProfile.levels?.learningBehavior && (
+                  <div style={{ background: 'var(--color-gray-50)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Learning Behavior</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                      {psychometricProfile.levels.learningBehavior}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Overall Level */}
+              {psychometricProfile.overallLevel && (
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Overall Assessment Level</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: 'var(--color-primary)' }}>
+                    {psychometricProfile.overallLevel}
+                  </p>
+                </div>
+              )}
+
+            </div>
+          )}
+
+
+          {!showContent ? (
+            <>
               <button
-                onClick={() => navigate("/pdf-chat")}
-                style={{
-                  flex: "1",
-                  minWidth: "130px",
-                  padding: "10px",
-                  background: "#2563EB",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "#FFFFFF",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontSize: "13px"
-                }}
+                onClick={generateContent}
+                disabled={loading}
+                className="enterprise-btn success"
+                style={{ marginBottom: '16px' }}
               >
-                💬 Chat with PDF
+                {loading ? "Generating..." : "Generate Personalized Learning Path"}
               </button>
+
               <button
                 onClick={() => navigate("/quiz")}
-                style={{
-                  flex: "1",
-                  minWidth: "130px",
-                  background: "#64748B",
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "10px",
-                  color: "#FFFFFF",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontSize: "13px"
-                }}
+                className="enterprise-btn secondary"
               >
-                🔄 New Assessment
+                ↩ Back to Quiz
               </button>
-            </div>
-          </div>
-        )}
+            </>
+          ) : (
+            <div style={{
+              background: 'var(--color-gray-50)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-6)',
+              textAlign: 'left'
+            }}>
+              {personalizedContent && (
+                <>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>
+                    {personalizedContent.title || "Your Personalized Learning Guide"}
+                  </h3>
 
-        {error && (
-          <p
-            style={{
-              color: "#DC2626",
-              textAlign: "center",
-              marginTop: "12px",
-              padding: "8px",
-              background: "#FEE2E2",
-              borderRadius: "6px",
-              fontSize: "13px"
-            }}
-          >
-            {error}
-          </p>
-        )}
+                  {personalizedContent.overview && (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-base)', lineHeight: 'var(--leading-relaxed)', marginBottom: '24px' }}>
+                      {personalizedContent.overview}
+                    </p>
+                  )}
+
+                  {personalizedContent.learningPath && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📋 Learning Path:</h4>
+                      <ol style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
+                        {personalizedContent.learningPath.map((step, idx) => (
+                          <li key={idx} style={{ marginBottom: '10px' }}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {personalizedContent.resources && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📚 Resources:</h4>
+                      {personalizedContent.resources.map((resource, idx) => (
+                        <div key={idx} style={{
+                          background: 'var(--color-white)',
+                          padding: 'var(--space-4)',
+                          borderRadius: 'var(--radius-md)',
+                          marginBottom: '12px',
+                          borderLeft: '4px solid var(--color-primary)'
+                        }}>
+                          <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
+                            {resource.type}: {resource.title}
+                          </p>
+                          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                            {resource.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {personalizedContent.tips && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>💡 Tips:</h4>
+                      <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
+                        {personalizedContent.tips.map((tip, idx) => (
+                          <li key={idx} style={{ marginBottom: '8px' }}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {personalizedContent.nextSteps && (
+                    <div style={{
+                      background: 'var(--color-success)',
+                      padding: 'var(--space-5)',
+                      borderRadius: 'var(--radius-lg)',
+                      color: 'white',
+                      textAlign: 'center'
+                    }}>
+                      <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)' }}>
+                        🚀 {personalizedContent.nextSteps}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={generateLearningMaterial}
+                    disabled={loading}
+                    className="enterprise-btn"
+                    style={{ marginTop: '24px', marginBottom: '16px' }}
+                  >
+                    {loading ? "Generating..." : "📚 Generate Full Learning Material"}
+                  </button>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+                </div>
+            </div>
+          )}
+
+          {error && (
+            <p style={{ color: 'var(--color-error)', textAlign: 'center', marginTop: '20px', padding: '12px', background: 'var(--color-error-light)', borderRadius: 'var(--radius-md)' }}>
+              {error}
+            </p>
+          )}
+        </div>
+
       </div>
     </div>
   );

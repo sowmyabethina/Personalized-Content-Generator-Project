@@ -1,153 +1,93 @@
 function About() {
-  const styles = {
-    container: {
-      maxWidth: "900px",
-      margin: "0 auto",
-      padding: "40px 20px",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    header: {
-      textAlign: "center",
-      marginBottom: "40px",
-    },
-    title: {
-      fontSize: "36px",
-      fontWeight: "bold",
-      color: "#1E293B",
-      marginBottom: "16px",
-    },
-    subtitle: {
-      fontSize: "18px",
-      color: "#475569",
-      maxWidth: "600px",
-      margin: "0 auto",
-      lineHeight: "1.6",
-    },
-    section: {
-      marginBottom: "32px",
-    },
-    sectionTitle: {
-      fontSize: "24px",
-      fontWeight: "600",
-      color: "#1E293B",
-      marginBottom: "20px",
-      paddingBottom: "8px",
-      borderBottom: "2px solid #E2E8F0",
-    },
-    card: {
-      background: "#FFFFFF",
-      borderRadius: "12px",
-      padding: "24px",
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-      border: "1px solid #E2E8F0",
-    },
-    cardGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-      gap: "16px",
-    },
-    featureItem: {
-      display: "flex",
-      alignItems: "flex-start",
-      gap: "12px",
-      padding: "16px",
-      background: "#F8FAFC",
-      borderRadius: "8px",
-      border: "1px solid #E2E8F0",
-    },
-    featureIcon: {
-      fontSize: "24px",
-      minWidth: "32px",
-      textAlign: "center",
-    },
-    featureTitle: {
-      fontSize: "16px",
-      fontWeight: "600",
-      color: "#1E293B",
-      marginBottom: "4px",
-    },
-    featureDescription: {
-      fontSize: "14px",
-      color: "#475569",
-      lineHeight: "1.5",
-    },
-    missionText: {
-      fontSize: "16px",
-      color: "#475569",
-      lineHeight: "1.8",
-      textAlign: "center",
-      maxWidth: "700px",
-      margin: "0 auto",
-    },
-    highlight: {
-      color: "#2563EB",
-      fontWeight: "600",
-    },
-  };
-
-  const features = [
-    {
-      icon: "📄",
-      title: "Resume / GitHub Analysis",
-      description: "Upload your resume or connect your GitHub profile for intelligent skill analysis and personalized recommendations.",
-    },
-    {
-      icon: "🗺️",
-      title: "Personalized Learning Roadmap",
-      description: "Get customized learning paths tailored to your skills, experience level, and career goals.",
-    },
-    {
-      icon: "💬",
-      title: "PDF Chat for Document Interaction",
-      description: "Interact with your documents through AI-powered chat. Ask questions and get instant answers.",
-    },
-    {
-      icon: "📊",
-      title: "Progress Tracking Dashboard",
-      description: "Monitor your learning journey with comprehensive analytics and progress visualization.",
-    },
-  ];
-
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Intelligent Personalized Learning Platform</h1>
-        <p style={styles.subtitle}>
-          This platform analyzes resumes or GitHub profiles to generate personalized learning paths, 
-          track progress, and provide AI-powered assistance.
-        </p>
-      </div>
-
-      {/* Key Features */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Key Features</h2>
-        <div style={styles.cardGrid}>
-          {features.map((feature, index) => (
-            <div key={index} style={styles.featureItem}>
-              <div style={styles.featureIcon}>{feature.icon}</div>
-              <div>
-                <div style={styles.featureTitle}>{feature.title}</div>
-                <div style={styles.featureDescription}>{feature.description}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Mission Statement */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Our Mission</h2>
-        <div style={styles.card}>
-          <p style={styles.missionText}>
-            We believe that <span style={styles.highlight}>efficient learning</span> should be accessible to everyone. 
-            Our mission is to help learners upskill efficiently by providing <span style={styles.highlight}>personalized, 
-            data-driven learning experiences</span> that adapt to their unique needs and goals. 
-            Whether you're a fresh graduate looking to enter the tech industry or a seasoned professional 
-            seeking to expand your skillset, we're here to guide your learning journey with the power of AI.
+    <div className="page-container">
+      <div className="content-wrapper">
+        {/* Header */}
+        <div className="page-header">
+          <h1 className="page-title">Intelligent Personalized Learning Platform</h1>
+          <p className="page-subtitle">
+            This platform analyzes resumes or GitHub profiles to generate personalized learning paths, 
+            track progress, and provide AI-powered assistance.
           </p>
         </div>
+
+        {/* Key Features */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">Key Features</h2>
+          </div>
+          <div className="grid grid-2">
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ fontSize: '24px', minWidth: '32px', textAlign: 'center' }}>📄</div>
+                <div>
+                  <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    Resume / GitHub Analysis
+                  </h4>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                    Upload your resume or connect your GitHub profile for intelligent skill analysis and personalized recommendations.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ fontSize: '24px', minWidth: '32px', textAlign: 'center' }}>🗺️</div>
+                <div>
+                  <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    Personalized Learning Roadmap
+                  </h4>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                    Get customized learning paths tailored to your skills, experience level, and career goals.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ fontSize: '24px', minWidth: '32px', textAlign: 'center' }}>💬</div>
+                <div>
+                  <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    PDF Chat for Document Interaction
+                  </h4>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                    Interact with your documents through AI-powered chat. Ask questions and get instant answers.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ fontSize: '24px', minWidth: '32px', textAlign: 'center' }}>📊</div>
+                <div>
+                  <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    Progress Tracking Dashboard
+                  </h4>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                    Monitor your learning journey with comprehensive analytics and progress visualization.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Mission Statement */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">Our Mission</h2>
+          </div>
+          <div className="card" style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--text-secondary)', lineHeight: '1.8', margin: 0 }}>
+              We believe that <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>efficient learning</span> should be accessible to everyone. 
+              Our mission is to help learners upskill efficiently by providing <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>personalized, 
+              data-driven learning experiences</span> that adapt to their unique needs and goals. 
+              Whether you're a fresh graduate looking to enter the tech industry or a seasoned professional 
+              seeking to expand your skillset, we're here to guide your learning journey with the power of AI.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );

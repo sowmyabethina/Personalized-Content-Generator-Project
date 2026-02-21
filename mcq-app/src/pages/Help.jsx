@@ -14,133 +14,6 @@ function Help() {
     transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
   });
 
-  const styles = {
-    container: {
-      maxWidth: "800px",
-      margin: "0 auto",
-      padding: "40px 20px",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    header: {
-      textAlign: "center",
-      marginBottom: "40px",
-    },
-    title: {
-      fontSize: "36px",
-      fontWeight: "bold",
-      color: "#1E293B",
-      marginBottom: "12px",
-    },
-    subtitle: {
-      fontSize: "18px",
-      color: "#475569",
-    },
-    section: {
-      marginBottom: "32px",
-    },
-    sectionTitle: {
-      fontSize: "22px",
-      fontWeight: "600",
-      color: "#1E293B",
-      marginBottom: "16px",
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-    },
-    sectionIcon: {
-      fontSize: "24px",
-    },
-    card: {
-      background: "#FFFFFF",
-      borderRadius: "12px",
-      padding: "20px",
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-      border: "1px solid #E2E8F0",
-      marginBottom: "12px",
-    },
-    accordionHeader: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      cursor: "pointer",
-      padding: "12px 0",
-    },
-    question: {
-      fontSize: "16px",
-      fontWeight: "600",
-      color: "#1E293B",
-    },
-    answer: {
-      fontSize: "14px",
-      color: "#475569",
-      lineHeight: "1.7",
-      paddingTop: "12px",
-      borderTop: "1px solid #E2E8F0",
-      marginTop: "12px",
-    },
-    arrow: {
-      fontSize: "18px",
-      color: "#475569",
-      transition: "transform 0.2s ease",
-    },
-    stepList: {
-      paddingLeft: "20px",
-      margin: 0,
-    },
-    stepItem: {
-      fontSize: "14px",
-      color: "#475569",
-      marginBottom: "12px",
-      lineHeight: "1.6",
-    },
-    stepNumber: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "24px",
-      height: "24px",
-      background: "#2563EB",
-      color: "#FFFFFF",
-      borderRadius: "50%",
-      fontSize: "12px",
-      fontWeight: "600",
-      marginRight: "10px",
-    },
-    contactCard: {
-      background: "#F0F9FF",
-      borderRadius: "12px",
-      padding: "24px",
-      border: "1px solid #BAE6FD",
-      textAlign: "center",
-    },
-    contactTitle: {
-      fontSize: "18px",
-      fontWeight: "600",
-      color: "#0369A1",
-      marginBottom: "8px",
-    },
-    contactText: {
-      fontSize: "14px",
-      color: "#475569",
-      marginBottom: "16px",
-    },
-    contactButton: {
-      display: "inline-block",
-      background: "#2563EB",
-      color: "#FFFFFF",
-      padding: "10px 20px",
-      borderRadius: "8px",
-      fontSize: "14px",
-      fontWeight: "500",
-      textDecoration: "none",
-      border: "none",
-      cursor: "pointer",
-    },
-    issueIcon: {
-      fontSize: "20px",
-      marginRight: "8px",
-    },
-  };
 
   const gettingStartedSteps = [
     {
@@ -191,91 +64,128 @@ function Help() {
   ];
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Help & Support</h1>
-        <p style={styles.subtitle}>Find answers to common questions and get started</p>
-      </div>
+    <div className="page-container">
+      <div className="content-wrapper">
+        {/* Header */}
+        <div className="page-header">
+          <h1 className="page-title">Help & Support</h1>
+          <p className="page-subtitle">Find answers to common questions and get started</p>
+        </div>
 
-      {/* Getting Started */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>
-          <span style={styles.sectionIcon}>🚀</span>
-          Getting Started
-        </h2>
-        <div style={styles.card}>
-          <ol style={styles.stepList}>
-            {gettingStartedSteps.map((step, index) => (
-              <li key={index} style={styles.stepItem}>
-                <span style={styles.stepNumber}>{step.number}</span>
-                {step.text}
-              </li>
+        {/* Getting Started */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>🚀</span> Getting Started
+            </h2>
+          </div>
+          <div className="card">
+            <ol style={{ paddingLeft: '20px', margin: 0 }}>
+              {gettingStartedSteps.map((step, index) => (
+                <li key={index} style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    background: 'var(--color-primary)',
+                    color: 'white',
+                    borderRadius: '50%',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 'var(--font-semibold)',
+                    marginRight: '10px'
+                  }}>{step.number}</span>
+                  {step.text}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* Using Features */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>💡</span> Using Features
+            </h2>
+          </div>
+          <div className="card">
+            {featuresFAQ.map((faq, index) => (
+              <div key={index} style={{ borderBottom: index < featuresFAQ.length - 1 ? '1px solid var(--border-color)' : 'none', paddingBottom: index < featuresFAQ.length - 1 ? '16px' : '0', marginBottom: index < featuresFAQ.length - 1 ? '16px' : '0' }}>
+                <div 
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '12px 0' }} 
+                  onClick={() => toggleSection(`feature-${index}`)}
+                >
+                  <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{faq.question}</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', transition: 'transform 0.2s', transform: getArrowRotation(openSections[`feature-${index}`])}}>▼</span>
+                </div>
+                {openSections[`feature-${index}`] && (
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: '1.7', paddingTop: '12px', borderTop: '1px solid var(--border-color)', marginTop: '12px' }}>{faq.answer}</p>
+                )}
+              </div>
             ))}
-          </ol>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      {/* Using Features */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>
-          <span style={styles.sectionIcon}>💡</span>
-          Using Features
-        </h2>
-        <div style={styles.card}>
-          {featuresFAQ.map((faq, index) => (
-            <div key={index} style={{ borderBottom: index < featuresFAQ.length - 1 ? "1px solid #e5e7eb" : "none", paddingBottom: index < featuresFAQ.length - 1 ? "16px" : "0", marginBottom: index < featuresFAQ.length - 1 ? "16px" : "0" }}>
-              <div style={styles.accordionHeader} onClick={() => toggleSection(`feature-${index}`)}>
-                <span style={styles.question}>{faq.question}</span>
-                <span style={{...styles.arrow, ...getArrowRotation(openSections[`feature-${index}`])}}>▼</span>
+        {/* Common Issues */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>⚠️</span> Common Issues
+            </h2>
+          </div>
+          <div className="card">
+            {commonIssues.map((issue, index) => (
+              <div key={index} style={{ borderBottom: index < commonIssues.length - 1 ? '1px solid var(--border-color)' : 'none', paddingBottom: index < commonIssues.length - 1 ? '16px' : '0', marginBottom: index < commonIssues.length - 1 ? '16px' : '0' }}>
+                <div 
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '12px 0' }}
+                  onClick={() => toggleSection(`issue-${index}`)}
+                >
+                  <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
+                    <span style={{ fontSize: '20px', marginRight: '8px' }}>{issue.icon}</span>
+                    {issue.issue}
+                  </span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', transition: 'transform 0.2s', transform: getArrowRotation(openSections[`issue-${index}`])}}>▼</span>
+                </div>
+                {openSections[`issue-${index}`] && (
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: '1.7', paddingTop: '12px', borderTop: '1px solid var(--border-color)', marginTop: '12px' }}>{issue.solution}</p>
+                )}
               </div>
-              {openSections[`feature-${index}`] && (
-                <div style={styles.answer}>{faq.answer}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+            ))}
+          </div>
+        </section>
 
-      {/* Common Issues */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>
-          <span style={styles.sectionIcon}>⚠️</span>
-          Common Issues
-        </h2>
-        <div style={styles.card}>
-          {commonIssues.map((issue, index) => (
-            <div key={index} style={{ borderBottom: index < commonIssues.length - 1 ? "1px solid #e5e7eb" : "none", paddingBottom: index < commonIssues.length - 1 ? "16px" : "0", marginBottom: index < commonIssues.length - 1 ? "16px" : "0" }}>
-              <div style={styles.accordionHeader} onClick={() => toggleSection(`issue-${index}`)}>
-                <span style={styles.question}>
-                  <span style={styles.issueIcon}>{issue.icon}</span>
-                  {issue.issue}
-                </span>
-                <span style={{...styles.arrow, ...getArrowRotation(openSections[`issue-${index}`])}}>▼</span>
-              </div>
-              {openSections[`issue-${index}`] && (
-                <div style={styles.answer}>{issue.solution}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Contact / Support */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>
-          <span style={styles.sectionIcon}>📧</span>
-          Contact / Support
-        </h2>
-        <div style={styles.contactCard}>
-          <div style={styles.contactTitle}>Need more help?</div>
-          <p style={styles.contactText}>
-            If you can't find the answer you're looking for, feel free to reach out to our support team.
-          </p>
-          <button style={styles.contactButton} onClick={() => window.location.href = "mailto:support@learningplatform.com"}>
-            Contact Support
-          </button>
-        </div>
+        {/* Contact / Support */}
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>📧</span> Contact / Support
+            </h2>
+          </div>
+          <div className="card" style={{ background: 'var(--color-info-light)', border: '1px solid var(--color-info)', textAlign: 'center' }}>
+            <h4 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-semibold)', color: 'var(--color-info)', marginBottom: '8px' }}>Need more help?</h4>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              If you can't find the answer you're looking for, feel free to reach out to our support team.
+            </p>
+            <button 
+              style={{ 
+                background: 'var(--color-primary)', 
+                color: 'white', 
+                padding: '10px 20px', 
+                borderRadius: 'var(--radius-md)', 
+                fontSize: 'var(--text-sm)', 
+                fontWeight: 'var(--font-medium)', 
+                textDecoration: 'none', 
+                border: 'none', 
+                cursor: 'pointer' 
+              }} 
+              onClick={() => window.location.href = "mailto:support@learningplatform.com"}
+            >
+              Contact Support
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -14,7 +14,9 @@ import {
   initVectorStore,
   getChunkCount,
   clearVectorStore,
-  getSequentialChunks
+  getSequentialChunks,
+  getAllChunkTexts,
+  getChunksByPdfId
 } from "./rag/vectorStore.js";
 
 // Load environment variables
@@ -22,7 +24,6 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-// Control whether sources are included in responses (set to 'false' to hide)
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES !== 'false';
 
 // Initialize OpenAI
@@ -30,7 +31,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Global error handlers to prevent crashes
+// Global error handlers
 process.on("uncaughtException", (err) => {
   console.error(" Uncaught Exception:", err.message);
   console.error(err.stack);
@@ -41,7 +42,8 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check endpoint
 app.get("/health", async (req, res) => {
@@ -60,6 +62,197 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Mind Map Generation - Uses existing database chunks
+app.post("/mindmap", async (req, res) => {
+  console.log("🧠 Mind map generation API called");
+  
+  try {
+    const chunkCount = await getChunkCount();
+    if (chunkCount === 0) {
+      console.log("⚠️ No PDF uploaded");
+      return res.status(400).json({ error: 'No PDF uploaded' });
+    }
+
+    console.log(`📚 Total chunks in DB: ${chunkCount}`);
+
+    // Get all chunk texts from the database
+    const allTexts = await getAllChunkTexts();
+    
+    if (!allTexts || allTexts.length === 0) {
+      return res.status(400).json({ error: 'No content found in PDF' });
+    }
+
+    // Combine all text
+    const fullText = allTexts.map(t => t.text).join('\n\n');
+    console.log(`📄 Total text length: ${fullText.length} characters`);
+
+    // Use similarity search to get diverse chunks for mind map
+    const queryText = "main topics chapters concepts syllabus learning";
+    const queryEmbedding = await getEmbedding(queryText);
+    
+    // Get top chunks with low threshold to get more content
+    const results = await similaritySearchWithThreshold(queryEmbedding, 20, 0.10);
+    
+    console.log(`🔍 Retrieved ${results.length} chunks for mind map`);
+    
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'No relevant content found in PDF' });
+    }
+
+    // Extract headings and topics from retrieved chunks
+    const topics = extractTopicsFromChunks(results);
+    
+    console.log("✅ Generated Mind Map:", JSON.stringify(topics).substring(0, 300) + "...");
+    
+    res.json(topics);
+  } catch (error) {
+    console.error('Mind map generation error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to generate mind map' 
+    });
+  }
+});
+
+/**
+ * Extract topics from chunks for mind map
+ */
+function extractTopicsFromChunks(results) {
+  // Get unique headings from chunks
+  const headingMap = new Map();
+  const allContent = [];
+  
+  for (const result of results) {
+    const text = result.text || result.chunk_text;
+    const heading = result.title || result.section_title;
+    
+    if (heading) {
+      if (!headingMap.has(heading)) {
+        headingMap.set(heading, []);
+      }
+    }
+    allContent.push(text);
+  }
+  
+  // Build mind map structure
+  const fullText = allContent.join(' ');
+  
+  // Extract key phrases
+  const phrases = extractKeyPhrasesSimple(fullText);
+  
+  // Determine root title from first chunk
+  let rootTitle = "Document Overview";
+  if (results.length > 0) {
+    const firstText = results[0].text || results[0].chunk_text;
+    const firstHeading = results[0].title || results[0].section_title;
+    if (firstHeading) {
+      rootTitle = firstHeading;
+    } else if (firstText) {
+      rootTitle = firstText.split(/\s+/).slice(0, 4).join(' ');
+    }
+  }
+  
+  // Group phrases into categories
+  const categories = groupPhrasesSimple(phrases);
+  
+  return {
+    title: rootTitle,
+    children: categories
+  };
+}
+
+/**
+ * Simple key phrase extraction
+ */
+function extractKeyPhrasesSimple(text) {
+  const phraseMap = new Map();
+  
+  // Extract bigrams
+  const words = text.split(/\s+/);
+  for (let i = 0; i < words.length - 1; i++) {
+    const bigram = words[i] + ' ' + words[i + 1];
+    if (isValidKeyPhrase(bigram)) {
+      phraseMap.set(bigram, (phraseMap.get(bigram) || 0) + 1);
+    }
+  }
+  
+  // Extract trigrams
+  for (let i = 0; i < words.length - 2; i++) {
+    const trigram = words[i] + ' ' + words[i + 1] + ' ' + words[i + 2];
+    if (isValidKeyPhrase(trigram)) {
+      phraseMap.set(trigram, (phraseMap.get(trigram) || 0) + 1);
+    }
+  }
+  
+  // Sort by frequency and return top phrases
+  return Array.from(phraseMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([phrase]) => phrase);
+}
+
+/**
+ * Check if phrase is valid
+ */
+function isValidKeyPhrase(phrase) {
+  const stopWords = ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+    'may', 'might', 'must', 'shall', 'can', 'need', 'to', 'of', 'in', 'for', 'on',
+    'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after',
+    'above', 'below', 'between', 'under', 'and', 'or', 'but', 'if', 'while', 'because'];
+  
+  const words = phrase.toLowerCase().split(/\s+/);
+  const contentWords = words.filter(w => !stopWords.includes(w) && w.length > 2);
+  return contentWords.length >= 1;
+}
+
+/**
+ * Group phrases into categories
+ */
+function groupPhrasesSimple(phrases) {
+  const categories = [];
+  const used = new Set();
+  
+  // Create categories from top phrases
+  for (const phrase of phrases) {
+    if (used.has(phrase)) continue;
+    
+    used.add(phrase);
+    
+    const category = {
+      title: phrase,
+      children: []
+    };
+    
+    // Find related sub-phrases
+    for (const other of phrases) {
+      if (used.has(other)) continue;
+      
+      // Check for common words
+      const words1 = phrase.toLowerCase().split(/\s+/);
+      const words2 = other.toLowerCase().split(/\s+/);
+      const common = words1.filter(w => words2.includes(w));
+      
+      if (common.length > 0) {
+        category.children.push({ title: other, children: [] });
+        used.add(other);
+      }
+    }
+    
+    if (category.children.length > 0) {
+      categories.push(category);
+    }
+  }
+  
+  // Add remaining phrases as individual categories
+  for (const phrase of phrases) {
+    if (!used.has(phrase)) {
+      categories.push({ title: phrase, children: [] });
+    }
+  }
+  
+  return categories.slice(0, 8);
+}
+
 // Ensure uploads directory exists
 if (!fs.existsSync("uploads/")) {
   fs.mkdirSync("uploads/", { recursive: true });
@@ -67,7 +260,7 @@ if (!fs.existsSync("uploads/")) {
 
 const upload = multer({ dest: "uploads/" });
 
-// Store uploaded PDF info (now tracking PDF ID for database)
+// Store uploaded PDF info
 let currentPdfInfo = {
   fileName: null,
   pdfId: null,
@@ -77,18 +270,13 @@ let currentPdfInfo = {
 // Conversation memory store
 const conversationStore = {};
 
-// ===============================
-// RATE LIMITING & REQUEST DEDUPLICATION
-// ===============================
-// Track last LLM call timestamp for rate limiting
+// Rate limiting
 let lastLlmCallTime = 0;
-const LLM_CALL_INTERVAL = 3000; // 3 seconds between LLM calls
+const LLM_CALL_INTERVAL = 3000;
 
-// Cache for duplicate request prevention (20 seconds TTL)
 const requestCache = new Map();
-const CACHE_TTL = 20000; // 20 seconds
+const CACHE_TTL = 20000;
 
-// Clean up expired cache entries every minute
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of requestCache.entries()) {
@@ -98,7 +286,6 @@ setInterval(() => {
   }
 }, 60000);
 
-// Function to generate cache key for a question
 function getRequestCacheKey(question, chatId) {
   return `${chatId}:${question.toLowerCase().trim()}`;
 }
@@ -119,29 +306,16 @@ const clearUploads = () => {
   }
 };
 
-const TUTOR_PROMPT = `You are EduBot.
-
-GENERAL RULES:
-- Use ONLY retrieved content.
-- Do not add outside knowledge.
-- If not found, say exactly:
-"I could not find this in the uploaded material."
-- Do not mention the document.
-
-Return exactly:
-- 2 to 3 short sentences
-- 1 short real-life example
-- 4 bullet points using "-" only
-
-
-
-`;
+const TUTOR_PROMPT = `You are a helpful academic tutor.
+Answer ONLY using the provided context.
+If the answer is partially available, explain using the available text.
+Do NOT say "information not found" unless context is completely empty.`;
 
 async function generateAnswer(context, question, history = []) {
   const messages = [
     { role: "system", content: TUTOR_PROMPT },
-    { role: "system", content: `Study Material:\n${context}` },
-    { role: "user", content: question }
+    { role: "system", content: `CONTEXT:\n${context}` },
+    { role: "user", content: `QUESTION: ${question}` }
   ];
 
   history.forEach(h => {
@@ -175,20 +349,17 @@ app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
 
     console.log("📄 Processing PDF:", req.file.originalname);
 
-    // Check file size
     const stats = fs.statSync(filePath);
     if (stats.size < 100) {
       fs.unlinkSync(filePath);
       return res.status(400).json({ error: "PDF file is too small or empty" });
     }
 
-    // Ingest PDF and store in PostgreSQL
     const result = await ingestPdf(filePath);
     
     currentPdfInfo.pdfId = result.pdfId;
     currentPdfInfo.ingested = true;
     
-    // Clean up uploaded file
     fs.unlinkSync(filePath);
 
     console.log("✅ PDF uploaded and processed successfully");
@@ -205,16 +376,15 @@ app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
   }
 });
 
-// Ask question endpoint - uses vector search + LLM Q&A (single LLM call only)
+// Ask question endpoint - uses existing vector search from database
 app.post("/ask", async (req, res) => {
   try {
-    const { question, similarityThreshold = 0.25 } = req.body;
+    const { question, similarityThreshold = 0.05 } = req.body;
 
     if (!question) {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    // Check if any PDFs are loaded
     const chunkCount = await getChunkCount();
     if (chunkCount === 0) {
       return res.status(400).json({ error: "Please upload a PDF first" });
@@ -222,7 +392,6 @@ app.post("/ask", async (req, res) => {
 
     console.log("❓ Question:", question.substring(0, 50) + "...");
 
-    // Check for duplicate request
     const cacheKey = getRequestCacheKey(question, 'global');
     const cachedEntry = requestCache.get(cacheKey);
     if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL)) {
@@ -233,31 +402,10 @@ app.post("/ask", async (req, res) => {
       });
     }
 
-    // Detect summary-type questions
-    const summaryKeywords = [
-      "summarize", "summary", "overview", "main idea", "gist", 
-      "what is this document about", "explain this pdf", "what is the main topic",
-      "give me an overview", "brief summary"
-    ];
-    const isSummary = summaryKeywords.some(kw => 
-      question.toLowerCase().includes(kw)
-    );
+    // Use database vector search (existing implementation)
+    const queryEmbedding = await getEmbedding(question);
+    const results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
 
-    let results;
-    let isSummaryMode = false;
-
-    if (isSummary) {
-      // Summary mode: fetch first 5 chunks sequentially (no similarity search)
-      console.log("📑 Summary mode detected - fetching sequential chunks");
-      results = await getSequentialChunks(null, 5);
-      isSummaryMode = true;
-    } else {
-      // Normal mode: use similarity search with top 3 chunks
-      const queryEmbedding = await getEmbedding(question);
-      results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
-    }
-
-    // If no relevant results found, return immediately without LLM call
     if (!results.length) {
       const noAnswerResponse = {
         answer: "I couldn't find any relevant information in the uploaded PDF. Please try rephrasing your question."
@@ -270,7 +418,7 @@ app.post("/ask", async (req, res) => {
       return res.json(noAnswerResponse);
     }
 
-    // Step 2: Apply rate limiting - wait if needed before LLM call
+    // Rate limiting
     const now = Date.now();
     const timeSinceLastCall = now - lastLlmCallTime;
     if (timeSinceLastCall < LLM_CALL_INTERVAL) {
@@ -279,43 +427,56 @@ app.post("/ask", async (req, res) => {
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
 
-    // Update last call timestamp
     lastLlmCallTime = now;
 
-    // Step 3: Prioritize high-similarity chunks and build context
+    // Build context
     const sortedResults = results.sort((a, b) => b.score - a.score);
-    // Use up to 5 chunks for summary mode, 3 for normal mode
-    const topChunks = isSummaryMode ? sortedResults.slice(0, 5) : sortedResults.slice(0, 3);
+    const topChunks = sortedResults.slice(0, 3);
     
-    // Build context with word limit (~1500 words)
+    console.log(`📚 Building context from ${topChunks.length} chunks`);
+    
     const MAX_WORDS = 1500;
     let context = "";
     let wordCount = 0;
     for (const chunk of topChunks) {
-      const chunkWords = chunk.text.split(/\s+/).length;
+      const chunkText = chunk.text || chunk.chunk_text;
+      
+      if (!chunkText) {
+        console.warn('⚠️ Skipping chunk with no text:', chunk);
+        continue;
+      }
+      
+      const chunkWords = chunkText.split(/\s+/).length;
       if (wordCount + chunkWords <= MAX_WORDS) {
-        context += (context ? "\n\n---\n\n" : "") + chunk.text;
+        context += (context ? "\n\n---\n\n" : "") + chunkText;
         wordCount += chunkWords;
       } else {
         break;
       }
     }
 
-    // Step 4: Generate answer using LLM (SINGLE CALL)
+    // If context is empty, return error
+    if (!context || context.trim() === '') {
+      console.error('❌ No context could be built from chunks');
+      return res.status(400).json({ 
+        error: 'No retrievable content found in PDF chunks' 
+      });
+    }
+
+    console.log(`📝 Context built: ${context.length} characters, ${wordCount} words`);
+
     const answer = await generateAnswer(context, question);
 
-    // Step 5: Prepare sources (sorted by relevance)
     const sources = topChunks.map((r) => ({
-      text: r.text.substring(0, 200) + (r.text.length > 200 ? "..." : ""),
+      text: (r.text || r.chunk_text).substring(0, 200) + "...",
       score: r.score?.toFixed(4) || 0
     }));
 
     console.log("✅ Answer generated for question:", question.substring(0, 30) + "...");
 
-    const responseData = { answer, isSummaryMode };
+    const responseData = { answer };
     if (INCLUDE_SOURCES) responseData.sources = sources;
 
-    // Cache the response
     requestCache.set(cacheKey, {
       timestamp: Date.now(),
       response: responseData
@@ -328,27 +489,22 @@ app.post("/ask", async (req, res) => {
   }
 });
 
-// ===============================
-// CHAT ENDPOINT - WITH RATE LIMITING & DEDUPLICATION
-// ===============================
+// Chat endpoint - uses existing vector search from database
 app.post("/chat", async (req, res) => {
   try {
-    const { question, conversationHistory = [], sessionId, similarityThreshold = 0.25 } = req.body;
+    const { question, conversationHistory = [], sessionId, similarityThreshold = 0.05 } = req.body;
 
     if (!question) {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    // Check if any PDFs are loaded
     const chunkCount = await getChunkCount();
     if (chunkCount === 0) {
       return res.status(400).json({ error: "Please upload a PDF first" });
     }
 
-    // Generate session ID if not provided
     const chatId = sessionId || `chat_${Date.now()}`;
 
-    // Initialize conversation store for this session
     if (!conversationStore[chatId]) {
       conversationStore[chatId] = {
         history: [],
@@ -356,7 +512,6 @@ app.post("/chat", async (req, res) => {
       };
     }
 
-    // Check for duplicate request (same question within 20 seconds)
     const cacheKey = getRequestCacheKey(question, chatId);
     const cachedEntry = requestCache.get(cacheKey);
     if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL)) {
@@ -368,62 +523,14 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // Detect clarification/follow-up requests
-    const clarificationKeywords = [
-      "explain more", "give example", "summarize that", "why?",
-      "clarify", "expand", "more details", "tell me more", "about this",
-      "what is this", "explain that", "continue", "go on"
-    ];
-    const isClarification = clarificationKeywords.some(kw => 
-      question.toLowerCase().includes(kw)
-    );
+    // Use database vector search (existing implementation)
+    const queryEmbedding = await getEmbedding(question);
+    const results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
 
-    // Detect summary-type questions
-    const summaryKeywords = [
-      "summarize", "summary", "overview", "main idea", "gist", 
-      "what is this document about", "explain this pdf", "what is the main topic",
-      "give me an overview", "brief summary"
-    ];
-    const isSummary = summaryKeywords.some(kw => 
-      question.toLowerCase().includes(kw)
-    );
-
-    let results;
-    let isSummaryMode = false;
-
-    if (isSummary) {
-      // Summary mode: fetch first 5 chunks sequentially (no similarity search)
-      console.log("📑 Summary mode detected - fetching sequential chunks");
-      results = await getSequentialChunks(null, 5);
-      isSummaryMode = true;
-    } else {
-      // For follow-up questions, include the last user question in retrieval
-      let retrievalQuery = question;
-      if (isClarification && conversationHistory && conversationHistory.length > 0) {
-        // Get the last user question from history
-        const lastUserMessage = [...conversationHistory].reverse().find(h => h.role === 'user');
-        if (lastUserMessage) {
-          retrievalQuery = lastUserMessage.content + " " + question;
-          console.log("🔍 Follow-up detected, combined query:", retrievalQuery.substring(0, 50) + "...");
-        }
-      }
-      
-      console.log("❓ Chat question:", question.substring(0, 50) + "...");
-
-      // Normal mode: use similarity search with top 3 chunks
-      const queryEmbedding = await getEmbedding(retrievalQuery);
-      results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
-    }
-
-    // If no relevant results found, return immediately without LLM call
-    if (!results.length) {
+    if (!results || results.length === 0) {
       const noAnswerResponse = {
-        answer: "I couldn't find any relevant information in the uploaded PDF. Please try rephrasing your question.",
-        sessionId: chatId,
-        isClarification
+        answer: "I couldn't find any relevant information in the uploaded PDF to answer your question. Please try rephrasing or asking about something specific in the document."
       };
-      if (INCLUDE_SOURCES) noAnswerResponse.sources = [];
-      // Cache the no-result response too
       requestCache.set(cacheKey, {
         timestamp: Date.now(),
         response: noAnswerResponse
@@ -431,7 +538,7 @@ app.post("/chat", async (req, res) => {
       return res.json(noAnswerResponse);
     }
 
-    // Step 2: Apply rate limiting - wait if needed before LLM call
+    // Rate limiting
     const now = Date.now();
     const timeSinceLastCall = now - lastLlmCallTime;
     if (timeSinceLastCall < LLM_CALL_INTERVAL) {
@@ -439,170 +546,94 @@ app.post("/chat", async (req, res) => {
       console.log(`⏳ Rate limiting: waiting ${waitTime}ms before LLM call`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
+    lastLlmCallTime = Date.now();
 
-    // Update last call timestamp
-    lastLlmCallTime = now;
-
-
-    // Step 3: Prioritize high-similarity chunks and build context
+    // Build context
     const sortedResults = results.sort((a, b) => b.score - a.score);
-    // Use up to 5 chunks for summary mode, 3 for normal mode
-    const topChunks = isSummaryMode ? sortedResults.slice(0, 5) : sortedResults.slice(0, 3);
+    const topChunks = sortedResults.slice(0, 3);
     
-    // Build context with word limit (~1500 words)
+    console.log(`📚 Building context from ${topChunks.length} chunks`);
+    
     const MAX_WORDS = 1500;
     let context = "";
     let wordCount = 0;
     for (const chunk of topChunks) {
-      const chunkWords = chunk.text.split(/\s+/).length;
+      const chunkText = chunk.text || chunk.chunk_text;
+      
+      if (!chunkText) {
+        console.warn('⚠️ Skipping chunk with no text:', chunk);
+        continue;
+      }
+      
+      const chunkWords = chunkText.split(/\s+/).length;
       if (wordCount + chunkWords <= MAX_WORDS) {
-        context += (context ? "\n\n---\n\n" : "") + chunk.text;
+        context += (context ? "\n\n---\n\n" : "") + chunkText;
         wordCount += chunkWords;
       } else {
         break;
       }
     }
 
+    // If context is empty, return error
+    if (!context || context.trim() === '') {
+      console.error('❌ No context could be built from chunks');
+      return res.status(400).json({ 
+        error: 'No retrievable content found in PDF chunks' 
+      });
+    }
 
-    // Step 4: Generate answer using LLM with conversation history (SINGLE CALL)
-    const answer = await generateAnswer(context, question, conversationStore[chatId].history);
+    console.log(`📝 Context built: ${context.length} characters, ${wordCount} words`);
 
-    // Step 5: Prepare sources
+    const answer = await generateAnswer(context, question, conversationHistory);
+
     const sources = topChunks.map((r) => ({
-      text: r.text.substring(0, 200) + (r.text.length > 200 ? "..." : ""),
+      text: (r.text || r.chunk_text).substring(0, 200) + "...",
       score: r.score?.toFixed(4) || 0
     }));
 
-    // Update conversation history
-    conversationStore[chatId].history.push({
-      question,
-      answer,
-      timestamp: Date.now()
-    });
-    if (conversationStore[chatId].history.length > 20) {
-      conversationStore[chatId].history = conversationStore[chatId].history.slice(-20);
-    }
+    console.log("✅ Answer generated for chat question:", question.substring(0, 30) + "...");
 
-    console.log("✅ Answer generated for chat session:", chatId);
-
-    const responseData = {
-      answer,
-      sessionId: chatId,
-      isClarification,
-      isSummaryMode
-    };
+    const responseData = { answer, sessionId: chatId };
     if (INCLUDE_SOURCES) responseData.sources = sources;
 
-    // Cache the successful response
     requestCache.set(cacheKey, {
       timestamp: Date.now(),
       response: responseData
     });
 
     res.json(responseData);
-
   } catch (error) {
-    console.error("❌ Chat error:", error.message);
-    res.status(500).json({ error: error.message || "Chat failed" });
+    console.error("❌ Error in chat endpoint:", error.message);
+    res.status(500).json({ error: error.message || "Failed to generate answer" });
   }
 });
 
-// Reset endpoint
+// Reset conversation endpoint
 app.post("/reset", async (req, res) => {
-  const { sessionId, pdfId } = req.body;
-  
-  if (sessionId && conversationStore[sessionId]) {
-    // Reset only this conversation
-    conversationStore[sessionId] = {
-      history: [],
-      pdfContext: ""
-    };
-    res.json({ message: "Conversation reset", sessionId });
-  } else if (pdfId) {
-    // Reset only vectors for this PDF
-    await clearVectorStore(pdfId);
-    currentPdfInfo = {
-      fileName: null,
-      pdfId: null,
-      ingested: false
-    };
-    res.json({ message: `Vector store reset for PDF: ${pdfId}` });
-  } else {
-    // Reset everything
-    await clearVectorStore();
-    currentPdfInfo = {
-      fileName: null,
-      pdfId: null,
-      ingested: false
-    };
-    for (const key in conversationStore) {
-      conversationStore[key] = {
-        history: [],
-        pdfContext: ""
-      };
+  try {
+    const { sessionId } = req.body;
+    
+    if (sessionId && conversationStore[sessionId]) {
+      delete conversationStore[sessionId];
     }
-    clearUploads();
-    res.json({ message: "Vector store and all conversations reset" });
+    
+    res.json({ message: "Conversation reset successfully" });
+  } catch (error) {
+    console.error("❌ Error resetting conversation:", error.message);
+    res.status(500).json({ error: "Failed to reset conversation" });
   }
 });
 
-// Info endpoint
-app.get("/info", async (req, res) => {
-  try {
-    const chunkCount = await getChunkCount();
-    res.json({
-      service: "RAG PDF Service",
-      version: "2.0.0",
-      database: "PostgreSQL",
-      endpoints: ["/upload-pdf", "/ask", "/chat", "/health", "/reset"],
-      status: {
-        chunksStored: chunkCount,
-        currentPdf: currentPdfInfo
-      }
-    });
-  } catch (error) {
-    res.json({
-      service: "RAG PDF Service",
-      version: "2.0.0",
-      database: "PostgreSQL",
-      error: error.message
-    });
-  }
-});
-
-// Graceful shutdown
-async function shutdown() {
-  console.log("\n🛑 Shutting down RAG PDF Service...");
-  try {
-    const { closeVectorStore } = await import("./rag/vectorStore.js");
-    await closeVectorStore();
-    console.log("✅ Database connection closed");
-  } catch (error) {
-    console.error("❌ Error during shutdown:", error.message);
-  }
-  process.exit(0);
-}
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-
-// Start server after initializing vector store
+// Initialize and start server
 async function startServer() {
   try {
-    // Initialize database connection
-    console.log("🔄 Initializing PostgreSQL connection...");
     await initVectorStore();
+    console.log("✅ Connected to PostgreSQL for vector storage");
     
     clearUploads();
     
     app.listen(PORT, () => {
-      console.log(` RAG PDF Service v2.0 running on port ${PORT}`);
-      console.log(`   - POST /upload-pdf - Upload a PDF`);
-      console.log(`   - POST /ask - Ask single questions`);
-      console.log(`   - POST /chat with memory`);
-      console.log(`   - Continuous Q&A - GET /health - Check service status`);
-      console.log(`   - POST /reset - Reset vector store or conversation`);
-      console.log(`   - GET /info - Service information`);
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
