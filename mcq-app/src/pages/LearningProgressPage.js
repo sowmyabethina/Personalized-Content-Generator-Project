@@ -2,6 +2,81 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
+// Local styles for Learning Progress Dashboard
+const dashboardStyles = `
+  .lp-content-wrapper {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+    display: block;
+    padding: 40px 24px 60px;
+  }
+  
+  .lp-page-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f4f7fc 0%, #eef2ff 100%);
+  }
+  
+  .dashboard-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 28px;
+    width: 100%;
+  }
+  
+  .dashboard-full { grid-column: 1 / 3; }
+  .dashboard-left { grid-column: 1 / 2; }
+  .dashboard-right { grid-column: 2 / 3; }
+  
+  .lp-content-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    height: fit-content;
+  }
+  
+  .lp-enterprise-btn {
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--color-primary), #4F46E5);
+    border: none;
+    border-radius: 12px;
+    color: var(--text-inverse);
+    font-size: var(--text-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .lp-enterprise-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(99,102,241,0.3);
+  }
+  
+  .lp-enterprise-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 900px) {
+    .dashboard-layout {
+      grid-template-columns: 1fr;
+    }
+    .dashboard-full,
+    .dashboard-left,
+    .dashboard-right {
+      grid-column: 1 / 2;
+    }
+  }
+`;
+
 function LearningProgressPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,6 +91,7 @@ function LearningProgressPage() {
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAllAssessments, setShowAllAssessments] = useState(false);
 
   useEffect(() => {
     loadAnalyses();
@@ -209,9 +285,10 @@ function LearningProgressPage() {
   if (loading) {
     return (
 
-      <div className="page-container">
-        <div className="content-wrapper">
-          <div className="content-card" style={{ textAlign: 'center', padding: '48px' }}>
+      <div className="page-container lp-page-container">
+        <style>{dashboardStyles}</style>
+        <div className="lp-content-wrapper">
+          <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px' }}>
             <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
             <h2 style={{ color: 'var(--text-primary)' }}>Loading your learning progress...</h2>
             <p style={{ color: 'var(--text-secondary)' }}>Fetching your analysis history</p>
@@ -225,19 +302,20 @@ function LearningProgressPage() {
 
   return (
 
-    <div className="page-container">
-      <div className="content-wrapper" style={{ maxWidth: '1200px' }}>
+    <div className="page-container lp-page-container">
+      <style>{dashboardStyles}</style>
+      <div className="lp-content-wrapper">
 
         {/* Header */}
         <div style={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
+          justifyContent: 'center', 
           alignItems: 'center',
           marginBottom: '32px',
           flexWrap: 'wrap',
           gap: '16px'
         }}>
-          <div>
+          <div style={{ textAlign: 'center' }}>
 
             <h1 style={{ margin: 0, color: 'var(--text-primary)', fontSize: 'var(--text-3xl)' }}>📚 Learning Dashboard</h1>
             <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>
@@ -245,17 +323,6 @@ function LearningProgressPage() {
               Track your growth and continue learning
             </p>
           </div>
-          
-          <button
-            onClick={() => loadAnalyses()}
-            disabled={loading}
-
-            className="enterprise-btn"
-            style={{ width: 'auto', padding: '8px 16px', fontSize: '14px' }}
-
-          >
-            {loading ? "Refreshing..." : "🔄 Refresh"}
-          </button>
         </div>
 
         {/* Error Message */}
@@ -266,7 +333,7 @@ function LearningProgressPage() {
             marginBottom: '24px' 
           }}>
             <p style={{ color: 'var(--color-error)', margin: 0 }}>{error}</p>
-            <button onClick={loadAnalyses} className="enterprise-btn" style={{ marginLeft: '16px' }}>
+            <button onClick={loadAnalyses} className="lp-enterprise-btn" style={{ marginLeft: '16px' }}>
               Retry
             </button>
           </div>
@@ -275,25 +342,53 @@ function LearningProgressPage() {
         {/* Empty State */}
         {analyses.length === 0 ? (
 
-          <div className="content-card" style={{ textAlign: 'center', padding: '48px' }}>
+          <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px' }}>
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>📊</div>
             <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>No assessments yet</h2>
             <p style={{ margin: '0 0 24px 0', color: 'var(--text-secondary)', fontSize: 'var(--text-base)' }}>
               Complete your first analysis to start tracking your progress
             </p>
-            <button onClick={() => navigate("/")} className="enterprise-btn">
+            <button onClick={() => navigate("/")} className="lp-enterprise-btn">
 
               Get Started
             </button>
           </div>
         ) : (
-          <div className="learning-dashboard-grid">
+          <div className="dashboard-layout">
+            {/* Summary Card - Full Width */}
+            <div className="lp-content-card dashboard-full">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '20px'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Total Assessments</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
+                    {analyses.length}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Progress Trend</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
+                    {trendIcon} {progressTrend.charAt(0).toUpperCase() + progressTrend.slice(1)}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Latest Technical</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
+                    {latestAssessment?.technicalScore || latestAssessment?.overallScore || 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Left Column - Main Content */}
-            <div>
+            <div className="dashboard-left">
               {/* Score Trend Chart */}
               {analyses.length > 0 && (
 
-                <div className="content-card" style={{ marginBottom: '24px' }}>
+                <div className="lp-content-card dashboard-left" style={{ marginBottom: '24px' }}>
                   <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
 
                     📈 Learning Progress (Last 3 Assessments)
@@ -349,47 +444,13 @@ function LearningProgressPage() {
                 </div>
               )}
 
-              {/* Progress Summary Banner */}
-
-              <div className="content-card" style={{
-                marginBottom: '24px',
-                background: 'var(--color-primary)',
-                borderRadius: 'var(--radius-xl)',
-                color: 'white',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '20px'
-
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Total Assessments</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {analyses.length}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Progress Trend</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {trendIcon} {progressTrend.charAt(0).toUpperCase() + progressTrend.slice(1)}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Latest Technical</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {latestAssessment?.technicalScore || latestAssessment?.overallScore || 0}%
-                  </p>
-                </div>
-              </div>
-
-              {/* Past Analyses List */}
-
-              <div className="content-card">
+              <div className="lp-content-card dashboard-left">
                 <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
 
                   📋 Past Assessments
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {analyses.slice(0, 3).map((analysis, index) => {
+                  {analyses.slice(0, showAllAssessments ? analyses.length : 1).map((analysis, index) => {
                     const analysisKey = analysis.analysisId || analysis.id;
                     const analysisReadiness = calculateReadiness(
                       analysis.technicalScore || analysis.overallScore || 0,
@@ -587,7 +648,7 @@ function LearningProgressPage() {
                                 e.stopPropagation();
                                 continueLearning(analysis);
                               }}
-                              className="enterprise-btn"
+                              className="lp-enterprise-btn"
                               style={{
                                 width: "100%",
                                 marginTop: "20px",
@@ -622,7 +683,7 @@ function LearningProgressPage() {
                                 e.stopPropagation();
                                 continueLearning(analysis);
                               }}
-                              className="enterprise-btn"
+                              className="lp-enterprise-btn"
                               style={{ marginTop: '12px', width: '100%' }}
                             >
                               Continue Learning →
@@ -633,6 +694,15 @@ function LearningProgressPage() {
                     );
                   })}
                 </div>
+                {!showAllAssessments && analyses.length > 1 && (
+                  <button
+                    onClick={() => setShowAllAssessments(true)}
+                    className="lp-enterprise-btn"
+                    style={{ marginTop: '16px' }}
+                  >
+                    Show More ({analyses.length - 1} more)
+                  </button>
+                )}
               </div>
             </div>
 
@@ -641,7 +711,7 @@ function LearningProgressPage() {
               {/* Placement Readiness */}
 
               {analyses.length > 0 && readiness && (
-                <div className="content-card" style={{ marginBottom: '24px' }}>
+                <div className="lp-content-card dashboard-right" style={{ marginBottom: '24px' }}>
                   <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
                     🎯 Placement Readiness
                   </h3>
@@ -702,7 +772,7 @@ function LearningProgressPage() {
               {/* Weak Areas Summary */}
               {weakAreasSummary.length > 0 && (
 
-                <div className="content-card" style={{ marginBottom: '24px' }}>
+                <div className="lp-content-card dashboard-right" style={{ marginBottom: '24px' }}>
                   <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
 
                     🎯 Top Areas to Improve
@@ -751,7 +821,7 @@ function LearningProgressPage() {
                       onClick={() => {
                         if (latestAssessment) continueLearning(latestAssessment);
                       }}
-                      className="enterprise-btn"
+                      className="lp-enterprise-btn"
                       style={{
                         width: "100%",
                         marginTop: "15px",
@@ -770,7 +840,7 @@ function LearningProgressPage() {
 
               {/* Quick Stats */}
 
-              <div className="content-card">
+              <div className="lp-content-card dashboard-right">
                 <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
 
                   📊 Quick Stats
@@ -840,15 +910,6 @@ function LearningProgressPage() {
             </div>
           </div>
         )}
-
-        {/* Back to Home Button */}
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "30px" }}>
-
-          <button onClick={() => navigate("/")} className="enterprise-btn" style={{ background: "var(--color-gray-100)", color: "var(--text-primary)" }}>
-
-            ← Back to Home
-          </button>
-        </div>
       </div>
     </div>
   );
