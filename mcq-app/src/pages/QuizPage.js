@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import SuccessResultPage from "./SuccessResultPage";
 
 function QuizPage() {
   const navigate = useNavigate();
@@ -39,6 +38,8 @@ function QuizPage() {
   const [error, setError] = useState("");
   const [retakeLoading, setRetakeLoading] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [animatedScore, setAnimatedScore] = useState(0);
+  const [scoreAnimationComplete, setScoreAnimationComplete] = useState(false);
 
   const [quizIndex, setQuizIndex] = useState(0);
   const [quizSelected, setQuizSelected] = useState("");
@@ -47,6 +48,65 @@ function QuizPage() {
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
+
+  // Animate score when entering score stage
+  useEffect(() => {
+    if (stage === "score" && technicalScore > 0) {
+      setScoreAnimationComplete(false);
+      setAnimatedScore(0);
+      const animationDuration = 1400;
+      const startTime = Date.now();
+      
+      const animateScore = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / animationDuration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        setAnimatedScore(Math.round(easeOut * technicalScore));
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateScore);
+        } else {
+          setScoreAnimationComplete(true);
+        }
+      };
+      
+      requestAnimationFrame(animateScore);
+    }
+  }, [stage, technicalScore]);
+
+  // Get dynamic color based on score
+  const getScoreGradient = () => {
+    if (animatedScore <= 39) {
+      return { start: '#FF7E5F', end: '#FEB47B' };
+    } else if (animatedScore <= 70) {
+      return { start: '#48C6EF', end: '#6F86D6' };
+    } else {
+      return { start: '#11998E', end: '#38EF7D' };
+    }
+  };
+
+  const scoreGradient = getScoreGradient();
+
+  // Circular progress calculations
+  const radius = 80;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
+
+  // Get motivational text
+  const getMotivationalText = () => {
+    if (animatedScore <= 39) return "Keep Growing!";
+    if (animatedScore <= 70) return "Good Progress!";
+    return "Excellent Work!";
+  };
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+      setCorrectCount(0);
+      setQuizIndex(0);
+      setQuizAnswers([]);
+      setQuizSelected("");
+      setAnswerLocked(false);
+    }
+  }, [questions]);
 
   const [learningQuestions, setLearningQuestions] = useState([]);
   const [learningIndex, setLearningIndex] = useState(0);
@@ -297,12 +357,11 @@ function QuizPage() {
           setTechnicalScore(score);
           setCorrectCount(correct);
           localStorage.setItem("technicalScore", score.toString());
-          // Show celebration before transitioning to score
-          setShowCelebration(true);
+          // Show congratulations screen first, then transition to score
+          setStage("congrats");
           setTimeout(() => {
-            setShowCelebration(false);
             setStage("score");
-          }, 2000);
+          }, 4000);
         } catch (err) {
           console.error("Failed to score quiz:", err);
           let correct = 0;
@@ -314,16 +373,21 @@ function QuizPage() {
           setTechnicalScore(score);
           setCorrectCount(correct);
           localStorage.setItem("technicalScore", score.toString());
-          // Show celebration before transitioning to score
-          setShowCelebration(true);
+          // Show congratulations screen first, then transition to score
+          setStage("congrats");
           setTimeout(() => {
-            setShowCelebration(false);
             setStage("score");
-          }, 2000);
+          }, 4000);
         }
       };
 
       const nextQuestion = () => {
+        // Check if the selected answer is correct
+        const isCorrect = quizSelected === displayQuestions[quizIndex]?.answer;
+        if (isCorrect) {
+          setCorrectCount(prev => prev + 1);
+        }
+        
         const nextAnswers = [...quizAnswers, quizSelected];
         setQuizAnswers(nextAnswers);
         setQuizSelected("");
@@ -350,7 +414,7 @@ function QuizPage() {
                 </div>
                 <div className="quiz-header-right">
                   <span className="quiz-counter">Q{quizIndex + 1}/{displayQuestions.length}</span>
-                  <span className="quiz-points">1 pts</span>
+                  <span className="quiz-points">{correctCount} pts</span>
                 </div>
               </div>
 
@@ -482,6 +546,34 @@ function QuizPage() {
     );
   }
 
+  // Stage: Congratulations Celebration
+  if (stage === "congrats") {
+    return (
+      <div className="congrats-card">
+        {/* Confetti Animation */}
+        <div className="confetti-container">
+          {[...Array(40)].map((_, i) => (
+            <div
+              key={i}
+              className="confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random() * 3}s`,
+                transform: `rotate(${Math.random() * 360}deg)`,
+              }}
+            />
+          ))}
+        </div>
+        
+        <h1 className="congrats-title">Congratulations! 🎉</h1>
+        <p className="congrats-subtitle">
+          You've successfully completed the Technical Quiz.
+        </p>
+      </div>
+    );
+  }
+
   // Stage: Show Score
   if (stage === "score") {
     if (fromMaterial) {
@@ -489,15 +581,86 @@ function QuizPage() {
         <div className="page-container">
           <div className="content-wrapper">
             <div className="content-card">
-              <h2 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '24px' }}>✅ Quiz Complete!</h2>
+              <h2 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '24px' }}> Quiz Complete!</h2>
 
-              <div className="score-display">
-                <p style={{ fontSize: '14px', opacity: 0.9 }}>Your Quiz Score</p>
-                <p className="score-value">{technicalScore}%</p>
-                <p style={{ fontSize: '14px', opacity: 0.9 }}>
-                  {correctCount}/{displayQuestions.length} correct
-                </p>
+              {/* Circular Score Gauge */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+                <div style={{ position: 'relative', width: '200px', height: '200px' }}>
+                  <svg 
+                    width="200" 
+                    height="200" 
+                    style={{ transform: 'rotate(-90deg)' }}
+                  >
+                    {/* Background circle */}
+                    <circle
+                      cx="100"
+                      cy="100"
+                      r={radius}
+                      fill="none"
+                      stroke="#E5E7EB"
+                      strokeWidth="6"
+                    />
+                    {/* Progress circle */}
+                    <defs>
+                      <linearGradient id="quizScoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={scoreGradient.start} />
+                        <stop offset="100%" stopColor={scoreGradient.end} />
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="100"
+                      cy="100"
+                      r={radius}
+                      fill="none"
+                      stroke="#5FB0B7"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      style={{ transition: 'stroke-dashoffset 0.1s ease-out' }}
+                    />
+                  </svg>
+                  {/* Center text */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{
+                      fontSize: '48px',
+                      fontWeight: '700',
+                      color: '#1E293B',
+                      display: 'block',
+                      lineHeight: 1
+                    }}>
+                      {animatedScore}%
+                    </span>
+                    <span style={{
+                      fontSize: '14px',
+                      color: '#64748B',
+                      marginTop: '4px',
+                      display: 'block'
+                    }}>
+                      {correctCount}/{displayQuestions.length} Correct
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              {/* Motivational text */}
+              <p style={{ 
+                textAlign: 'center', 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: '#5FB0B7',
+                marginBottom: '24px',
+                opacity: scoreAnimationComplete ? 1 : 0,
+                transition: 'opacity 0.5s ease-out'
+              }}>
+                {getMotivationalText()}
+              </p>
 
               <button
                 onClick={() => {
@@ -512,8 +675,28 @@ function QuizPage() {
                     }
                   });
                 }}
-                className="enterprise-btn"
-                style={{ marginBottom: '16px' }}
+                style={{ 
+                  marginBottom: '16px',
+                  background: 'linear-gradient(135deg, #58A7A0 0%, #66B6D2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '14px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  width: '100%',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 14px 0 rgba(88, 167, 160, 0.4)'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 6px 20px 0 rgba(88, 167, 160, 0.5)';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 4px 14px 0 rgba(88, 167, 160, 0.4)';
+                }}
               >
               ← Back to Learning Material
               </button>
@@ -525,7 +708,26 @@ function QuizPage() {
                   setQuizSelected("");
                   setStage("quiz");
                 }}
-                className="enterprise-btn secondary"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#64748B',
+                  border: '1.5px solid #E5E7EB',
+                  borderRadius: '10px',
+                  padding: '10px 24px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  width: '100%',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.borderColor = '#5FB0B7';
+                  e.target.style.color = '#5FB0B7';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.borderColor = '#E5E7EB';
+                  e.target.style.color = '#64748B';
+                }}
               >
                 Try Again
               </button>
@@ -541,24 +743,142 @@ function QuizPage() {
           <div className="content-card">
             <h2 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '24px' }}>📊 Quiz Complete!</h2>
 
-            <div className="score-display">
-              <p style={{ fontSize: '14px', opacity: 0.9 }}>Technical Score</p>
-              <p className="score-value">{technicalScore}%</p>
-              <p style={{ fontSize: '14px', opacity: 0.9 }}>
-                {correctCount}/{displayQuestions.length} correct
-              </p>
+            {/* Circular Score Gauge */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+              <div style={{ position: 'relative', width: '200px', height: '200px' }}>
+                <svg 
+                  width="200" 
+                  height="200" 
+                  style={{ transform: 'rotate(-90deg)' }}
+                >
+                  {/* Background circle */}
+                  <circle
+                    cx="100"
+                    cy="100"
+                    r={radius}
+                    fill="none"
+                    stroke="#E5E7EB"
+                    strokeWidth="6"
+                  />
+                  {/* Progress circle */}
+                  <circle
+                    cx="100"
+                    cy="100"
+                    r={radius}
+                    fill="none"
+                    stroke="#5FB0B7"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    style={{ transition: 'stroke-dashoffset 0.1s ease-out' }}
+                  />
+                </svg>
+                {/* Center text */}
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  textAlign: 'center'
+                }}>
+                  <span style={{
+                    fontSize: '48px',
+                    fontWeight: '700',
+                    color: '#1E293B',
+                    display: 'block',
+                    lineHeight: 1
+                  }}>
+                    {animatedScore}%
+                  </span>
+                  <span style={{
+                    fontSize: '14px',
+                    color: '#64748B',
+                    marginTop: '4px',
+                    display: 'block'
+                  }}>
+                    {correctCount}/{displayQuestions.length} Correct
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px' , textAlign: "center"}}>Master a New Skill</h3>
+            {/* Motivational text */}
+            <p style={{ 
+              textAlign: 'center', 
+              fontSize: '18px', 
+              fontWeight: '600', 
+              color: '#5FB0B7',
+              marginBottom: '24px',
+              opacity: scoreAnimationComplete ? 1 : 0,
+              transition: 'opacity 0.5s ease-out'
+            }}>
+              {getMotivationalText()}
+            </p>
+
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', textAlign: "center"}}>Master a New Skill</h3>
             <p style={{ textAlign: "center" }}> What do you want to master next? We'll generate a quiz tailored to your learning goals.</p>
+
+            {/* Retake Quiz - Ghost Button - Centered, smaller width */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <button
+                onClick={() => {
+                  setQuizIndex(0);
+                  setQuizAnswers([]);
+                  setQuizSelected("");
+                  setStage("quiz");
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#64748B',
+                  border: '1.5px solid #E5E7EB',
+                  borderRadius: '10px',
+                  padding: '8px 20px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.borderColor = '#5FB0B7';
+                  e.target.style.color = '#5FB0B7';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.borderColor = '#E5E7EB';
+                  e.target.style.color = '#64748B';
+                }}
+              >
+                ← Retake Quiz
+              </button>
+            </div>
+
             <input
               type="text"
               placeholder="e.g., Java, React, Python for Data Science...."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={handleKeyPress}
-              className="enterprise-input"
-              style={{ marginBottom: '16px' }}
+              style={{ 
+                marginBottom: '16px',
+                width: '100%',
+                padding: '14px 18px',
+                fontSize: '15px',
+                borderRadius: '12px',
+                border: '2px solid #E5E7EB',
+                backgroundColor: '#FFFFFF',
+                color: '#1E293B',
+                outline: 'none',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#2D5A5A';
+                e.target.style.boxShadow = '0 4px 12px rgba(45, 90, 90, 0.15)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#E5E7EB';
+                e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+              }}
             />
 
             <button
@@ -569,22 +889,30 @@ function QuizPage() {
                 }
               }}
               disabled={!topic.trim()}
-              className="enterprise-btn"
-              style={{ marginBottom: '16px' }}
+              style={{ 
+                marginBottom: '16px',
+                background: 'linear-gradient(135deg, #58A7A0 0%, #66B6D2 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '14px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                width: '100%',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 14px 0 rgba(88, 167, 160, 0.4)'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px 0 rgba(88, 167, 160, 0.5)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 14px 0 rgba(88, 167, 160, 0.4)';
+              }}
             >
               Begin Level Assessment →
-            </button>
-
-            <button
-              onClick={() => {
-                setQuizIndex(0);
-                setQuizAnswers([]);
-                setQuizSelected("");
-                setStage("quiz");
-              }}
-              className="enterprise-btn secondary"
-            >
-              ← Retake Quiz
             </button>
           </div>
         </div>
@@ -642,7 +970,7 @@ function QuizPage() {
         <div className="page-container">
           <div className="content-wrapper">
             <div className="content-card">
-              <h2 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📊 Learner Level Assessment</h2>
+              <h2 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}> Learner Level Assessment</h2>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
                 This diagnostic test measures your technical proficiency across multiple dimensions.
               </p>
@@ -711,13 +1039,13 @@ function QuizPage() {
       <div className="page-container">
         <div className="content-wrapper">
           <div className="content-card">
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>📊 Learner Level Assessment</h2>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}> Learner Level Assessment</h2>
             
             <div style={{ marginBottom: '16px' }}>
               <div style={{
                 width: '100%',
                  height: '6px',
-                 background: 'var(--color-gray-200)',
+                 background: '#E5E7EB',
                  borderRadius: 'var(--radius-full)',
                  overflow: 'hidden',
                  marginBottom: '8px'
@@ -725,7 +1053,7 @@ function QuizPage() {
                  <div style={{
                    width: `${((learningIndex + 1) / learningQuestions.length) * 100}%`,
                    height: '100%',
-                   background: 'var(--color-primary)',
+                   background: '#5FB0B7',
                    borderRadius: 'var(--radius-full)',
                    transition: 'width 0.3s ease'
                  }} />
