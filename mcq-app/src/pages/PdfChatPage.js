@@ -475,7 +475,7 @@ function PdfChatPage() {
   // Early return for Mind Map Modal
   if (showMindMap) {
     return (
-      <div className="page-container" style={{ 
+      <div className="pdf-chat-page-container" style={{ 
         position: 'fixed', 
         top: 0, 
         left: 0, 
@@ -565,7 +565,7 @@ function PdfChatPage() {
   // If no PDF uploaded yet
   if (!pdfStatus?.pdfLoaded && !showChatbot) {
     return (
-      <div className="page-container">
+      <div className="pdf-chat-page-container">
         <div className="content-wrapper">
           <div className="content-card">
             <h3 style={{ textAlign: 'center', color: 'var(--text-primary)', marginBottom: '20px' }}>
@@ -618,7 +618,7 @@ function PdfChatPage() {
 
   // Chat interface
   return (
-    <div className="page-container">
+    <div className="pdf-chat-page-container">
       <div className="content-wrapper">
         <div className="content-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>

@@ -4,6 +4,24 @@ node_modules/
 # Environment files
 .env
 
+# Backend environment files
+backend/.env
+backend/.env.backup
+
+# RAG PDF Service environment files
+rag-pdf-service/.env
+
+# PDF service environment files
+pdf/.env
+
+# MCQ App environment and build files
+mcq-app/.env
+mcq-app/build/
+
+# Upload directories (user files)
+backend/uploads/
+rag-pdf-service/uploads/
+
 # Logs
 logs/
 *.log

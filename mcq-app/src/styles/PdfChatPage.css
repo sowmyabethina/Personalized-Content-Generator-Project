@@ -1,9 +1,22 @@
-.pdf-chat-container {
+/* Page Container - Override global styles for proper scrolling */
+.pdf-chat-page-container {
+  min-height: calc(100vh - var(--navbar-height));
+  padding: 40px 20px;
+  background-color: #F8FAFC;
+  position: relative;
+  overflow-y: auto;
+}
+
+.pdf-chat-page-container .content-wrapper {
   max-width: 900px;
-  margin: 20px auto;
-  padding: 20px;
-  background: transparent !important;
-  border-radius: 14px;
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .pdf-chat-container h1 {
@@ -25,7 +38,14 @@
 /* Center the content-card for chat */
 .content-card {
   max-width: 900px;
+  width: 100%;
   margin: 0 auto;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  padding: 30px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
 }
 
 /* Upload Section */
@@ -89,6 +109,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.chat-section::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-section::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+  border-radius: 4px;
+}
+
+.chat-section::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
 }
 
 .chat-section h2 {
