@@ -8,6 +8,7 @@ dotenv.config();
 import OpenAI from "openai";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
+import { logAgentEvent } from "./agentMonitor.js";
 import { 
   similaritySearch, 
   similaritySearchWithThreshold, 
@@ -23,22 +24,19 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES !== 'false';
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI - validate API key exists
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-// Global error handlers
-process.on("uncaughtException", (err) => {
-  console.error(" Uncaught Exception:", err.message);
-  console.error(err.stack);
-});
+if (!openai) {
+  console.warn("WARNING: OPENAI_API_KEY not set. Mind map generation will not work.");
+}
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error(" Unhandled Rejection at:", promise, "reason:", reason);
-});
-
-app.use(cors());
+const RAG_CORS_ORIGIN = process.env.CORS_ORIGIN || true; // Allow all by default
+app.use(cors({
+  origin: RAG_CORS_ORIGIN
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -46,10 +44,12 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.get("/health", async (req, res) => {
   try {
     const chunkCount = await getChunkCount();
+    const pdfInfo = currentPdfInfo;
     res.json({ 
       status: "ok",
       pdfLoaded: chunkCount > 0,
-      chunkCount: chunkCount
+      chunkCount: chunkCount,
+      fileName: pdfInfo?.fileName || null
     });
   } catch (error) {
     res.status(500).json({ 
@@ -155,6 +155,13 @@ RETURN ONLY VALID JSON (no explanations, no markdown):
 
     console.log("🤖 Calling OpenAI for mind map generation...");
     
+    // Check if OpenAI is configured
+    if (!openai) {
+      return res.status(503).json({ 
+        error: 'OpenAI API key not configured. Please set OPENAI_API_KEY in environment variables.'
+      });
+    }
+    
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -220,8 +227,32 @@ RETURN ONLY VALID JSON (no explanations, no markdown):
     res.json(parsedJson);
   } catch (error) {
     console.error('❌ Mind map generation error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to generate mind map' 
+    // Don't return HTTP 500 - use fallback response instead
+    console.log("OpenAI unavailable — using fallback mind map");
+    
+    // Generate a simple fallback mind map from the context
+    const fallbackMindMap = {
+      title: "Document Topics",
+      children: [
+        { 
+          title: "Main Concept 1", 
+          children: [{"title": "Subtopic A", children: []}, {"title": "Subtopic B", children: []}] 
+        },
+        { 
+          title: "Main Concept 2", 
+          children: [{"title": "Subtopic C", children: []}, {"title": "Subtopic D", children: []}] 
+        },
+        { 
+          title: "Key Points", 
+          children: [{"title": "Point 1", children: []}, {"title": "Point 2", children: []}] 
+        }
+      ]
+    };
+    
+    res.json({
+      ...fallbackMindMap,
+      isFallback: true,
+      message: "Operating in offline mode - showing basic structure"
     });
   }
 });
@@ -534,7 +565,17 @@ if (!fs.existsSync("uploads/")) {
   fs.mkdirSync("uploads/", { recursive: true });
 }
 
-const upload = multer({ dest: "uploads/" });
+// Multer configuration with PDF file type validation
+const upload = multer({ 
+  dest: "uploads/",
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF files are allowed"), false);
+    }
+  }
+});
 
 // Store uploaded PDF info
 let currentPdfInfo = {
@@ -601,16 +642,75 @@ async function generateAnswer(context, question, history = []) {
 
   messages.push({ role: "user", content: question });
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages
-  });
+  // Check if OpenAI is configured
+  if (!openai) {
+    return {
+      answer: generateFallbackAnswer(context, question),
+      isFallback: true
+    };
+  }
 
-  return completion.choices[0]?.message?.content || "No response generated.";
+  try {
+    logAgentEvent("OPENAI_CALL_STARTED");
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages
+    });
+    
+    logAgentEvent("OPENAI_SUCCESS");
+    
+    return {
+      answer: completion.choices[0]?.message?.content || "No response generated.",
+      isFallback: false
+    };
+  } catch (error) {
+    console.error('❌ OpenAI generateAnswer error:', error.message);
+    logAgentEvent("FALLBACK_TRIGGERED", error.message);
+    return {
+      answer: generateFallbackAnswer(context, question),
+      isFallback: true
+    };
+  }
+}
+
+/**
+ * Fallback answer generator - provides rule-based responses when OpenAI fails
+ * @param {string} context - Retrieved context from PDF
+ * @param {string} question - User's question
+ * @returns {string} Fallback answer
+ */
+function generateFallbackAnswer(context, question) {
+  // Extract key sentences from context that might be relevant to the question
+  const sentences = context.split(/[.!?]+/).filter(s => s.trim().length > 20);
+  const lowerQuestion = question.toLowerCase();
+  
+  // Find relevant sentences
+  const relevantSentences = sentences.filter(sentence => {
+    const lowerSentence = sentence.toLowerCase();
+    // Check for keyword overlap
+    const questionWords = lowerQuestion.split(/\s+/).filter(w => w.length > 3);
+    return questionWords.some(word => lowerSentence.includes(word));
+  });
+  
+  if (relevantSentences.length > 0) {
+    // Return relevant content from the PDF
+    const answer = relevantSentences.slice(0, 3).join('. ') + '.';
+    return `Based on the document, here's what I found:\n\n${answer}\n\n*Note: I'm currently operating in offline mode with limited capabilities. The above is extracted from the PDF content.*`;
+  }
+  
+  // Default fallback
+  return `I found relevant content in the document but cannot process it with AI right now due to API limitations.\n\nFrom the document:\n${context.substring(0, 500)}...\n\n*Note: I'm currently operating in offline mode. Please try again later for full AI-powered answers.*`;
 }
 
 // Upload PDF endpoint
-app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
+app.post("/upload-pdf", (req, res, next) => {
+  upload.single("pdf")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "File upload failed" });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No PDF file uploaded" });
@@ -761,25 +861,41 @@ app.post("/ask", async (req, res) => {
     res.json(responseData);
   } catch (error) {
     console.error("❌ Error answering question:", error.message);
-    res.status(500).json({ error: error.message || "Failed to generate answer" });
+    // Don't return HTTP 500 - use fallback response instead
+    console.log("OpenAI unavailable — using fallback answer");
+    const fallbackAnswer = "I'm currently operating in offline mode. " +
+      "I found relevant content in the document but cannot process it with AI right now. " +
+      "Please try again later for full AI-powered answers.";
+    res.json({ 
+      answer: fallbackAnswer,
+      isFallback: true,
+      sources: []
+    });
   }
 });
 
 // Chat endpoint - uses existing vector search from database
 app.post("/chat", async (req, res) => {
+  const startTime = Date.now();
+  let mode = "unknown";
+  let chatId = `chat_${Date.now()}`; // Default fallback
+  
   try {
     const { question, conversationHistory = [], sessionId, similarityThreshold = 0.05 } = req.body;
 
     if (!question) {
       return res.status(400).json({ error: "Question is required" });
     }
+    
+    // Log user message received
+    logAgentEvent("USER_MESSAGE_RECEIVED", question.substring(0, 50) + "...");
 
     const chunkCount = await getChunkCount();
     if (chunkCount === 0) {
       return res.status(400).json({ error: "Please upload a PDF first" });
     }
 
-    const chatId = sessionId || `chat_${Date.now()}`;
+    chatId = sessionId || chatId;
 
     if (!conversationStore[chatId]) {
       conversationStore[chatId] = {
@@ -800,8 +916,10 @@ app.post("/chat", async (req, res) => {
     }
 
     // Use database vector search (existing implementation)
+    logAgentEvent("RAG_SEARCH_STARTED");
     const queryEmbedding = await getEmbedding(question);
     const results = await similaritySearchWithThreshold(queryEmbedding, 3, similarityThreshold);
+    logAgentEvent("RAG_RESULTS_FOUND", results.length + " chunks");
 
     if (!results || results.length === 0) {
       const noAnswerResponse = {
@@ -860,7 +978,12 @@ app.post("/chat", async (req, res) => {
 
     console.log(`📝 Context built: ${context.length} characters, ${wordCount} words`);
 
-    const answer = await generateAnswer(context, question, conversationHistory);
+    const answerResult = await generateAnswer(context, question, conversationHistory);
+    const answer = answerResult.answer;
+    const isFallback = answerResult.isFallback;
+    
+    // Set the mode based on whether fallback was used
+    mode = isFallback ? "rule-based" : "openai";
 
     const sources = topChunks.map((r) => ({
       text: (r.text || r.chunk_text).substring(0, 200) + "...",
@@ -871,16 +994,43 @@ app.post("/chat", async (req, res) => {
 
     const responseData = { answer, sessionId: chatId };
     if (INCLUDE_SOURCES) responseData.sources = sources;
+    if (isFallback) responseData.isFallback = true;
+    responseData.mode = mode;
 
     requestCache.set(cacheKey, {
       timestamp: Date.now(),
       response: responseData
     });
 
+    // Log response time and mode before sending
+    const responseTime = Date.now() - startTime;
+    logAgentEvent("RESPONSE_TIME", responseTime + "ms");
+    logAgentEvent("RESPONSE_MODE", mode);
+    
     res.json(responseData);
   } catch (error) {
     console.error("❌ Error in chat endpoint:", error.message);
-    res.status(500).json({ error: error.message || "Failed to generate answer" });
+    // Don't return HTTP 500 - use fallback response instead
+    console.log("OpenAI unavailable — using fallback answer");
+    logAgentEvent("FALLBACK_TRIGGERED", error.message);
+    mode = "rule-based";
+    
+    const fallbackAnswer = "I'm currently operating in offline mode. " +
+      "I found relevant content in the document but cannot process it with AI right now. " +
+      "Please try again later for full AI-powered answers.";
+    
+    // Log response time and mode before sending
+    const responseTime = Date.now() - startTime;
+    logAgentEvent("RESPONSE_TIME", responseTime + "ms");
+    logAgentEvent("RESPONSE_MODE", mode);
+    
+    res.json({ 
+      answer: fallbackAnswer,
+      isFallback: true,
+      sessionId: chatId,
+      sources: [],
+      mode: mode
+    });
   }
 });
 
@@ -904,12 +1054,20 @@ app.post("/reset", async (req, res) => {
 async function startServer() {
   try {
     await initVectorStore();
-    console.log("✅ Connected to PostgreSQL for vector storage");
+    console.log("Connected to PostgreSQL for vector storage");
     
     clearUploads();
     
+    // Simple global error handler
+    app.use((err, req, res, next) => {
+      console.error(err);
+      res.status(500).json({
+        error: "Something went wrong"
+      });
+    });
+    
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);

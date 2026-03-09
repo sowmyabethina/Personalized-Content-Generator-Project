@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import ENDPOINTS from "../config/api";
 
 function HomePage() {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ function HomePage() {
         const formData = new FormData();
         formData.append("pdf", resumeFile);
 
-        const res = await fetch("http://localhost:5000/read-resume-pdf", {
+        const res = await fetch(ENDPOINTS.PDF.READ_RESUME, {
           method: "POST",
           body: formData
         });
@@ -130,7 +131,7 @@ function HomePage() {
           return;
         }
 
-        const res = await fetch("http://localhost:5000/read-pdf", {
+        const res = await fetch(ENDPOINTS.PDF.READ, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ github_url: githubLink })
@@ -179,14 +180,16 @@ function HomePage() {
     }
 
     try {
-      const payload = {
-        docText: extractedContent.substring(0, 12000)
-      };
-
-      const res = await fetch("http://localhost:5000/generate", {
+      // Use the centralized agent for quiz generation
+      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          message: "Generate quiz questions from the document",
+          context: {
+            pdfText: extractedContent
+          }
+        })
       });
 
       if (!res.ok) {
@@ -213,34 +216,34 @@ function HomePage() {
       }
 
       const data = await res.json();
-      let parsedQuestions = [];
+      console.log("🤖 Agent response for quiz:", data);
 
-      if (Array.isArray(data)) {
-        parsedQuestions = data.map(q => ({
+      // Parse questions from agent response
+      let parsedQuestions = [];
+      const questionData = data.data?.questions || data.data || [];
+      
+      if (Array.isArray(questionData)) {
+        parsedQuestions = questionData.map(q => ({
           question: q.question,
           options: Array.isArray(q.options) ? q.options : [q.options],
-          answer: q.answer || q.options[0],
+          answer: q.answer || q.correctAnswer || q.options?.[0],
           explanation: q.explanation || "",
           category: q.category || ""
         }));
-      } else if (data.questions) {
-        let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
-
+      } else if (typeof questionData === 'string') {
         try {
-          const jsonParsed = JSON.parse(questionsText);
+          const jsonParsed = JSON.parse(questionData);
           if (Array.isArray(jsonParsed)) {
             parsedQuestions = jsonParsed.map(q => ({
               question: q.question,
               options: Array.isArray(q.options) ? q.options : [q.options],
-              answer: q.answer || q.options[0],
+              answer: q.answer || q.correctAnswer || q.options?.[0],
               explanation: q.explanation || "",
               category: q.category || ""
             }));
-          } else {
-            throw new Error("Not an array");
           }
         } catch (e) {
-          parsedQuestions = parseQuestionsFromText(questionsText);
+          parsedQuestions = parseQuestionsFromText(questionData);
         }
       }
 

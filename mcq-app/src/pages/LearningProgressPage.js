@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import ENDPOINTS from "../config/api";
 
 // Local styles for Learning Progress Dashboard
+/* UI_REFRESH_V2 */
 const dashboardStyles = `
   .lp-content-wrapper {
     max-width: 1200px;
@@ -19,25 +21,65 @@ const dashboardStyles = `
     background: linear-gradient(135deg, #f4f7fc 0%, #eef2ff 100%);
   }
   
-  .dashboard-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: auto auto auto;
-    gap: 28px;
+  .summary-row {
     width: 100%;
+    margin-bottom: 32px;
   }
   
-  .dashboard-full { grid-column: 1 / 3; }
-  .dashboard-left { grid-column: 1 / 2; }
-  .dashboard-right { grid-column: 2 / 3; }
+  .main-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Force 2 equal columns */
+    gap: 24px;
+    width: 100%;
+    align-items: start;
+  }
+  
+  .main-grid > div {
+    width: 100%;
+    min-width: 0;
+  }
+  
+  .column-flex {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
   
   .lp-content-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 32px;
+    border-radius: 24px;
+    padding: 24px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.05);
     height: fit-content;
+  }
+  
+  /* Soft Card Classes for Roadmap */
+  .soft-card-red {
+    background: #fff5f5;
+    border: 1px solid #e2e8f0;
+    border-top: 5px solid #ef4444;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  
+  .soft-card-yellow {
+    background: #fffbeb;
+    border: 1px solid #e2e8f0;
+    border-top: 5px solid #f59e0b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  
+  .soft-card-green {
+    background: #f0fdf4;
+    border: 1px solid #e2e8f0;
+    border-top: 5px solid #22c55e;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   }
   
   .lp-enterprise-btn {
@@ -53,6 +95,9 @@ const dashboardStyles = `
     width: 100%;
     position: relative;
     overflow: hidden;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
   }
   
   .lp-enterprise-btn:hover {
@@ -63,6 +108,10 @@ const dashboardStyles = `
   .lp-enterprise-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+  
+  @media (max-width: 1024px) {
+    .main-grid { grid-template-columns: 1fr; }
   }
   
   @media (max-width: 900px) {
@@ -81,7 +130,6 @@ function LearningProgressPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get userId from location state - pass null if not logged in to get all analyses
   const { userId: rawUserId } = location.state || {};
   const userId = rawUserId && rawUserId !== "anonymous" ? rawUserId : null;
 
@@ -90,33 +138,21 @@ function LearningProgressPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [showAllAssessments, setShowAllAssessments] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     loadAnalyses();
     
-    // Refresh data when page becomes visible (e.g., user returns from quiz)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadAnalyses();
       }
     };
     
-    // Also refresh on window focus
     const handleFocus = () => {
       loadAnalyses();
     };
-    
-    // Poll for updates every 5 seconds (more responsive for real-time)
-    const intervalId = setInterval(() => {
-      loadAnalyses();
-    }, 5000);
-    
-    // Update current time every second for real-time display
-    const timeIntervalId = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -124,8 +160,6 @@ function LearningProgressPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
-      clearInterval(intervalId);
-      clearInterval(timeIntervalId);
     };
   }, [userId]);
 
@@ -133,8 +167,7 @@ function LearningProgressPage() {
     setLoading(true);
     setError("");
     try {
-      // Build URL - only include userId if it's not null
-      let url = "http://localhost:5000/analyses";
+      let url = ENDPOINTS.ANALYSIS.GET_ALL;
       if (userId) {
         url += `?userId=${encodeURIComponent(userId)}`;
       }
@@ -142,7 +175,6 @@ function LearningProgressPage() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        // Explicitly sort by created_at DESC to ensure latest assessment is first
         const sortedAnalyses = (data.analyses || []).sort((a, b) => {
           return new Date(b.createdAt) - new Date(a.createdAt);
         });
@@ -158,14 +190,13 @@ function LearningProgressPage() {
     setLoading(false);
   };
 
-  // Define latest and previous assessments for metric calculations
   const latestAssessment = analyses.length > 0 ? analyses[0] : null;
   const previousAssessment = analyses.length > 1 ? analyses[1] : null;
 
   const loadAnalysisDetail = async (analysisId) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/analysis/${analysisId}`);
+      const res = await fetch(ENDPOINTS.ANALYSIS.GET_BY_ID(analysisId));
       if (res.ok) {
         const data = await res.json();
         setSelectedAnalysis(data.analysis);
@@ -185,22 +216,8 @@ function LearningProgressPage() {
     
     navigate("/result", {
       state: {
-        topic: analysis.topic || analysis.sourceType || "Previous Analysis",
-        technicalScore: analysis.technicalScore || analysis.overallScore || 0,
-        learningScore: analysis.learningScore || 50,
-        combinedAnalysis: {
-          combinedAnalysis: `Previous assessment: ${analysis.technicalLevel || analysis.technicalScore + "%"} level, ${analysis.learningStyle || "Unknown"} learner`
-        },
-        mode: "saved",
-        userId: analysis.userId,
-        sourceType: analysis.sourceType,
-        sourceUrl: analysis.sourceUrl,
-        extractedText: analysis.extractedText,
-        skills: analysis.skills || [],
-        strengths: analysis.strengths || [],
-        weakAreas: analysis.weakAreas || [],
-        learningStyle: analysis.learningStyle,
-        psychometricProfile: analysis.psychometricProfile
+        ...analysis,
+        mode: "saved"
       }
     });
   };
@@ -246,24 +263,31 @@ function LearningProgressPage() {
   })();
 
   const chartData = (() => {
-    const recentAnalyses = analyses.slice(0, 3);
-    return recentAnalyses
+    const recentAnalyses = analyses.slice(0, 10);
+    const mapped = recentAnalyses
       .filter(a => a.technicalScore > 0 || a.learningScore > 0)
       .map(a => ({
         date: formatDate(a.createdAt),
         technicalScore: a.technicalScore || a.overallScore || 0,
         learningScore: a.learningScore || 0,
         fullDate: a.createdAt
-      }))
-      .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+      }));
+    
+    const dateMap = new Map();
+    mapped.forEach(item => {
+      const existing = dateMap.get(item.date);
+      if (!existing || new Date(item.fullDate) > new Date(existing.fullDate)) {
+        dateMap.set(item.date, item);
+      }
+    });
+    
+    return Array.from(dateMap.values()).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
   })();
 
   const getProgressTrend = () => {
     if (!latestAssessment || !previousAssessment) return "neutral";
-    
     const latestScore = latestAssessment.technicalScore || latestAssessment.overallScore || 0;
     const previousScore = previousAssessment.technicalScore || previousAssessment.overallScore || 0;
-    
     if (latestScore > previousScore) return "improving";
     if (latestScore < previousScore) return "declining";
     return "neutral";
@@ -276,7 +300,6 @@ function LearningProgressPage() {
     stable: "➡️"
   }[progressTrend] || "➡️";
 
-  // Calculate readiness
   const readiness = latestAssessment ? calculateReadiness(
     latestAssessment?.technicalScore || latestAssessment?.overallScore || 0,
     latestAssessment?.learningScore || 0
@@ -284,630 +307,237 @@ function LearningProgressPage() {
 
   if (loading) {
     return (
-
       <div className="page-container lp-page-container">
         <style>{dashboardStyles}</style>
         <div className="lp-content-wrapper">
           <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px' }}>
             <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
             <h2 style={{ color: 'var(--text-primary)' }}>Loading your learning progress...</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>Fetching your analysis history</p>
             <div className="loading-spinner" style={{ margin: '24px auto' }}></div>
           </div>
-
         </div>
       </div>
     );
   }
 
   return (
-
     <div className="page-container lp-page-container">
       <style>{dashboardStyles}</style>
       <div className="lp-content-wrapper">
 
         {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginBottom: '32px',
-          flexWrap: 'wrap',
-          gap: '16px'
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ textAlign: 'center' }}>
-
             <h1 style={{ margin: 0, color: 'var(--text-primary)', fontSize: 'var(--text-3xl)' }}>📚 Learning Dashboard</h1>
-            <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>
-
-              Track your growth and continue learning
-            </p>
+            <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Track your growth and continue learning</p>
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Tab Navigation */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '30px' }}>
+          <button onClick={() => setActiveTab('overview')} style={{ padding: '10px 22px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: activeTab === 'overview' ? '600' : '400', backgroundColor: activeTab === 'overview' ? '#4f46e5' : '#f3f4f6', color: activeTab === 'overview' ? '#fff' : '#374151', transition: 'all 0.2s ease' }}>📊 Overview</button>
+          <button onClick={() => setActiveTab('roadmap')} style={{ padding: '10px 22px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: activeTab === 'roadmap' ? '600' : '400', backgroundColor: activeTab === 'roadmap' ? '#4f46e5' : '#f3f4f6', color: activeTab === 'roadmap' ? '#fff' : '#374151', transition: 'all 0.2s ease' }}>🗺️ Roadmap</button>
+        </div>
+
         {error && (
-          <div className="content-card" style={{ 
-            background: 'var(--color-error-light)', 
-            border: '1px solid var(--color-error)',
-            marginBottom: '24px' 
-          }}>
+          <div className="content-card" style={{ background: 'var(--color-error-light)', border: '1px solid var(--color-error)', marginBottom: '24px' }}>
             <p style={{ color: 'var(--color-error)', margin: 0 }}>{error}</p>
-            <button onClick={loadAnalyses} className="lp-enterprise-btn" style={{ marginLeft: '16px' }}>
-              Retry
-            </button>
+            <button onClick={loadAnalyses} className="lp-enterprise-btn" style={{ marginLeft: '16px' }}>Retry</button>
           </div>
         )}
 
-        {/* Empty State */}
-        {analyses.length === 0 ? (
+        {/* OVERVIEW TAB CONTENT */}
+        {activeTab === 'overview' && (
+          <>
+            {analyses.length === 0 ? (
+              <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px', background: 'white' }}>
+                <h2>No assessments yet</h2>
+                <button onClick={() => navigate("/")} className="lp-enterprise-btn">Get Started</button>
+              </div>
+            ) : (
+              <>
+                <div className="summary-row" style={{ width: '100%', padding: '24px', maxWidth: '1200px', margin: '0 auto', boxSizing: 'border-box' }}>
+                  <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 8px 20px rgba(0,0,0,0.05)', marginBottom: '32px', width: '100%' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '24px', background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', borderRadius: '12px', border: '1px solid #7dd3fc', minHeight: '120px' }}>
+                        <div style={{ fontSize: '36px', flexShrink: 0, marginRight: '16px' }}>📊</div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, color: '#0369a1', fontSize: '14px', fontWeight: '500' }}>Total Tests</p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '36px', fontWeight: '800', color: '#0369a1', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{analyses.length}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', borderRadius: '12px', border: '1px solid #bbf7d0', minHeight: '120px' }}>
+                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📈</div>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px', fontWeight: '500' }}>Progress Trend</p>
+                        <p style={{ margin: '8px 0 0 0', fontSize: '20px', fontWeight: '700', color: '#15803d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trendIcon} {progressTrend.charAt(0).toUpperCase() + progressTrend.slice(1)}</p>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderRadius: '12px', border: '1px solid #fcd34d', minHeight: '120px' }}>
+                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📝</div>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px', fontWeight: '500' }}>Latest Technical</p>
+                        <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: '700', color: '#b45309', whiteSpace: 'nowrap' }}>{latestAssessment?.technicalScore || latestAssessment?.overallScore || 0}%</p>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', borderRadius: '12px', border: '1px solid #d8b4fe', minHeight: '120px' }}>
+                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>🎯</div>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '12px', fontWeight: '500' }}>Status</p>
+                        <p style={{ margin: '8px 0 0 0', fontSize: '18px', fontWeight: '700', color: '#7e22ce', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{latestAssessment?.learningStyle || 'In Progress'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-          <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px' }}>
-            <div style={{ fontSize: '64px', marginBottom: '20px' }}>📊</div>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>No assessments yet</h2>
-            <p style={{ margin: '0 0 24px 0', color: 'var(--text-secondary)', fontSize: 'var(--text-base)' }}>
-              Complete your first analysis to start tracking your progress
-            </p>
-            <button onClick={() => navigate("/")} className="lp-enterprise-btn">
+                <div className="main-grid" style={{ width: '100%', maxWidth: '1200px', margin: '0 auto' }}>
+                  <div className="dashboard-left main-content-gap">
+                    <div className="lp-content-card" style={{ marginBottom: '24px' }}>
+                      <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>📈 Learning Progress (Last 3 Assessments)</h3>
+                      {chartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                            <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={12} />
+                            <YAxis stroke="var(--text-muted)" fontSize={12} domain={[0, 100]} />
+                            <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }} />
+                            <Legend />
+                            <Line type="monotone" dataKey="technicalScore" stroke="var(--color-primary)" strokeWidth={2} name="Technical Score" dot={{ fill: "var(--color-primary)", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="learningScore" stroke="var(--color-secondary)" strokeWidth={2} name="Learning Score" dot={{ fill: "var(--color-secondary)", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><p>No score data available for chart display</p></div>
+                      )}
+                    </div>
 
-              Get Started
-            </button>
+                    <div className="lp-content-card">
+                      <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>📋 Past Assessments</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {analyses.slice(0, showAllAssessments ? analyses.length : 1).map((a, i) => (
+                          <div key={i} style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <strong>{a.topic || "Assessment"}</strong>
+                              <span>{a.technicalScore}%</span>
+                            </div>
+                            <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ marginTop: '12px' }}>Continue Learning →</button>
+                          </div>
+                        ))}
+                      </div>
+                      {!showAllAssessments && analyses.length > 1 && (<button onClick={() => setShowAllAssessments(true)} className="lp-enterprise-btn" style={{ marginTop: '16px' }}>Show More</button>)}
+                    </div>
+                  </div>
+
+                  <div className="dashboard-right main-content-gap">
+                    <div className="lp-content-card" style={{ marginBottom: '24px' }}>
+                      <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>🎯 Placement Readiness</h3>
+                      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                        <div style={{ width: "120px", height: "120px", borderRadius: "50%", background: `conic-gradient(${readiness?.color} ${readiness?.percentage * 3.6}deg, #e5e7eb 0deg)`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                          <div style={{ width: "90px", height: "90px", borderRadius: "50%", background: "var(--bg-card)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ fontSize: "24px", fontWeight: "bold", color: readiness?.color }}>{readiness?.percentage.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                        <p style={{ margin: "15px 0 0 0", fontSize: "20px", fontWeight: "600", color: readiness?.color }}>{readiness?.level}</p>
+                      </div>
+                    </div>
+
+                    <div className="lp-content-card">
+                      <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>📊 Quick Stats</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: "16px", background: "var(--color-gray-50)", borderRadius: "12px" }}>
+                          <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: '500' }}>Source Type</span>
+                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{latestAssessment?.sourceType === "resume" ? "Resume" : "GitHub"}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: "16px", background: "var(--color-gray-50)", borderRadius: "12px" }}>
+                          <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: '500' }}>Joined Date</span>
+                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{formatDate(analyses[analyses.length - 1]?.createdAt)}</span>
+                        </div>
+                        {/* ✅ RESTORED: Last Active Row */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: "16px", background: latestAssessment ? "#ecfdf5" : "var(--color-gray-50)", borderRadius: "12px", border: latestAssessment ? "1px solid #059669" : "none" }}>
+                          <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: '500' }}>Last Active</span>
+                          <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "var(--text-primary)" }}>{latestAssessment ? formatDate(latestAssessment.createdAt) : "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* 🗺️ ROADMAP TAB (USER FRIENDLY RESTORATION) */}
+        {activeTab === 'roadmap' && analyses.length > 0 && (
+          <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+             
+             {/* 🔴 High Priority */}
+             {analyses.filter(a => (a.technicalScore || 0) < 40).length > 0 && (
+                <div>
+                   <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>⚠️ Needs Attention</h3>
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+                      {analyses.filter(a => (a.technicalScore || 0) < 40).map((a, idx) => (
+                        <div key={idx} className="soft-card-red">
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                           </div>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Focus on basics. Complete these curated courses to build your expertise.</p>
+                           <div style={{ display: 'flex', gap: '12px' }}>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+full+course`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+             )}
+
+             {/* 🟡 Improving Areas */}
+             {analyses.filter(a => (a.technicalScore || 0) >= 40 && (a.technicalScore || 0) < 65).length > 0 && (
+                <div>
+                   <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>📈 Improving Areas</h3>
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+                      {analyses.filter(a => (a.technicalScore || 0) >= 40 && (a.technicalScore || 0) < 65).map((a, idx) => (
+                        <div key={idx} className="soft-card-yellow">
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                           </div>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Making progress! Deepen your knowledge with advanced implementation scenarios.</p>
+                           <div style={{ display: 'flex', gap: '12px' }}>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+tutorial+advanced`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+             )}
+
+             {/* 🟢 Strong Areas */}
+             {analyses.filter(a => (a.technicalScore || 0) >= 65).length > 0 && (
+                <div>
+                   <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>🏆 Strong Areas</h3>
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+                      {analyses.filter(a => (a.technicalScore || 0) >= 65).map((a, idx) => (
+                        <div key={idx} className="soft-card-green">
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                              <span style={{ background: '#d1fae5', color: '#059669', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                           </div>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Excellent work! Stay sharp by practicing complex real-world problems.</p>
+                           <div style={{ display: 'flex', gap: '12px' }}>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+practice+problems`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
+                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Review</button>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+             )}
           </div>
-        ) : (
-          <div className="dashboard-layout">
-            {/* Summary Card - Full Width */}
-            <div className="lp-content-card dashboard-full">
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '20px'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Total Assessments</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {analyses.length}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Progress Trend</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {trendIcon} {progressTrend.charAt(0).toUpperCase() + progressTrend.slice(1)}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)' }}>Latest Technical</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '28px', fontWeight: 'var(--font-bold)' }}>
-                    {latestAssessment?.technicalScore || latestAssessment?.overallScore || 0}%
-                  </p>
-                </div>
-              </div>
-            </div>
+        )}
 
-            {/* Left Column - Main Content */}
-            <div className="dashboard-left">
-              {/* Score Trend Chart */}
-              {analyses.length > 0 && (
-
-                <div className="lp-content-card dashboard-left" style={{ marginBottom: '24px' }}>
-                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
-
-                    📈 Learning Progress (Last 3 Assessments)
-                  </h3>
-                  {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                        <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={12} />
-                        <YAxis stroke="var(--text-muted)" fontSize={12} domain={[0, 100]} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            background: 'var(--bg-card)', 
-                            border: '1px solid var(--border-color)',
-                            borderRadius: 'var(--radius-lg)',
-                            boxShadow: 'var(--shadow-md)'
-
-                          }}
-                        />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="technicalScore" 
-
-                          stroke="var(--color-primary)" 
-                          strokeWidth={2}
-                          name="Technical Score"
-                          dot={{ fill: "var(--color-primary)", strokeWidth: 2 }}
-
-                          activeDot={{ r: 6 }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="learningScore" 
-
-                          stroke="var(--color-secondary)" 
-                          strokeWidth={2}
-                          name="Learning Score"
-                          dot={{ fill: "var(--color-secondary)", strokeWidth: 2 }}
-
-                          activeDot={{ r: 6 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-
-                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-
-                      <p>No score data available for chart display</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="lp-content-card dashboard-left">
-                <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
-
-                  📋 Past Assessments
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {analyses.slice(0, showAllAssessments ? analyses.length : 1).map((analysis, index) => {
-                    const analysisKey = analysis.analysisId || analysis.id;
-                    const analysisReadiness = calculateReadiness(
-                      analysis.technicalScore || analysis.overallScore || 0,
-                      analysis.learningScore || 0
-                    );
-                    const isSelected = selectedAnalysis?.id === analysisKey;
-
-                    return (
-                      <div
-                        key={analysisKey || index}
-                        onClick={() => loadAnalysisDetail(analysisKey)}
-                        style={{
-
-                          background: isSelected ? 'var(--color-primary-light)' : 'var(--color-gray-50)',
-                          border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-lg)',
-                          padding: 'var(--space-4)',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s'
-
-                        }}
-                      >
-                        <div style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          marginBottom: '12px'
-                        }}>
-                          <div>
-
-                            <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
-                              {analysis.topic || analysis.sourceType || "Assessment"}
-                            </p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                              {formatDate(analysis.createdAt)}
-                            </p>
-                          </div>
-                          <span className={`badge badge-${analysisReadiness.level === 'Interview Ready' ? 'success' : analysisReadiness.level === 'Job Ready' ? 'warning' : 'neutral'}`}>
-                            {analysisReadiness.level}
-                          </span>
-                        </div>
-                        
-                        {/* Analysis Detail View */}
-                        {isSelected && selectedAnalysis && (
-                          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
-                            {/* Technical & Learning Scores */}
-                            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                              <div>
-                                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Technical</p>
-                                <p style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: getScoreColor(analysis.technicalScore || analysis.overallScore || 0), margin: 0 }}>
-                                  {analysis.technicalScore || analysis.overallScore || 0}%
-                                </p>
-
-                              </div>
-                              <div>
-                                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Learning</p>
-                                <p style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: getScoreColor(analysis.learningScore || 0), margin: 0 }}>
-                                  {analysis.learningScore || 0}%
-                                </p>
-                              </div>
-                              {analysis.learningStyle && (
-                                <div>
-                                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Style</p>
-                                  <p style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: 'var(--color-secondary)', margin: 0 }}>
-                                    {analysis.learningStyle}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Skills & Strengths */}
-                            {(analysis.skills?.length > 0 || analysis.strengths?.length > 0) && (
-
-                              <div style={{ marginBottom: '20px' }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#1F2937", fontSize: "15px" }}>
-
-                                  💪 Skills & Strengths
-                                </h4>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                  {analysis.skills?.map((skill, i) => (
-                                    <span key={i} style={{
-                                      background: "#D1FAE5",
-                                      color: "#059669",
-                                      padding: "5px 12px",
-                                      borderRadius: "20px",
-                                      fontSize: "13px",
-                                      fontWeight: "500"
-                                    }}>
-                                      {skill}
-                                    </span>
-                                  ))}
-                                  {analysis.strengths?.map((strength, i) => (
-                                    <span key={`s-${i}`} style={{
-                                      background: "#D1FAE5",
-                                      color: "#047857",
-                                      padding: "5px 12px",
-                                      borderRadius: "20px",
-                                      fontSize: "13px",
-                                      fontWeight: "500",
-                                      border: "1px solid #059669"
-                                    }}>
-                                      ✓ {strength}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Weak Areas */}
-                            {analysis.weakAreas?.length > 0 && (
-                              <div style={{ marginBottom: "20px" }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#1F2937", fontSize: "15px" }}>
-                                  🎯 Areas to Improve
-                                </h4>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                  {analysis.weakAreas.map((area, i) => (
-                                    <span key={i} style={{
-                                      background: "#FEE2E2",
-                                      color: "#DC2626",
-                                      padding: "5px 12px",
-                                      borderRadius: "20px",
-                                      fontSize: "13px",
-                                      fontWeight: "500"
-                                    }}>
-                                      {i === 0 && "🔴 "}{area}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Learning Roadmap */}
-                            {analysis.learningRoadmap && (
-                              <div style={{ marginBottom: "20px" }}>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#1F2937", fontSize: "15px" }}>
-                                  🗺️ Learning Roadmap
-                                </h4>
-                                {Array.isArray(analysis.learningRoadmap) ? (
-                                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#4B5563" }}>
-                                    {analysis.learningRoadmap.slice(0, 5).map((step, i) => (
-                                      <li key={i} style={{ marginBottom: "6px", fontSize: "14px" }}>{step}</li>
-                                    ))}
-                                  </ol>
-                                ) : typeof analysis.learningRoadmap === 'object' ? (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                                    {Object.entries(analysis.learningRoadmap).map(([phase, details], i) => (
-                                      <div key={i} style={{
-                                        background: "#F4F6F8",
-                                        padding: "12px",
-                                        borderRadius: "8px",
-                                        borderLeft: "3px solid #2563EB"
-                                      }}>
-                                        <p style={{ margin: "0 0 5px 0", fontWeight: "600", color: "#1F2937" }}>
-                                          {phase}
-                                        </p>
-                                        <p style={{ margin: 0, fontSize: "13px", color: "#4B5563" }}>
-                                          {Array.isArray(details) ? details.join(", ") : details}
-                                        </p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p style={{ margin: 0, color: "#4B5563", fontSize: "14px" }}>
-                                    {analysis.learningRoadmap}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* AI Recommendations */}
-                            {(analysis.aiRecommendations || analysis.recommendations) && (
-                              <div>
-                                <h4 style={{ margin: "0 0 10px 0", color: "#1F2937", fontSize: "15px" }}>
-                                  💡 AI Recommendations
-                                </h4>
-                                {Array.isArray(analysis.aiRecommendations || analysis.recommendations) ? (
-                                  <ul style={{ margin: 0, paddingLeft: "20px", color: "#4B5563" }}>
-                                    {(analysis.aiRecommendations || analysis.recommendations).slice(0, 5).map((rec, i) => (
-                                      <li key={i} style={{ marginBottom: "6px", fontSize: "14px" }}>
-                                        {typeof rec === 'object' ? rec.title || rec.type : rec}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p style={{ margin: 0, color: "#4B5563", fontSize: "14px" }}>
-                                    {analysis.aiRecommendations || analysis.recommendations}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Continue Learning Button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                continueLearning(analysis);
-                              }}
-                              className="lp-enterprise-btn"
-                              style={{
-                                width: "100%",
-                                marginTop: "20px",
-
-                                background: "var(--color-primary)",
-
-                              }}
-                            >
-                              🚀 Continue Learning
-                            </button>
-                          </div>
-                        )}
-
-                        {!isSelected && (
-                          <>
-                            <div style={{ display: 'flex', gap: '16px' }}>
-                              <div>
-                                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Technical</p>
-                                <p style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: getScoreColor(analysis.technicalScore || analysis.overallScore || 0), margin: 0 }}>
-                                  {analysis.technicalScore || analysis.overallScore || 0}%
-                                </p>
-                              </div>
-                              <div>
-                                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Learning</p>
-                                <p style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: getScoreColor(analysis.learningScore || 0), margin: 0 }}>
-                                  {analysis.learningScore || 0}%
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                continueLearning(analysis);
-                              }}
-                              className="lp-enterprise-btn"
-                              style={{ marginTop: '12px', width: '100%' }}
-                            >
-                              Continue Learning →
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {!showAllAssessments && analyses.length > 1 && (
-                  <button
-                    onClick={() => setShowAllAssessments(true)}
-                    className="lp-enterprise-btn"
-                    style={{ marginTop: '16px' }}
-                  >
-                    Show More ({analyses.length - 1} more)
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - Sidebar */}
-            <div>
-              {/* Placement Readiness */}
-
-              {analyses.length > 0 && readiness && (
-                <div className="lp-content-card dashboard-right" style={{ marginBottom: '24px' }}>
-                  <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
-                    🎯 Placement Readiness
-                  </h3>
-                  <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                    <div style={{
-                      width: "120px",
-                      height: "120px",
-                      borderRadius: "50%",
-                      background: `conic-gradient(${readiness.color} ${readiness.percentage * 3.6}deg, #e5e7eb 0deg)`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      margin: "0 auto"
-
-                    }}>
-                      <div style={{
-                        width: "90px",
-                        height: "90px",
-                        borderRadius: "50%",
-                        background: "var(--bg-card)",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}>
-                        <span style={{ fontSize: "24px", fontWeight: "bold", color: readiness.color }}>
-                          {readiness.percentage.toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                    <p style={{ 
-                      margin: "15px 0 0 0", 
-                      fontSize: "20px", 
-                      fontWeight: "600", 
-                      color: readiness.color 
-                    }}>
-                      {readiness.level}
-                    </p>
-                  </div>
-                  <div style={{ 
-                    background: "var(--color-gray-50)", 
-                    borderRadius: "8px", 
-                    padding: "15px",
-                    fontSize: "13px",
-                    color: "var(--text-secondary)"
-                  }}>
-                    <p style={{ margin: "0 0 8px 0" }}>
-                      <strong>Formula:</strong> (Technical × 0.6) + (Learning × 0.4)
-                    </p>
-                    <p style={{ margin: 0 }}>
-                      Technical: {(latestAssessment?.technicalScore || latestAssessment?.overallScore || 0) * 0.6}% | 
-                      Learning: {(latestAssessment?.learningScore || 0) * 0.4}%
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Weak Areas Summary */}
-              {weakAreasSummary.length > 0 && (
-
-                <div className="lp-content-card dashboard-right" style={{ marginBottom: '24px' }}>
-                  <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
-
-                    🎯 Top Areas to Improve
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {weakAreasSummary.slice(0, 5).map((item, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          background: "#FEF3C7",
-                          border: "1px solid #FCD34D",
-                          borderRadius: "8px",
-                          padding: "12px 15px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center"
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span style={{ 
-                            background: "#D97706", 
-                            color: "#FFFFFF", 
-                            borderRadius: "50%", 
-                            width: "24px", 
-                            height: "24px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "12px",
-                            fontWeight: "bold"
-                          }}>
-                            {index + 1}
-                          </span>
-                          <span style={{ fontWeight: "500", color: "#92400E", fontSize: "14px" }}>
-                            {item.area}
-                          </span>
-                        </div>
-                        <span style={{ color: "#B45309", fontSize: "13px" }}>
-                          {item.count}×
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {weakAreasSummary.length > 5 && (
-                    <button
-                      onClick={() => {
-                        if (latestAssessment) continueLearning(latestAssessment);
-                      }}
-                      className="lp-enterprise-btn"
-                      style={{
-                        width: "100%",
-                        marginTop: "15px",
-
-                        background: "#fef3c7",
-                        color: "#92400e",
-                        border: "1px solid #fcd34d",
-
-                      }}
-                    >
-                      🎯 Practice These Topics
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Quick Stats */}
-
-              <div className="lp-content-card dashboard-right">
-                <h3 style={{ margin: "0 0 20px 0", color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}>
-
-                  📊 Quick Stats
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: "12px",
-
-                    background: "var(--color-gray-50)",
-                    borderRadius: "8px"
-                  }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Source Type</span>
-                    <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
-
-                      {latestAssessment?.sourceType === "resume" ? "Resume" : "GitHub"}
-                    </span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: "12px",
-
-                    background: "var(--color-gray-50)",
-                    borderRadius: "8px"
-                  }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Latest Topic</span>
-                    <span style={{ fontWeight: "600", color: "var(--text-primary)", maxWidth: "150px", textAlign: "right" }}>
-
-                      {latestAssessment?.topic || latestAssessment?.sourceType || "N/A"}
-                    </span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: "12px",
-
-                    background: "var(--color-gray-50)",
-                    borderRadius: "8px"
-                  }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Joined</span>
-                    <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
-
-                      {formatDate(analyses[analyses.length - 1]?.createdAt)}
-                    </span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: "12px",
-
-                    background: latestAssessment ? "#ecfdf5" : "var(--color-gray-50)",
-
-                    borderRadius: "8px",
-                    border: latestAssessment ? "1px solid #059669" : "none"
-                  }}>
-
-                    <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Last Active</span>
-                    <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "var(--text-primary)" }}>
-
-                      {latestAssessment ? formatDate(latestAssessment.createdAt) : "N/A"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {activeTab === 'roadmap' && analyses.length === 0 && (
+          <div style={{ background: '#f8fafc', minHeight: '100%', padding: '48px', textAlign: 'center' }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>🗺️</div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>No Roadmap Yet</h2>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-base)' }}>Complete assessments to get your personalized learning roadmap.</p>
           </div>
         )}
       </div>

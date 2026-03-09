@@ -22,17 +22,30 @@ process.on("unhandledRejection", err => {
 function githubToRaw(url) {
   if (url.includes("raw.githubusercontent.com")) return url;
 
-  const match = url.match(
-    /github\.com\/([^\/]+)\/([^\/]+)\/blob\/([^\/]+)\/(.+)/
-  );
-
-  if (!match) throw new Error("Invalid GitHub URL");
-
-  const [, owner, repo, branch, path] = match;
-
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURIComponent(
-    path
-  )}`;
+  // Handle different GitHub URL formats
+  let match;
+  
+  // Format 1: github.com/owner/repo/blob/branch/path (blob view URL)
+  match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([^\/]+)\/(.+)/);
+  if (match) {
+    const [, owner, repo, branch, path] = match;
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURIComponent(path)}`;
+  }
+  
+  // Format 2: github.com/owner/repo/tree/branch/path (tree view URL)
+  match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)\/(.+)/);
+  if (match) {
+    const [, owner, repo, branch, path] = match;
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURIComponent(path)}`;
+  }
+  
+  // Format 3: github.com/owner/repo (repository root - cannot extract)
+  match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/?$/);
+  if (match) {
+    throw new Error("Cannot extract PDF from GitHub repository root. Please provide a direct link to a PDF file (e.g., github.com/owner/repo/blob/main/path/to/file.pdf)");
+  }
+  
+  throw new Error("Invalid GitHub URL format. Please provide a direct link to a PDF file in a GitHub repository.");
 }
 
 
@@ -42,19 +55,34 @@ async function fetchPDF(githubUrl) {
 
   console.log("📥 Fetching PDF:", rawUrl);
 
-  const res = await fetch(rawUrl);
+  let res;
+  try {
+    res = await fetch(rawUrl);
+  } catch (fetchError) {
+    console.error("❌ Network error fetching PDF:", fetchError.message);
+    throw new Error(`Network error: Unable to connect to GitHub. ${fetchError.message}`);
+  }
 
   if (!res.ok) {
-    throw new Error("Failed to fetch PDF");
+    console.error(`❌ GitHub API error: HTTP ${res.status} - ${res.statusText}`);
+    if (res.status === 404) {
+      throw new Error("File not found on GitHub. Please check the URL is correct and the file exists.");
+    }
+    if (res.status === 403) {
+      throw new Error("Access forbidden. GitHub may be rate-limiting or the file requires authentication.");
+    }
+    throw new Error(`Failed to fetch PDF (HTTP ${res.status}): ${res.statusText}`);
   }
 
   const buffer = Buffer.from(await res.arrayBuffer());
 
   // Real PDF check
   if (!buffer.slice(0, 4).toString().includes("%PDF")) {
-    throw new Error("Not a valid PDF file");
+    console.error("❌ Invalid file type - not a PDF");
+    throw new Error("Not a valid PDF file - file may not exist or is not a PDF");
   }
 
+  console.log("✅ PDF fetched successfully, size:", buffer.length, "bytes");
   return buffer;
 }
 

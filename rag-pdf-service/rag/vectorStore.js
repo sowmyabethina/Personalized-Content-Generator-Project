@@ -1,22 +1,4 @@
-import pg from 'pg';
-const { Pool } = pg;
-
-// PostgreSQL connection pool
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'rag_pdf_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
-
-pool.on('connect', () => {
-  console.log('✅ Connected to PostgreSQL for vector storage');
-});
-
-pool.on('error', (err) => {
-  console.error('❌ PostgreSQL vector store error:', err.message);
-});
+import db from '../../db/db.js';
 
 // Generate a unique PDF ID from filename
 function generatePdfId(fileName) {
@@ -37,7 +19,7 @@ let dimension = null;
 export async function initVectorStore() {
   try {
     // Create document_chunks table if it doesn't exist
-    await pool.query(`
+    await db.query(`
       CREATE TABLE IF NOT EXISTS document_chunks (
         id SERIAL PRIMARY KEY,
         pdf_id VARCHAR(100) NOT NULL,
@@ -52,17 +34,17 @@ export async function initVectorStore() {
     
     // Add columns if they don't exist (for existing databases)
     try {
-      await pool.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_title VARCHAR(500)`);
-      await pool.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_level VARCHAR(50)`);
+      await db.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_title VARCHAR(500)`);
+      await db.query(`ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS section_level VARCHAR(50)`);
     } catch (e) {
       // Ignore if columns already exist
     }
     
     // Create indexes for faster queries
-    await pool.query(`
+    await db.query(`
       CREATE INDEX IF NOT EXISTS idx_document_chunks_pdf_id ON document_chunks(pdf_id)
     `);
-    await pool.query(`
+    await db.query(`
       CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_chunks USING GIN (embedding)
     `);
     
@@ -86,7 +68,7 @@ export async function clearVectorStore(pdfId = null) {
       params = [];
     }
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     const count = result.rowCount || 0;
     console.log(`🗑️ Cleared ${count} vectors from database${pdfId ? ` for PDF: ${pdfId}` : ''}`);
     return count;
@@ -110,7 +92,7 @@ export async function addVector(embedding, text, pdfId = null, pageNumber = null
       RETURNING id
     `;
     
-    await pool.query(query, [pdfId || 'default', text, JSON.stringify(embedding), pageNumber]);
+    await db.query(query, [pdfId || 'default', text, JSON.stringify(embedding), pageNumber]);
   } catch (error) {
     console.error('❌ Error adding vector to database:', error.message);
     throw error;
@@ -124,7 +106,7 @@ export async function addVectorsBatch(chunks, pdfId) {
     return 0;
   }
 
-  const client = await pool.connect();
+  const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
     
@@ -198,7 +180,7 @@ export async function similaritySearch(queryEmbedding, topK = 3) {
 
   try {
     // Get all embeddings from database
-    const result = await pool.query('SELECT id, chunk_text, embedding FROM document_chunks');
+    const result = await db.query('SELECT id, chunk_text, embedding FROM document_chunks');
     
     if (result.rows.length === 0) {
       console.warn('⚠️ similaritySearch called but no vectors stored');
@@ -241,7 +223,7 @@ export async function similaritySearchWithThreshold(queryEmbedding, topK = 10, m
       params.push(pdfId);
     }
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     
     if (result.rows.length === 0) {
       console.warn('⚠️ similaritySearchWithThreshold called but no vectors stored');
@@ -280,7 +262,7 @@ export async function similaritySearchWithThreshold(queryEmbedding, topK = 10, m
 // Get all chunks for a specific PDF
 export async function getChunksByPdfId(pdfId) {
   try {
-    const result = await pool.query(
+    const result = await db.query(
       'SELECT id, chunk_text, embedding, page_number, created_at FROM document_chunks WHERE pdf_id = $1 ORDER BY id',
       [pdfId]
     );
@@ -314,7 +296,7 @@ export async function getSequentialChunks(pdfId = null, limit = 5) {
       params.push(limit);
     }
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     
     return result.rows.map(row => ({
       text: row.chunk_text,
@@ -338,7 +320,7 @@ export async function getChunkCount(pdfId = null) {
       params.push(pdfId);
     }
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     return parseInt(result.rows[0].count);
   } catch (error) {
     console.error('❌ Error getting chunk count:', error.message);
@@ -358,7 +340,7 @@ export async function getAllChunkTexts(pdfId = null) {
     }
     query += ' ORDER BY id ASC';
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     return result.rows.map(row => ({
       text: row.chunk_text,
       title: row.section_title,
@@ -372,6 +354,6 @@ export async function getAllChunkTexts(pdfId = null) {
 
 // Close database connection
 export async function closeVectorStore() {
-  await pool.end();
+  await db.pool.end();
   console.log('✅ Vector store connection closed');
 }

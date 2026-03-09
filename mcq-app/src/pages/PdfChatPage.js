@@ -9,6 +9,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import ENDPOINTS from "../config/api";
 
 function PdfChatPage() {
   const [messages, setMessages] = useState([]);
@@ -328,6 +329,7 @@ function PdfChatPage() {
           },
         ]);
         setPdfStatus({ pdfLoaded: true, fileName: data.fileName });
+        setShowChatbot(true);
       } else {
         setMessages([
           {
@@ -357,30 +359,32 @@ function PdfChatPage() {
     setMessages((prev) => [...prev, { type: "user", content: userQuestion }]);
 
     try {
-      const res = await fetch("http://localhost:5001/chat", {
+      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: userQuestion,
-          conversationHistory: messages.filter((m) => m.type !== "system" && m.type !== "error"),
+          message: userQuestion,
           sessionId,
         }),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        if (!sessionId && data.sessionId) {
-          setSessionId(data.sessionId);
-        }
-
+      if (res.ok && data.success) {
+        // Log which tool was used for debugging
+        console.log("🤖 Agent tool used:", data.tool);
+        
+        // Extract response from agent - can be in message or data.response
+        const responseText = data.message || data.data?.response || "No response";
+        
         setMessages((prev) => [
           ...prev,
           {
             type: "assistant",
-            content: data.answer,
-            sources: data.sources || [],
-            isClarification: data.isClarification || false,
+            content: responseText,
+            sources: data.data?.sources || [],
+            isClarification: data.data?.isClarification || false,
+            mode: data.tool || "agent",
           },
         ]);
       } else {
@@ -388,7 +392,7 @@ function PdfChatPage() {
           ...prev,
           {
             type: "error",
-            content: data.error || "Failed to get response",
+            content: data.message || data.error || "Failed to get response",
           },
         ]);
       }
@@ -620,7 +624,7 @@ function PdfChatPage() {
   return (
     <div className="pdf-chat-page-container">
       <div className="content-wrapper">
-        <div className="content-card">
+        <div className="content-card" style={{ marginTop: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>💬 PDF Chat</h3>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -697,6 +701,21 @@ function PdfChatPage() {
                   {message.type === "system" && (
                     <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>
                       ℹ️ System
+                    </span>
+                  )}
+                  {message.type === "assistant" && message.mode && (
+                    <span 
+                      style={{ 
+                        fontSize: "12px", 
+                        display: "inline-block", 
+                        marginBottom: "6px",
+                        padding: "2px 8px",
+                        borderRadius: "10px",
+                        background: message.mode === "openai" ? "#e8f5e9" : message.mode === "rag" ? "#e3f2fd" : "#fff3e0",
+                        color: message.mode === "openai" ? "#2e7d32" : message.mode === "rag" ? "#1565c0" : "#e65100",
+                      }}
+                    >
+                      {message.mode === "openai" ? "🧠 AI Answer" : message.mode === "rag" ? "📄 From Document" : "⚙️ Offline Mode"}
                     </span>
                   )}
                   <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.5" }}>{message.content}</div>

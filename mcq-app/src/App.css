@@ -1143,7 +1143,7 @@ section[class*="socialButtons"] > * {
 
 .progress-bar {
   height: 100%;
-  background: #5FB0B7;
+  background: var(--color-primary);
   border-radius: var(--radius-full);
   animation: progress 2s ease-in-out infinite;
 }
@@ -1208,8 +1208,8 @@ section[class*="socialButtons"] > * {
 .quiz-points {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: #5FB0B7;
-  background: #E6F4F5;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }

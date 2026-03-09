@@ -1,10 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import "dotenv/config";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Validate API key exists
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+  console.error("❌ ERROR: GEMINI_API_KEY is not set in environment variables");
+}
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export async function generateQuestions(text) {
   try {
+    // Check if API key is configured
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured. Please set it in .env file.");
+    }
 
     console.log("📝 Input text length:", text.length);
 

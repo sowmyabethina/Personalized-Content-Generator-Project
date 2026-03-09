@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import ENDPOINTS from "../config/api";
 
 // Debug log to verify component is loaded
 console.log("ACTIVE RESULTS COMPONENT LOADED");
@@ -93,7 +94,7 @@ function ResultPage() {
       };
 
       if (existingAnalysisId) {
-        await fetch(`http://localhost:5000/analysis/${existingAnalysisId}`, {
+        await fetch(ENDPOINTS.ANALYSIS.UPDATE(existingAnalysisId), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -113,7 +114,7 @@ function ResultPage() {
         setAnalysisId(existingAnalysisId);
         console.log("✅ Analysis updated:", existingAnalysisId);
       } else {
-        const saveRes = await fetch("http://localhost:5000/save-analysis", {
+        const saveRes = await fetch(ENDPOINTS.ANALYSIS.SAVE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(analysisData)
@@ -136,16 +137,21 @@ function ResultPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/generate-combined-content", {
+      // Use the centralized agent for personalized content
+      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: learningTopic || topic || "General Technology",
-          technicalLevel: getTechnicalLevel(),
-          technicalScore: technicalScore || score,
-          learningStyle: getLearningStyle(),
-          learningScore: learningScore || 50,
-          combinedAnalysis: combinedAnalysis?.combinedAnalysis || ""
+          message: `Generate personalized learning content on topic: ${learningTopic || topic || "General Technology"}`,
+          userId: userId,
+          context: {
+            userProfile: {
+              technicalLevel: getTechnicalLevel(),
+              learningStyle: getLearningStyle(),
+              technicalScore: technicalScore || score,
+              learningScore: learningScore || 50
+            }
+          }
         })
       });
 
@@ -153,12 +159,26 @@ function ResultPage() {
         throw new Error(`Server ${res.status}`);
       }
 
-      const content = await res.json();
+      const data = await res.json();
+      console.log("🤖 Agent response for content:", data);
 
-      setPersonalizedContent(content);
+      // Extract content from agent response
+      const content = data.data || {};
+      
+      // If content is a string, try to parse it
+      let parsedContent = content;
+      if (typeof content === 'string') {
+        try {
+          parsedContent = JSON.parse(content);
+        } catch (e) {
+          // Use as-is
+        }
+      }
+
+      setPersonalizedContent(parsedContent);
       setShowContent(true);
 
-      saveAnalysisToDatabase(content, content.learningPath);
+      saveAnalysisToDatabase(parsedContent, parsedContent.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
       setError("Failed to generate personalized content");
@@ -172,7 +192,7 @@ function ResultPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/generate-learning-material", {
+      const res = await fetch(ENDPOINTS.LEARNING.MATERIAL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

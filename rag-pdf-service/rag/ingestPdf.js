@@ -1,7 +1,7 @@
 import fs from "fs";
 import { getEmbedding } from "./embeddings.js";
 import { addVectorsBatch, clearVectorStore, generatePdfId } from "./vectorStore.js";
-import { splitIntoChunks } from "../services/pdfChunker.js";
+import { splitIntoChunks } from "./pdfChunker.js";
 
 // Regex patterns for detecting academic headings
 const HEADING_PATTERNS = [
@@ -318,7 +318,7 @@ async function extractTextFromPDF(filePath) {
   try {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
     
-    pdfjsLib.GlobalWorkerOptions.workerSrc = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
     
     const data = fs.readFileSync(filePath);
     const loadingTask = pdfjsLib.getDocument({ data });

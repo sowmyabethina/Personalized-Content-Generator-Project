@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import ENDPOINTS from "../config/api";
 
 function QuizPage() {
   const navigate = useNavigate();
@@ -199,19 +200,27 @@ function QuizPage() {
 
   useEffect(() => {
     const autoGenerateQuestions = async () => {
-      if ((!questions || questions.length === 0) && extractedText) {
+      console.log('🎯 Auto-generate check:', { questions: questions?.length, extractedText: extractedText?.substring(0, 100), topic: topic });
+      
+      // Generate quiz if we have extracted text OR a topic
+      if ((!questions || questions.length === 0) && (extractedText || topic)) {
         setLoading(true);
         setError("");
 
         try {
-          const payload = {
-            docText: extractedText.substring(0, 12000)
-          };
-
-          const res = await fetch("http://localhost:5000/generate", {
+          // Use the centralized agent for quiz generation
+          const res = await fetch(ENDPOINTS.AGENT.CHAT, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+              message: extractedText ? "Generate quiz questions from the document" : `Generate quiz questions on topic: ${topic}`,
+              userId: userId,
+              context: {
+                pdfText: extractedText || `Topic: ${topic}`,
+                quizType: extractedText ? 'document' : 'topic',
+                topic: topic
+              }
+            })
           });
 
           if (!res.ok) {
@@ -219,41 +228,60 @@ function QuizPage() {
           }
 
           const data = await res.json();
-          let parsedQuestions = [];
+          console.log("🤖 Agent response for quiz:", data);
 
-          if (Array.isArray(data)) {
-            parsedQuestions = data.map(q => ({
-              question: q.question,
-              options: Array.isArray(q.options) ? q.options : [q.options],
-              answer: q.answer || q.options[0],
-              explanation: q.explanation || "",
-              category: q.category || ""
-            }));
-          } else if (data.questions) {
-            let questionsText = typeof data.questions === 'object' ? data.questions.questions : data.questions;
+          // Parse questions from agent response
+          let parsedQuestions = [];
+          
+          // Try to get questions from different response formats
+          const questionData = data.data?.questions || data.data || [];
+          
+          if (Array.isArray(questionData)) {
+            parsedQuestions = questionData.map(q => {
+              // Backend returns correctAnswer, frontend expects 'answer'
+              // Also handle 'answer' field for compatibility
+              const correctAns = q.correctAnswer || q.answer || '';
+              return {
+                question: q.question,
+                options: Array.isArray(q.options) ? q.options : [q.options],
+                answer: correctAns,
+                explanation: q.explanation || "",
+                category: q.category || ""
+              };
+            });
+          } else if (typeof questionData === 'string') {
+            // Try parsing string response
             try {
-              const jsonParsed = JSON.parse(questionsText);
+              const jsonParsed = JSON.parse(questionData);
               if (Array.isArray(jsonParsed)) {
                 parsedQuestions = jsonParsed.map(q => ({
                   question: q.question,
                   options: Array.isArray(q.options) ? q.options : [q.options],
-                  answer: q.answer || q.options[0],
+                  answer: q.answer || q.correctAnswer || q.options?.[0],
                   explanation: q.explanation || "",
                   category: q.category || ""
                 }));
               }
             } catch (e) {
-              parsedQuestions = parseQuestionsFromText(questionsText);
+              parsedQuestions = parseQuestionsFromText(questionData);
             }
+          }
+
+          console.log('🔍 Parsed questions before normalization:', parsedQuestions.length);
+          if (parsedQuestions.length > 0) {
+            console.log('🔍 First question answer field:', parsedQuestions[0].answer);
+            console.log('🔍 First question options:', parsedQuestions[0].options);
           }
 
           if (parsedQuestions.length > 0) {
             const normalized = parsedQuestions.map(q => {
               let correct = q.answer;
+              // Handle letter answers (A, B, C, D)
               if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
                 const idx = correct.toUpperCase().charCodeAt(0) - 65;
                 correct = q.options[idx];
               }
+              // Handle numeric indexes
               if (typeof correct === "number") {
                 correct = q.options[correct];
               }
@@ -265,9 +293,16 @@ function QuizPage() {
               };
             });
 
+            console.log('🔍 Normalized questions:', normalized.length);
+            if (normalized.length > 0) {
+              console.log('🔍 First normalized answer:', normalized[0].answer);
+              console.log('🔍 First normalized options:', normalized[0].options);
+            }
+
             setGeneratedQuizQuestions(normalized);
+            console.log("✅ Quiz generated via agent:", normalized.length, "questions");
           } else {
-            setError("Could not parse questions from extracted content.");
+            setError("Could not parse questions from generated content.");
           }
         } catch (err) {
           console.error("Auto-generate error:", err);
@@ -284,14 +319,17 @@ function QuizPage() {
   const loadLearningQuestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/generate-learning-questions", {
+      // Use the dedicated endpoint for learning style/psychometric questions
+      const res = await fetch(ENDPOINTS.LEARNING.QUESTIONS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
       });
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setLearningQuestions(data);
+      
+      const questions = await res.json();
+      
+      if (Array.isArray(questions) && questions.length > 0) {
+        setLearningQuestions(questions);
         setLearningIndex(0);
         setLearningAnswers([]);
       }
@@ -332,7 +370,7 @@ function QuizPage() {
     if (displayQuestions.length > 0) {
       const completeQuiz = async () => {
         try {
-          const res = await fetch("http://localhost:5000/score-quiz", {
+          const res = await fetch(ENDPOINTS.QUIZ.SCORE, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -348,7 +386,7 @@ function QuizPage() {
             console.error("Scoring error:", data.error);
             quizAnswers.forEach((ans, i) => {
               const correctAnswer = displayQuestions[i]?.answer;
-              if (ans === correctAnswer) correct++;
+              if (correctAnswer && ans.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) correct++;
             });
           } else {
             correct = data.correct || 0;
@@ -367,7 +405,7 @@ function QuizPage() {
           let correct = 0;
           quizAnswers.forEach((ans, i) => {
             const correctAnswer = displayQuestions[i]?.answer;
-            if (ans === correctAnswer) correct++;
+            if (correctAnswer && ans.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) correct++;
           });
           const score = Math.round((correct / displayQuestions.length) * 100);
           setTechnicalScore(score);
@@ -382,8 +420,9 @@ function QuizPage() {
       };
 
       const nextQuestion = () => {
-        // Check if the selected answer is correct
-        const isCorrect = quizSelected === displayQuestions[quizIndex]?.answer;
+        // Check if the selected answer is correct (case-insensitive comparison)
+        const correctAnswer = displayQuestions[quizIndex]?.answer;
+        const isCorrect = correctAnswer ? quizSelected.trim().toLowerCase() === correctAnswer.trim().toLowerCase() : false;
         if (isCorrect) {
           setCorrectCount(prev => prev + 1);
         }
@@ -443,7 +482,8 @@ function QuizPage() {
               {/* Answer Options */}
               <div className="answer-options">
                 {displayQuestions[quizIndex]?.options.map((opt, i) => {
-                  const isCorrect = opt === displayQuestions[quizIndex]?.answer;
+                  const correctAnswer = displayQuestions[quizIndex]?.answer;
+                  const isCorrect = correctAnswer ? opt.trim().toLowerCase() === correctAnswer.trim().toLowerCase() : false;
                   const isSelected = quizSelected === opt;
                   const showHighlight = quizSelected !== "";
                   const letters = ['A', 'B', 'C', 'D'];
