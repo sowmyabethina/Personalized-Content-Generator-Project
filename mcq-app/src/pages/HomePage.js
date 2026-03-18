@@ -6,7 +6,8 @@ function HomePage() {
   const navigate = useNavigate();
 
   const [inputType, setInputType] = useState("github"); // "github" or "resume"
-  const [githubLink, setGithubLink] = useState("");
+  const [githubProfileUrl, setGithubProfileUrl] = useState("");
+  const [extractedSkills, setExtractedSkills] = useState([]);
   const [resumeFile, setResumeFile] = useState(null);
   const fileInputRef = useRef(null);
   const [extractedContent, setExtractedContent] = useState("");
@@ -15,10 +16,124 @@ function HomePage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  // URL Parsing Function - Extract username from GitHub Profile URL
+  const extractGithubUsername = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    
+    // Remove trailing slash
+    let cleanUrl = url.trim().replace(/\/$/, '');
+    
+    // Check if it's a valid GitHub profile URL
+    const githubProfileRegex = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9-_]+$/;
+    
+    if (!githubProfileRegex.test(cleanUrl)) {
+      return null;
+    }
+    
+    // Extract username from URL
+    const parts = cleanUrl.split('/');
+    const username = parts[parts.length - 1];
+    
+    // Validate username format
+    if (username && /^[a-zA-Z0-9-_]+$/.test(username)) {
+      return username;
+    }
+    
+    return null;
+  };
+
+  // Fetch repositories from GitHub API
+  const fetchGithubRepos = async (username) => {
+    const response = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=30`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Unable to fetch GitHub data');
+    }
+    
+    const repos = await response.json();
+    return repos;
+  };
+
+  // Extract skills from repositories (language + name keywords)
+  const extractSkillsFromRepos = (repos) => {
+    const skillsSet = new Set();
+    
+    // Common programming language keywords
+    const languageKeywords = {
+      'JavaScript': ['JavaScript', 'JS', 'React', 'Vue', 'Angular', 'Node', 'Express'],
+      'TypeScript': ['TypeScript', 'TS', 'Angular', 'React'],
+      'Python': ['Python', 'Django', 'Flask', 'FastAPI', 'Machine Learning', 'AI'],
+      'Java': ['Java', 'Spring', 'Android', 'Hibernate'],
+      'C++': ['C++', 'C Plus Plus'],
+      'C#': ['C#', 'C Sharp', '.NET', 'ASP.NET'],
+      'Go': ['Go', 'Golang'],
+      'Rust': ['Rust'],
+      'Swift': ['Swift', 'iOS', 'macOS'],
+      'Kotlin': ['Kotlin', 'Android'],
+      'Ruby': ['Ruby', 'Rails'],
+      'PHP': ['PHP', 'Laravel', 'WordPress'],
+      'HTML': ['HTML', 'HTML5'],
+      'CSS': ['CSS', 'CSS3', 'Sass', 'SCSS'],
+      'SQL': ['SQL', 'MySQL', 'PostgreSQL', 'MongoDB'],
+      'Shell': ['Shell', 'Bash', 'Linux'],
+      'Docker': ['Docker', 'Kubernetes', 'DevOps'],
+      'AWS': ['AWS', 'Amazon Web Services', 'Cloud'],
+      'React': ['React', 'ReactJS', 'Redux'],
+      'Vue': ['Vue', 'VueJS', 'Nuxt'],
+    };
+
+    repos.forEach(repo => {
+      // Add language if available
+      if (repo.language) {
+        skillsSet.add(repo.language);
+        
+        // Add related keywords
+        if (languageKeywords[repo.language]) {
+          languageKeywords[repo.language].forEach(keyword => {
+            skillsSet.add(keyword);
+          });
+        }
+      }
+      
+      // Add skills from repo name
+      if (repo.name) {
+        const nameLower = repo.name.toLowerCase();
+        Object.keys(languageKeywords).forEach(lang => {
+          if (nameLower.includes(lang.toLowerCase())) {
+            skillsSet.add(lang);
+          }
+        });
+      }
+      
+      // Add topics/tags from repo
+      if (repo.topics && Array.isArray(repo.topics)) {
+        repo.topics.forEach(topic => {
+          skillsSet.add(topic);
+        });
+      }
+      
+      // Add description keywords if available
+      if (repo.description) {
+        const descLower = repo.description.toLowerCase();
+        Object.keys(languageKeywords).forEach(lang => {
+          if (descLower.includes(lang.toLowerCase())) {
+            skillsSet.add(lang);
+          }
+        });
+      }
+    });
+    
+    return Array.from(skillsSet);
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      extractDocument();
+      extractGithubProfile();
     }
   };
 
@@ -80,86 +195,108 @@ function HomePage() {
     return questions;
   };
 
+  const extractGithubProfile = async () => {
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      // Validate URL
+      const username = extractGithubUsername(githubProfileUrl);
+      
+      if (!username) {
+        setError("Please enter a valid GitHub profile URL (e.g., https://github.com/username)");
+        setLoading(false);
+        return;
+      }
+
+      // Fetch repositories from GitHub API
+      const repos = await fetchGithubRepos(username);
+
+      if (!repos || repos.length === 0) {
+        setError("No repositories found for this GitHub profile");
+        setLoading(false);
+        return;
+      }
+
+      // Extract skills from repositories
+      const skills = extractSkillsFromRepos(repos);
+      
+      if (skills.length === 0) {
+        setError("Unable to extract skills from repositories");
+        setLoading(false);
+        return;
+      }
+
+      setExtractedSkills(skills);
+      
+      // Create content from skills for quiz generation
+      const skillsContent = `GitHub Profile: ${username}\n\nSkills: ${skills.join(', ')}\n\nRepositories:\n${repos.slice(0, 10).map(r => `- ${r.name}: ${r.language || 'Unknown'} - ${r.description || 'No description'}`).join('\n')}`;
+      
+      setExtractedContent(skillsContent);
+      setIsExtracted(true);
+      setSuccessMessage("GitHub profile analyzed successfully!");
+      
+      localStorage.setItem("extractedContent", skillsContent);
+      localStorage.setItem("documentSourceType", inputType);
+      localStorage.setItem("documentSourceUrl", githubProfileUrl);
+      localStorage.setItem("extractedSkills", JSON.stringify(skills));
+      localStorage.removeItem("currentAnalysisId");
+      
+      setTimeout(() => setSuccessMessage(""), 3000);
+
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Unable to fetch')) {
+        setError("Unable to fetch GitHub data. Please check the URL and try again.");
+      } else {
+        setError("Failed to analyze GitHub profile. Please try again.");
+      }
+    }
+
+    setLoading(false);
+  };
+
+  // Extract document for resume PDF
   const extractDocument = async () => {
     setLoading(true);
     setError("");
     setSuccessMessage("");
 
     try {
-      if (inputType === "resume") {
-        if (!resumeFile) {
-          setError("Please upload a Resume PDF file");
-          setLoading(false);
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append("pdf", resumeFile);
-
-        const res = await fetch(ENDPOINTS.PDF.READ_RESUME, {
-          method: "POST",
-          body: formData
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.text) {
-          setError(data.error || "Failed to extract text from Resume PDF");
-          setLoading(false);
-          return;
-        }
-
-        setExtractedContent(data.text);
-        setIsExtracted(true);
-        setSuccessMessage("Resume PDF extracted successfully!");
-        
-        localStorage.setItem("extractedContent", data.text);
-        localStorage.setItem("documentSourceType", inputType);
-        localStorage.removeItem("currentAnalysisId");
-        if (inputType === "github") {
-          localStorage.setItem("documentSourceUrl", githubLink);
-        } else {
-          localStorage.removeItem("documentSourceUrl");
-        }
-        
-        setTimeout(() => setSuccessMessage(""), 3000);
-
-      } else {
-        if (!githubLink.trim()) {
-          setError("Please paste a GitHub PDF link");
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch(ENDPOINTS.PDF.READ, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ github_url: githubLink })
-        });
-
-        const data = await res.json();
-
-        if (!data.text) {
-          setError("Failed to extract PDF. Please check the link and try again.");
-          setLoading(false);
-          return;
-        }
-
-        setExtractedContent(data.text);
-        setIsExtracted(true);
-        setSuccessMessage("PDF extracted successfully!");
-        
-        localStorage.setItem("extractedContent", data.text);
-        localStorage.setItem("documentSourceType", inputType);
-        localStorage.removeItem("currentAnalysisId");
-        if (inputType === "github") {
-          localStorage.setItem("documentSourceUrl", githubLink);
-        } else {
-          localStorage.removeItem("documentSourceUrl");
-        }
-        
-        setTimeout(() => setSuccessMessage(""), 3000);
+      if (!resumeFile) {
+        setError("Please upload a Resume PDF file");
+        setLoading(false);
+        return;
       }
+
+      const formData = new FormData();
+      formData.append("pdf", resumeFile);
+
+      const res = await fetch(ENDPOINTS.PDF.READ_RESUME, {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.text) {
+        setError(data.error || "Failed to extract text from Resume PDF");
+        setLoading(false);
+        return;
+      }
+
+      setExtractedContent(data.text);
+      setIsExtracted(true);
+      setSuccessMessage("Resume PDF extracted successfully!");
+      
+      localStorage.setItem("extractedContent", data.text);
+      localStorage.setItem("documentSourceType", inputType);
+      localStorage.removeItem("currentAnalysisId");
+      localStorage.removeItem("documentSourceUrl");
+      
+      setTimeout(() => setSuccessMessage(""), 3000);
+
     } catch (err) {
       console.error(err);
       setError("Document extraction failed. Please try again.");
@@ -276,8 +413,9 @@ function HomePage() {
             quizId: res.headers.get("X-Quiz-Id"),
             userId: null,
             sourceType: inputType,
-            sourceUrl: inputType === "github" ? githubLink : null,
-            extractedText: extractedContent.substring(0, 12000)
+            sourceUrl: inputType === "github" ? githubProfileUrl : null,
+            extractedText: extractedContent.substring(0, 12000),
+            skills: extractedSkills
           }
         });
       } else {
@@ -312,16 +450,19 @@ function HomePage() {
                 onClick={() => {
                   setInputType("github");
                   setResumeFile(null);
+                  setGithubProfileUrl("");
+                  setExtractedSkills([]);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
                 className={`toggle-btn ${inputType === "github" ? "active" : ""}`}
               >
-                GitHub URL
+                GitHub Profile
               </button>
               <button
                 onClick={() => {
                   setInputType("resume");
-                  setGithubLink("");
+                  setGithubProfileUrl("");
+                  setExtractedSkills([]);
                 }}
                 className={`toggle-btn ${inputType === "resume" ? "active" : ""}`}
               >
@@ -347,17 +488,17 @@ function HomePage() {
                   <>
                     <div className="info-box">
                       <p>
-                        Paste the direct PDF link from your GitHub repository.<br />
-                        Make sure the file is public and accessible.
+                        Enter your GitHub profile URL to analyze your repositories and extract skills.<br />
+                        Example: https://github.com/username
                       </p>
                     </div>
                     <input
                       type="text"
-                      id="github-link"
-                      name="githubLink"
-                      placeholder="Paste GitHub PDF link"
-                      value={githubLink}
-                      onChange={(e) => setGithubLink(e.target.value)}
+                      id="github-profile-url"
+                      name="githubProfileUrl"
+                      placeholder="Enter GitHub Profile URL (e.g., https://github.com/username)"
+                      value={githubProfileUrl}
+                      onChange={(e) => setGithubProfileUrl(e.target.value)}
                       onKeyDown={handleKeyPress}
                       className="enterprise-input"
                     />
@@ -396,12 +537,12 @@ function HomePage() {
                 )}
 
                 <button
-                  onClick={extractDocument}
-                  disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubLink.trim())}
+                  onClick={inputType === "github" ? extractGithubProfile : extractDocument}
+                  disabled={loading || (inputType === "resume" && !resumeFile) || (inputType === "github" && !githubProfileUrl.trim())}
                   className={`enterprise-btn ${loading ? 'loading' : ''}`}
                   style={{ marginTop: '16px' }}
                 >
-                  {loading ? "Analyzing Document..." : " Analyze Document"}
+                  {loading ? "Analyzing Profile..." : " Analyze Profile"}
                 </button>
 
                 {error && <p className="message error">{error}</p>}
@@ -444,7 +585,7 @@ function HomePage() {
               <div className="content-preview">
                 <label>Source:</label>
                 <span className="source-badge">
-                  {inputType === "resume" ? "Resume PDF" : "GitHub PDF"}
+                  {inputType === "resume" ? "Resume PDF" : "GitHub Profile"}
                 </span>
                 <textarea
                   id="extracted-preview"
@@ -466,11 +607,13 @@ function HomePage() {
 
                 <button
                   onClick={() => {
-                    setGithubLink("");
+                    setGithubProfileUrl("");
                     setResumeFile(null);
                     setExtractedContent("");
+                    setExtractedSkills([]);
                     setIsExtracted(false);
                     setError("");
+                    localStorage.removeItem("extractedSkills");
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                   className="enterprise-btn secondary"
