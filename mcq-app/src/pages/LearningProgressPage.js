@@ -247,6 +247,55 @@ function LearningProgressPage() {
     return { level: "Beginner", color: "#ef4444", percentage: readiness };
   };
 
+  // STEP 1: Normalize names
+  const normalizeName = (name) => name?.trim().toLowerCase();
+
+  // STEP 2: Remove duplicates using Map
+  const uniqueCoursesMap = new Map();
+
+  analyses.forEach((item) => {
+    const key = normalizeName(item.topic || item.name);
+    const displayName = item.topic || item.name || 'Unknown';
+
+    if (!uniqueCoursesMap.has(key)) {
+      uniqueCoursesMap.set(key, {
+        ...item,
+        name: displayName,
+        score: item.technicalScore || item.progress || 0
+      });
+    }
+  });
+
+  const uniqueCourses = Array.from(uniqueCoursesMap.values());
+
+  // STEP 3: Categorize
+  const needsAttention = [];
+  const improving = [];
+  const strong = [];
+
+  uniqueCourses.forEach((course) => {
+    const score = course.score;
+
+    if (score < 40) {
+      needsAttention.push(course);
+    } else if (score < 70) {
+      improving.push(course);
+    } else {
+      strong.push(course);
+    }
+  });
+
+  // STEP 4: Sort
+  needsAttention.sort((a, b) => a.score - b.score);
+  improving.sort((a, b) => a.score - b.score);
+  strong.sort((a, b) => b.score - a.score);
+
+  // STEP 5: Format display name
+  const formatName = (name) => {
+    if (!name) return 'Unknown';
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+  };
+
   const weakAreasSummary = (() => {
     const weakAreasMap = {};
     analyses.forEach(analysis => {
@@ -462,23 +511,23 @@ function LearningProgressPage() {
         )}
 
         {/* 🗺️ ROADMAP TAB (USER FRIENDLY RESTORATION) */}
-        {activeTab === 'roadmap' && analyses.length > 0 && (
+        {activeTab === 'roadmap' && uniqueCourses.length > 0 && (
           <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-             
+              
              {/* 🔴 High Priority */}
-             {analyses.filter(a => (a.technicalScore || 0) < 40).length > 0 && (
+             {needsAttention.length > 0 && (
                 <div>
                    <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>⚠️ Needs Attention</h3>
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
-                      {analyses.filter(a => (a.technicalScore || 0) < 40).map((a, idx) => (
+                      {needsAttention.map((a, idx) => (
                         <div key={idx} className="soft-card-red">
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Focus on basics. Complete these curated courses to build your expertise.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+full+course`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+full+course`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
                               <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -488,19 +537,19 @@ function LearningProgressPage() {
              )}
 
              {/* 🟡 Improving Areas */}
-             {analyses.filter(a => (a.technicalScore || 0) >= 40 && (a.technicalScore || 0) < 65).length > 0 && (
+             {improving.length > 0 && (
                 <div>
                    <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>📈 Improving Areas</h3>
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
-                      {analyses.filter(a => (a.technicalScore || 0) >= 40 && (a.technicalScore || 0) < 65).map((a, idx) => (
+                      {improving.map((a, idx) => (
                         <div key={idx} className="soft-card-yellow">
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Making progress! Deepen your knowledge with advanced implementation scenarios.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+tutorial+advanced`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+tutorial+advanced`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
                               <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -510,19 +559,19 @@ function LearningProgressPage() {
              )}
 
              {/* 🟢 Strong Areas */}
-             {analyses.filter(a => (a.technicalScore || 0) >= 65).length > 0 && (
+             {strong.length > 0 && (
                 <div>
                    <h3 style={{ color: '#64748b', marginBottom: '16px', fontWeight: '600' }}>🏆 Strong Areas</h3>
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
-                      {analyses.filter(a => (a.technicalScore || 0) >= 65).map((a, idx) => (
+                      {strong.map((a, idx) => (
                         <div key={idx} className="soft-card-green">
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                              <span style={{ background: '#d1fae5', color: '#059669', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.technicalScore}%</span>
+                              <span style={{ background: '#d1fae5', color: '#059669', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{a.topic || "Assessment"}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Excellent work! Stay sharp by practicing complex real-world problems.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic}+practice+problems`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+practice+problems`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
                               <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Review</button>
                            </div>
                         </div>
@@ -533,7 +582,7 @@ function LearningProgressPage() {
           </div>
         )}
 
-        {activeTab === 'roadmap' && analyses.length === 0 && (
+        {activeTab === 'roadmap' && uniqueCourses.length === 0 && (
           <div style={{ background: '#f8fafc', minHeight: '100%', padding: '48px', textAlign: 'center' }}>
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>🗺️</div>
             <h2 style={{ color: 'var(--text-primary)', marginBottom: '12px' }}>No Roadmap Yet</h2>

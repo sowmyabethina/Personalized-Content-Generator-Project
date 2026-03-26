@@ -36,6 +36,243 @@ import ENDPOINTS from "../config/api";
  * }
  */
 
+// ============================================
+// DATA VALIDATION HELPERS
+// ============================================
+
+/**
+ * Check if text content is valid
+ * Returns true if string length > 5, rejects null, undefined, empty, "[object Object]"
+ */
+const isValidText = (content) => {
+  if (content === null || content === undefined) return false;
+  if (typeof content !== 'string') return false;
+  const trimmed = content.trim();
+  if (trimmed.length === 0) return false;
+  if (trimmed === '[object Object]') return false;
+  if (trimmed.length <= 5) return false; // Require more than 5 characters
+  return true;
+};
+
+/**
+ * Check if array is valid (not null, undefined, and has at least 1 item)
+ */
+const isValidArray = (arr) => {
+  if (arr === null || arr === undefined) return false;
+  if (!Array.isArray(arr)) return false;
+  return arr.length >= 1;
+};
+
+/**
+ * Check if summary is meaningful (at least 2 sentences)
+ */
+const isMeaningfulSummary = (content) => {
+  if (!isValidText(content)) return false;
+  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  return sentences.length >= 2;
+};
+
+/**
+ * Check if section title indicates tips/concepts type content
+ */
+const shouldSkipSummary = (title) => {
+  if (!title) return false;
+  const skipKeywords = ['tips', 'concepts', 'highlights', 'notes', 'summary', 'key points', 'important', 'revision'];
+  const lowerTitle = title.toLowerCase();
+  return skipKeywords.some(keyword => lowerTitle.includes(keyword));
+};
+
+/**
+ * Check if section heading should be hidden (when same as lesson title)
+ */
+const shouldHideSectionHeading = (lessonTitle, heading) => {
+  if (!lessonTitle || !heading) return false;
+  return lessonTitle.toLowerCase().trim() === heading.toLowerCase().trim();
+};
+
+/**
+ * Check if the lesson is a Learning Tips lesson
+ */
+const isLearningTipsLesson = (title) => {
+  if (!title) return false;
+  return title.toLowerCase().includes('tips') || title.toLowerCase().includes('tip');
+};
+
+/**
+ * Format learning tips text into bullet points
+ * Converts "**bold text** more text" into structured list items
+ */
+const formatLearningTips = (tips) => {
+  if (!tips || !Array.isArray(tips)) return [];
+  
+  return tips.map(tip => {
+    if (!tip || typeof tip !== 'string') return null;
+    
+    // Split by ** markers and filter empty strings
+    const parts = tip
+      .split('**')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+    
+    // If we have parts, join them as a single formatted tip
+    // Otherwise return the original tip
+    return parts.length > 0 ? parts.join(' ') : tip;
+  }).filter(tip => tip && tip.length > 0);
+};
+
+/**
+ * Check if Examples section should be shown
+ * Only show for technical lessons, not for tips/notes/highlights/revision
+ */
+const shouldShowExamples = (lessonTitle, examples) => {
+  if (!examples || !Array.isArray(examples) || examples.length === 0) return false;
+  
+  const title = lessonTitle?.toLowerCase() || '';
+  
+  // Skip for non-technical sections
+  const skipKeywords = ['tips', 'notes', 'highlights', 'revision'];
+  if (skipKeywords.some(keyword => title.includes(keyword))) {
+    return false;
+  }
+  
+  // Skip for final project if no real code exists
+  if (title.includes('project')) {
+    const hasRealCode = examples.some(
+      ex => ex && ex.code &&
+            typeof ex.code === 'string' &&
+            ex.code.trim().length > 10 &&
+            !ex.code.toLowerCase().includes('example') &&
+            !ex.code.toLowerCase().includes('basic')
+    );
+    if (!hasRealCode) return false;
+  }
+  
+  // Filter out invalid/empty examples
+  const isValidExample = (ex) => {
+    if (!ex || !ex.code || typeof ex.code !== 'string') return false;
+    const code = ex.code.trim();
+    // Skip if too short or contains placeholder text
+    if (code.length < 10) return false;
+    const lowerCode = code.toLowerCase();
+    if (lowerCode.includes('example code here') ||
+        lowerCode.includes('basic example') ||
+        lowerCode.includes('sample code here')) {
+      return false;
+    }
+    return true;
+  };
+  
+  const validExamples = examples.filter(isValidExample);
+  
+  return validExamples.length > 0;
+};
+
+/**
+ * Get icon for each section type
+ */
+const getDynamicHeading = (sectionType, title) => {
+  const headingMap = {
+    summary: 'Overview',
+    importantConcept: 'Important Concept',
+    thinkQuestion: 'Think About It',
+    keyPoints: 'Key Concepts',
+    examples: 'Examples',
+    applications: 'Applications'
+  };
+  
+  // For sections with custom titles - override summary heading
+  if (title && shouldSkipSummary(title)) {
+    if (title.toLowerCase().includes('tips')) return 'Learning Tips';
+    if (title.toLowerCase().includes('concept')) return 'Key Concepts';
+    if (title.toLowerCase().includes('note')) return 'Important Notes';
+    if (title.toLowerCase().includes('highlight')) return 'Highlights';
+    if (title.toLowerCase().includes('revision')) return 'Quick Revision';
+    // Don't show "Overview" for tips/concepts type sections
+    if (sectionType === 'summary') return null;
+  }
+  
+  return headingMap[sectionType] || 'Section';
+};
+
+/**
+ * Validate checkpoint has valid question and options
+ */
+const isValidCheckpoint = (checkpoint) => {
+  if (!checkpoint) return false;
+  if (!isValidText(checkpoint.question)) return false;
+  if (!isValidArray(checkpoint.options) || checkpoint.options.length < 2) return false;
+  return true;
+};
+
+/**
+ * Generate fallback checkpoint if none exists
+ */
+const generateFallbackCheckpoint = (lesson) => {
+  const title = lesson?.title || 'this lesson';
+  return {
+    question: `What is the key concept of ${title}?`,
+    options: [
+      'Understanding the main idea',
+      'Memorizing all details',
+      'Skipping the content',
+      'None of the above'
+    ],
+    correctAnswer: 0
+  };
+};
+
+/**
+ * Enhance content if it's weak
+ */
+const enhanceContent = (lesson) => {
+  const { sections, title } = lesson;
+  const enhanced = { ...lesson, sections: { ...sections } };
+  
+  // Safety check - ensure sections exists
+  if (!sections) return enhanced;
+  
+  // Ensure summary is meaningful (2-3 sentences)
+  if (!isMeaningfulSummary(sections?.summary)) {
+    if (sections?.summary && typeof sections.summary === 'string') {
+      const sentences = sections.summary.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      if (sentences.length < 2) {
+        // Expand short summary to 2-3 sentences
+        enhanced.sections.summary = sections.summary +
+          ' This concept forms the foundation for understanding ' +
+          (title || 'this topic') + ' and is essential for practical application.';
+      }
+    }
+  }
+  
+  // Ensure keyPoints has at least 3 items
+  if (!sections?.keyPoints || sections.keyPoints.length < 3) {
+    enhanced.sections.keyPoints = Array.isArray(sections?.keyPoints) ? [...sections.keyPoints] : [];
+    if (enhanced.sections.keyPoints.length < 3) {
+      enhanced.sections.keyPoints.push('Important foundational concept to understand');
+      enhanced.sections.keyPoints.push('Essential for practical application');
+      if (enhanced.sections.keyPoints.length < 3) {
+        enhanced.sections.keyPoints.push('Key skill for professional development');
+      }
+    }
+  }
+  
+  // Ensure examples has at least 1 example
+  if (!sections?.examples || sections.examples.length < 1) {
+    enhanced.sections.examples = Array.isArray(sections?.examples) ? [...sections.examples] : [];
+    if (enhanced.sections.examples.length < 1) {
+      // Add a basic example
+      enhanced.sections.examples.push({
+        title: 'Basic Example',
+        description: `A simple example demonstrating ${title || 'this concept'}`,
+        code: '// Example code here',
+        output: 'Expected output'
+      });
+    }
+  }
+  
+  return enhanced;
+};
+
 // Sample structured lessons for demonstration
 const SAMPLE_LESSONS = [
   {
@@ -183,17 +420,7 @@ const SAMPLE_LESSONS = [
         "Functions are reusable code blocks that perform specific tasks",
         "Parameters are inputs, return is the output",
         "Call a function by using its name with parentheses"
-      ],
-      checkpoint: {
-        question: "What is the purpose of parameters in a function?",
-        options: [
-          "To pass data into the function",
-          "To return a value",
-          "To name the function",
-          "To end the function"
-        ],
-        correctAnswer: 0
-      }
+      ]
     }
   },
   {
@@ -238,17 +465,7 @@ const SAMPLE_LESSONS = [
         "if executes when true, else when false",
         "Use else if for multiple conditions",
         "Comparison operators create conditions to check"
-      ],
-      checkpoint: {
-        question: "What does the 'else' statement do in conditional logic?",
-        options: [
-          "Executes when the condition is false",
-          "Executes when the condition is true",
-          "Checks the condition",
-          "Creates a loop"
-        ],
-        correctAnswer: 0
-      }
+      ]
     }
   },
   {
@@ -406,29 +623,34 @@ const convertSectionsToLessons = (learningMaterial) => {
 
 /**
  * Summary Section Component
- * Displays the main overview of the lesson
+ * Displays the main overview of the lesson with dynamic heading
  */
-const SummarySection = ({ content }) => (
-  <div style={styles.sectionContainer}>
-    <div style={styles.sectionHeader}>
-      <span style={styles.sectionIcon}>📖</span>
-      <h3 style={styles.sectionTitle}>Summary</h3>
+const SummarySection = ({ content, title, lessonTitle }) => {
+  if (!isValidText(content)) return null;
+   
+  const heading = title || getDynamicHeading('summary');
+  const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
+  
+  return (
+    <div style={styles.sectionContainer} className="section-fade-in">
+      <div style={styles.sectionHeader}>
+        {!hideHeading && <h3 style={styles.sectionTitle}>{heading}</h3>}
+      </div>
+      <p style={styles.summaryText}>{content}</p>
     </div>
-    <p style={styles.summaryText}>{content}</p>
-  </div>
-);
+  );
+};
 
 /**
  * Important Concept Component
  * Highlights a key concept in a purple/violet box after summary
  */
 const ImportantConceptSection = ({ concept }) => {
-  if (!concept) return null;
+  if (!isValidText(concept)) return null;
   
   return (
-    <div style={styles.importantConceptContainer}>
+    <div style={styles.importantConceptContainer} className="section-fade-in">
       <div style={styles.importantConceptHeader}>
-        <span style={styles.importantIcon}>💡</span>
         <span style={styles.importantTitle}>Important Concept</span>
       </div>
       <p style={styles.importantText}>{concept}</p>
@@ -438,19 +660,23 @@ const ImportantConceptSection = ({ concept }) => {
 
 /**
  * Key Points Component
- * Displays important points in a highlighted box
+ * Displays important points in a highlighted box with dynamic heading
  */
-const KeyPointsSection = ({ points }) => {
-  if (!points || points.length === 0) return null;
+const KeyPointsSection = ({ points, title, lessonTitle }) => {
+  if (!isValidArray(points)) return null;
+  
+  const heading = title || getDynamicHeading('keyPoints');
+  const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
+  const isTips = isLearningTipsLesson(lessonTitle);
+  const formattedPoints = isTips ? formatLearningTips(points) : points;
   
   return (
-    <div style={styles.keyPointsContainer}>
+    <div style={styles.keyPointsContainer} className="section-fade-in">
       <div style={styles.sectionHeader}>
-        <span style={styles.sectionIcon}>🎯</span>
-        <h3 style={styles.sectionTitle}>Key Points</h3>
+        {!hideHeading && <h3 style={styles.sectionTitle}>{heading}</h3>}
       </div>
       <ul style={styles.keyPointsList}>
-        {points.map((point, idx) => (
+        {formattedPoints.map((point, idx) => (
           <li key={idx} style={styles.keyPointItem}>{point}</li>
         ))}
       </ul>
@@ -460,16 +686,15 @@ const KeyPointsSection = ({ points }) => {
 
 /**
  * Real-World Applications Component
- * Displays applications in card/grid format
+ * Displays applications in card/grid format with dynamic heading
  */
 const ApplicationsSection = ({ applications }) => {
-  if (!applications || applications.length === 0) return null;
+  if (!isValidArray(applications)) return null;
   
   return (
-    <div style={styles.sectionContainer}>
+    <div style={styles.sectionContainer} className="section-fade-in">
       <div style={styles.sectionHeader}>
-        <span style={styles.sectionIcon}>🌍</span>
-        <h3 style={styles.sectionTitle}>Real-World Applications</h3>
+        <h3 style={styles.sectionTitle}>{getDynamicHeading('applications')}</h3>
       </div>
       <div style={styles.applicationsGrid}>
         {applications.map((app, idx) => (
@@ -488,13 +713,12 @@ const ApplicationsSection = ({ applications }) => {
  * Displays code examples with syntax highlighting style
  */
 const ExamplesSection = ({ examples }) => {
-  if (!examples || examples.length === 0) return null;
+  if (!isValidArray(examples)) return null;
   
   return (
-    <div style={styles.sectionContainer}>
+    <div style={styles.sectionContainer} className="section-fade-in">
       <div style={styles.sectionHeader}>
-        <span style={styles.sectionIcon}>💻</span>
-        <h3 style={styles.sectionTitle}>Examples</h3>
+        <h3 style={styles.sectionTitle}>{getDynamicHeading('examples')}</h3>
       </div>
       {examples.map((example, idx) => (
         <div key={idx} style={styles.exampleCard}>
@@ -523,41 +747,15 @@ const ExamplesSection = ({ examples }) => {
 };
 
 /**
- * Quick Revision Section Component
- * Displays a quick recap at the end of each lesson
- */
-const QuickRevisionSection = ({ items }) => {
-  if (!items || items.length === 0) return null;
-  
-  return (
-    <div style={styles.quickRevisionContainer}>
-      <div style={styles.sectionHeader}>
-        <span style={styles.sectionIcon}>🔄</span>
-        <h3 style={styles.sectionTitle}>Quick Revision</h3>
-      </div>
-      <div style={styles.revisionItems}>
-        {items.map((item, idx) => (
-          <div key={idx} style={styles.revisionItem}>
-            <span style={styles.revisionCheck}>✓</span>
-            <span style={styles.revisionText}>{item}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-/**
  * Think Question Component
  * Displays a reflective question for deeper engagement
  */
 const ThinkQuestionSection = ({ question }) => {
-  if (!question) return null;
+  if (!isValidText(question)) return null;
   
   return (
-    <div style={styles.thinkQuestionContainer}>
+    <div style={styles.thinkQuestionContainer} className="section-fade-in">
       <div style={styles.thinkQuestionHeader}>
-        <span style={styles.thinkIcon}>🤔</span>
         <span style={styles.thinkTitle}>Think About It</span>
       </div>
       <p style={styles.thinkQuestionText}>{question}</p>
@@ -579,7 +777,7 @@ const CopyButton = ({ code }) => {
   };
   
   return (
-    <button 
+    <button
       onClick={handleCopy}
       style={styles.copyButton}
     >
@@ -588,39 +786,16 @@ const CopyButton = ({ code }) => {
   );
 };
 
-/**
- * Practice Questions Component
- * Displays practice questions in a separate box
- */
-const PracticeQuestionsSection = ({ questions }) => {
-  if (!questions || questions.length === 0) return null;
-  
-  return (
-    <div style={styles.practiceContainer}>
-      <div style={styles.sectionHeader}>
-        <span style={styles.sectionIcon}>❓</span>
-        <h3 style={styles.sectionTitle}>Practice Questions</h3>
-      </div>
-      <ul style={styles.questionsList}>
-        {questions.map((question, idx) => (
-          <li key={idx} style={styles.questionItem}>
-            <span style={styles.questionNumber}>Q{idx + 1}:</span> {question}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
 
 /**
  * Estimated Time Component
  * Displays the estimated time for the lesson
  */
 const EstimatedTime = ({ time }) => {
-  if (!time) return null;
+  if (!isValidText(time)) return null;
   
   return (
-    <div style={styles.timeContainer}>
+    <div style={styles.timeContainer} className="section-fade-in">
       <span style={styles.timeIcon}>⏱️</span>
       <span style={styles.timeText}>Estimated Time: {time}</span>
     </div>
@@ -629,106 +804,70 @@ const EstimatedTime = ({ time }) => {
 
 /**
  * Main Lesson Content Component
- * Renders all sections of a structured lesson
+ * Renders all sections of a structured lesson with conditional rendering
  */
-const LessonContent = ({ lesson, onAnswerSelect, selectedAnswer, showFeedback, isCorrect }) => {
-  // Debug: log checkpoint to verify data
-  console.log('Lesson checkpoint:', lesson.checkpoint);
-  
-  const { sections, checkpoint } = lesson;
-  
+const LessonContent = ({ lesson }) => {
+  // Debug: log lesson data to verify data structure
+  console.log("Lesson:", lesson?.title);
+  console.log("Sections:", lesson?.sections);
+   
+  // Enhance content if it's weak
+  const enhancedLesson = enhanceContent(lesson);
+  const { sections, title: lessonTitle } = enhancedLesson;
+   
+  // Determine if we should skip summary based on lesson title
+  const shouldHideSummary = shouldSkipSummary(lessonTitle);
+   
+  // Determine if we should show summary
+  const showSummary = isValidText(sections?.summary) &&
+    (!shouldHideSummary || isMeaningfulSummary(sections.summary));
+   
   return (
     <div style={styles.lessonContent}>
-      {/* Important Concept - First, with purple left border */}
-      {sections?.importantConcept && <ImportantConceptSection concept={sections.importantConcept} />}
-      
-      {/* Summary Section */}
-      {sections?.summary && <SummarySection content={sections.summary} />}
-      
-      {/* Think Question - After Important Concept, attention-grabbing orange */}
-      {sections?.thinkQuestion && <ThinkQuestionSection question={sections.thinkQuestion} />}
-      
-      {/* Key Points Section */}
-      {sections?.keyPoints && sections.keyPoints.length > 0 && <KeyPointsSection points={sections.keyPoints} />}
-      
-      {/* Real-World Applications Section */}
-      {sections?.realWorldApplications && sections.realWorldApplications.length > 0 && <ApplicationsSection applications={sections.realWorldApplications} />}
-      
-      {/* Examples Section */}
-      {sections?.examples && sections.examples.length > 0 && <ExamplesSection examples={sections.examples} />}
-      
-      {/* Practice Questions Section */}
-      {sections?.practiceQuestions && sections.practiceQuestions.length > 0 && <PracticeQuestionsSection questions={sections.practiceQuestions} />}
-      
-      {/* Quick Revision - At the end */}
-      {sections?.quickRevision && sections.quickRevision.length > 0 && <QuickRevisionSection items={sections.quickRevision} />}
-      
-      {/* Mini Checkpoint - MCQ at end of lesson */}
-      {checkpoint && (
-        <MiniCheckpoint 
-          checkpoint={checkpoint}
-          selectedAnswer={selectedAnswer}
-          showFeedback={showFeedback}
-          isCorrect={isCorrect}
-          onSelect={onAnswerSelect}
+      {/* Important Concept - First */}
+      {isValidText(sections?.importantConcept) && (
+        <ImportantConceptSection
+          concept={sections.importantConcept}
         />
       )}
-    </div>
-  );
-};
-
-/**
- * Mini Checkpoint Component
- * Shows 1 simple MCQ at end of each lesson
- */
-const MiniCheckpoint = ({ checkpoint, selectedAnswer, showFeedback, isCorrect, onSelect }) => {
-  if (!checkpoint) return null;
-  
-  return (
-    <div style={styles.checkpointContainer}>
-      <div style={styles.checkpointHeader}>
-        <span style={styles.checkpointIcon}>🎯</span>
-        <h3 style={styles.checkpointTitle}>Mini Checkpoint</h3>
-      </div>
       
-      <p style={styles.checkpointQuestion}>{checkpoint.question}</p>
+      {/* Summary Section - Only show if valid and not redundant */}
+      {showSummary && (
+        <SummarySection
+          content={sections.summary}
+          title={shouldHideSummary ? getDynamicHeading('summary', lessonTitle) : getDynamicHeading('summary')}
+          lessonTitle={lessonTitle}
+        />
+      )}
       
-      <div style={styles.checkpointOptions}>
-        {checkpoint.options.map((option, idx) => {
-          const isSelected = selectedAnswer === idx;
-          const isCorrectAnswer = idx === checkpoint.correctAnswer;
-          let optionStyle = { ...styles.checkpointOption };
-          
-          if (showFeedback) {
-            if (isCorrectAnswer) {
-              optionStyle = { ...optionStyle, ...styles.checkpointOptionCorrect };
-            } else if (isSelected && !isCorrectAnswer) {
-              optionStyle = { ...optionStyle, ...styles.checkpointOptionWrong };
-            }
-          } else if (isSelected) {
-            optionStyle = { ...optionStyle, ...styles.checkpointOptionSelected };
-          }
-          
-          return (
-            <button
-              key={idx}
-              onClick={() => onSelect(idx)}
-              disabled={showFeedback}
-              style={optionStyle}
-            >
-              <span style={styles.optionLetter}>{String.fromCharCode(65 + idx)}</span>
-              <span style={styles.optionText}>{option}</span>
-              {showFeedback && isCorrectAnswer && <span style={styles.correctIcon}>✓</span>}
-              {showFeedback && isSelected && !isCorrectAnswer && <span style={styles.wrongIcon}>✗</span>}
-            </button>
-          );
-        })}
-      </div>
+      {/* Think Question */}
+      {isValidText(sections?.thinkQuestion) && (
+        <ThinkQuestionSection
+          question={sections.thinkQuestion}
+        />
+      )}
       
-      {showFeedback && (
-        <div style={isCorrect ? styles.feedbackCorrect : styles.feedbackWrong}>
-          {isCorrect ? '👍 Correct! Well done!' : '❌ Not quite — try again next time!'}
-        </div>
+      {/* Key Points Section */}
+      {isValidArray(sections?.keyPoints) && (
+        <KeyPointsSection
+          points={sections.keyPoints}
+          title={getDynamicHeading('keyPoints', lessonTitle)}
+          lessonTitle={lessonTitle}
+        />
+      )}
+      
+      {/* Real-World Applications Section */}
+      {isValidArray(sections?.realWorldApplications) && (
+        <ApplicationsSection
+          applications={sections.realWorldApplications}
+        />
+      )}
+      
+      {/* Examples Section - Only show for technical lessons */}
+      {shouldShowExamples(lessonTitle, sections?.examples) && (
+        <ExamplesSection
+          examples={sections.examples}
+        />
       )}
     </div>
   );
@@ -835,29 +974,23 @@ const styles = {
   
   // Section container with consistent spacing
   sectionContainer: {
-    marginBottom: '36px',
-    paddingBottom: '28px',
+    marginBottom: '32px',
+    paddingBottom: '24px',
     borderBottom: '1px solid #e2e8f0',
   },
   
-  // Section header with icon and title - BOLDER
+  // Section header - clean minimal style
   sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '16px',
-  },
-  
-  sectionIcon: {
-    fontSize: '22px',
+    marginBottom: '8px',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '4px',
   },
   
   sectionTitle: {
     margin: 0,
     color: '#1e293b',
-    fontSize: '20px',
-    fontWeight: '800',
-    letterSpacing: '-0.3px',
+    fontSize: '18px',
+    fontWeight: '600',
   },
   
   // Summary text styles - IMPROVED
@@ -868,25 +1001,20 @@ const styles = {
     margin: 0,
   },
   
-  // Important Concept highlight box - PURPLE with left border
+  // Important Concept highlight box - PURPLE with left border (Card UI)
   importantConceptContainer: {
     background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
     borderLeft: '5px solid #9333ea',
     borderRadius: '12px',
     padding: '20px 20px 20px 24px',
-    marginBottom: '36px',
+    marginBottom: '28px',
     boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
   },
   
   importantConceptHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '12px',
-  },
-  
-  importantIcon: {
-    fontSize: '20px',
+    marginBottom: '8px',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '4px',
   },
   
   importantTitle: {
@@ -1118,14 +1246,9 @@ const styles = {
   },
   
   thinkQuestionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '12px',
-  },
-  
-  thinkIcon: {
-    fontSize: '20px',
+    marginBottom: '8px',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '4px',
   },
   
   thinkTitle: {
@@ -1409,7 +1532,7 @@ const styles = {
     fontSize: '15px',
     textAlign: 'center',
   },
-  
+   
   // Sticky navigation
   stickyNav: {
     position: 'sticky',
@@ -1443,6 +1566,22 @@ const dashboardStyles = `
     background: #f8fafc;
   }
   
+  /* Smooth fade-in transition for sections */
+  .section-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+   
   .summary-row {
     width: 100%;
     margin-bottom: 32px;
@@ -1820,30 +1959,6 @@ function LearningProgressPage() {
     doc.save(filename);
   };
   
-  // Mini Checkpoint state
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
-  
-  // Reset checkpoint when step changes
-  useEffect(() => {
-    setSelectedAnswer(null);
-    setShowFeedback(false);
-    setIsCorrect(false);
-  }, [currentStep]);
-  
-  // Handle answer selection
-  const handleAnswerSelect = (index) => {
-    if (showFeedback) return; // Don't allow change after answering
-    setSelectedAnswer(index);
-    const currentLesson = lessons[currentStep];
-    if (currentLesson?.checkpoint) {
-      const correct = index === currentLesson.checkpoint.correctAnswer;
-      setIsCorrect(correct);
-      setShowFeedback(true);
-    }
-  };
-  
   // Scroll to top when step changes
   const handleStepChange = (newStep) => {
     setCurrentStep(newStep);
@@ -2038,12 +2153,8 @@ function LearningProgressPage() {
             </div>
             
             {/* Structured Lesson Content */}
-            <LessonContent 
+            <LessonContent
               lesson={currentLesson}
-              onAnswerSelect={handleAnswerSelect}
-              selectedAnswer={selectedAnswer}
-              showFeedback={showFeedback}
-              isCorrect={isCorrect}
             />
 
             {/* Navigation Buttons - Sticky at bottom */}
