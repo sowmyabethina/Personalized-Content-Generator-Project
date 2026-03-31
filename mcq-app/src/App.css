@@ -38,7 +38,7 @@ html {
   background-repeat: no-repeat;
 }
 
-/* Dark Blue Overlay */
+/* Light Overlay - reduced opacity */
 .split-layout::before {
   content: '';
   position: absolute;
@@ -46,7 +46,7 @@ html {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(244, 246, 248, 0.95) 0%, rgba(244, 246, 248, 0.9) 50%, rgba(244, 246, 248, 0.85) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.25) 100%);
   z-index: 1;
 }
 
@@ -129,7 +129,7 @@ html {
 .logo-icon {
   width: 36px;
   height: 36px;
-  color: #6366F1;
+  color: #13857e;
 }
 
 .hero-logo-text {
@@ -150,7 +150,7 @@ html {
 .hero-description {
   font-size: 17px;
   line-height: 1.75;
-  color: #475569;
+  color: #0a0c0f;
   margin-bottom: 40px;
 }
 
@@ -192,7 +192,7 @@ html {
 .feature-icon {
   width: 22px;
   height: 22px;
-  color: #6366F1;
+  color: #28aac7;
 }
 
 .feature-info h3 {
@@ -224,14 +224,14 @@ html {
 .login-card {
   width: 100%;
   max-width: 450px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 24px;
   padding: 48px 40px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
-  border: 1px solid #E2E8F0;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.492);
   position: relative;
   z-index: 3;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
 }
 
 /* Clerk Customization */
@@ -306,13 +306,13 @@ div[class*="CLERK-FOOTER"] {
 }
 
 .clerk-footer-link {
-  color: #6366F1 !important;
+  color: #0d7575 !important;
   font-weight: 500 !important;
   text-decoration: none !important;
 }
 
 .clerk-footer-link:hover {
-  color: #4F46E5 !important;
+  color: #58A7A0 !important;
   text-decoration: underline !important;
 }
 
