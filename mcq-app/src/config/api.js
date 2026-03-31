@@ -49,6 +49,14 @@ const ENDPOINTS = {
     STUDY_PLAN: `${BASE_URL}/agent/study-plan`
   },
   
+  // PDF Chat endpoints (RAG service)
+  PDF_CHAT: {
+    HEALTH: `http://localhost:5001/health`,
+    UPLOAD: `http://localhost:5001/upload-pdf`,
+    MINDMAP: `http://localhost:5001/mindmap`,
+    RESET: `http://localhost:5001/reset`
+  },
+  
   // Health check
   HEALTH: `${BASE_URL}/health`
 };

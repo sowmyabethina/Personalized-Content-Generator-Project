@@ -11,6 +11,209 @@ import {
 import "@xyflow/react/dist/style.css";
 import ENDPOINTS from "../config/api";
 
+// Convert mind map data to React Flow nodes and edges with RADIAL layout
+const convertToFlowElements = (data) => {
+  if (!data || !data.title) return { nodes: [], edges: [] };
+
+  const nodes = [];
+  const edges = [];
+  let nodeId = 0;
+  const generateId = () => `node-${nodeId++}`;
+
+  // Node style
+  const nodeStyle = {
+    background: "#ffffff",
+    border: "1px solid #E5E7EB",
+    borderRadius: "12px",
+    padding: "10px 14px",
+    color: "#1F2937",
+    fontSize: "14px",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
+    width: 180,
+    textAlign: "center",
+  };
+
+  // Center position
+  const centerX = 600;
+  const centerY = 350;
+
+  // Root node (center)
+  const rootId = "root";
+  nodes.push({
+    id: rootId,
+    type: "input",
+    position: { x: centerX, y: centerY },
+    data: { label: data.title },
+    style: {
+      background: "#2563EB",
+      color: "white",
+      padding: "14px 20px",
+      borderRadius: "16px",
+      fontWeight: "700",
+      fontSize: "18px",
+      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
+      width: 200,
+      textAlign: "center",
+    },
+  });
+
+  // Get first level topics
+  const topics = data.children || [];
+
+  // Split topics into left and right
+  const leftTopics = topics.filter((_, i) => i % 2 === 0);
+  const rightTopics = topics.filter((_, i) => i % 2 === 1);
+
+  // Positioning constants
+  const horizontalGap = 280;
+  const verticalGap = 120;
+
+  // Position right topics
+  rightTopics.forEach((topic, i) => {
+    const topicId = generateId();
+    const yOffset = (i - rightTopics.length / 2) * verticalGap;
+
+    nodes.push({
+      id: topicId,
+      position: {
+        x: centerX + horizontalGap,
+        y: centerY + yOffset,
+      },
+      data: { label: topic.title },
+      style: nodeStyle,
+    });
+
+    // Edge from root
+    edges.push({
+      id: `e-root-${topicId}`,
+      source: rootId,
+      target: topicId,
+      type: "smoothstep",
+      style: { stroke: "#94a3b8", strokeWidth: 2 },
+    });
+
+    // Subtopics branching
+    if (topic.children && topic.children.length > 0) {
+      const childGap = 200;
+      topic.children.forEach((child, j) => {
+        const childId = generateId();
+
+        nodes.push({
+          id: childId,
+          position: {
+            x: centerX + horizontalGap + childGap,
+            y: centerY + yOffset + (j - topic.children.length / 2) * 80,
+          },
+          data: { label: child.title },
+          style: nodeStyle,
+        });
+
+        edges.push({
+          id: `e-${topicId}-${childId}`,
+          source: topicId,
+          target: childId,
+          type: "smoothstep",
+          style: { stroke: "#94a3b8", strokeWidth: 2 },
+        });
+      });
+    }
+  });
+
+  // Position left topics
+  leftTopics.forEach((topic, i) => {
+    const topicId = generateId();
+    const yOffset = (i - leftTopics.length / 2) * verticalGap;
+
+    nodes.push({
+      id: topicId,
+      position: {
+        x: centerX - horizontalGap,
+        y: centerY + yOffset,
+      },
+      data: { label: topic.title },
+      style: nodeStyle,
+    });
+
+    // Edge from root
+    edges.push({
+      id: `e-root-${topicId}`,
+      source: rootId,
+      target: topicId,
+      type: "smoothstep",
+      style: { stroke: "#94a3b8", strokeWidth: 2 },
+    });
+
+    // Subtopics branching
+    if (topic.children && topic.children.length > 0) {
+      const childGap = 200;
+      topic.children.forEach((child, j) => {
+        const childId = generateId();
+
+        nodes.push({
+          id: childId,
+          position: {
+            x: centerX - horizontalGap - childGap,
+            y: centerY + yOffset + (j - topic.children.length / 2) * 80,
+          },
+          data: { label: child.title },
+          style: nodeStyle,
+        });
+
+        edges.push({
+          id: `e-${topicId}-${childId}`,
+          source: topicId,
+          target: childId,
+          type: "smoothstep",
+          style: { stroke: "#94a3b8", strokeWidth: 2 },
+        });
+      });
+    }
+  });
+
+  return { nodes, edges };
+};
+
+// Inner Flow component that uses ReactFlow hooks
+const MindMapFlow = ({ mindMapData }) => {
+  const { fitView } = useReactFlow();
+  
+  // Convert mind map data to flow elements (radial layout)
+  const flowData = convertToFlowElements(mindMapData);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(flowData.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(flowData.edges);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setNodes(flowData.nodes);
+    setEdges(flowData.edges);
+    setTimeout(() => fitView({ padding: 0.3, duration: 500 }), 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mindMapData]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      fitView
+      minZoom={0.4}
+      maxZoom={1.6}
+      panOnScroll
+      selectionOnDrag={false}
+      defaultEdgeOptions={{
+        style: { stroke: "#94a3b8", strokeWidth: 2 },
+        type: "smoothstep",
+      }}
+      style={{ width: "100%", height: "100%" }}
+    >
+      <Background color="#E5E7EB" gap={20} />
+      <Controls />
+    </ReactFlow>
+  );
+};
+
 function PdfChatPage() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -22,6 +225,7 @@ function PdfChatPage() {
   const [mindMapLoading, setMindMapLoading] = useState(false);
   const [showMindMap, setShowMindMap] = useState(false);
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,276 +235,18 @@ function PdfChatPage() {
     checkPdfStatus();
   }, []);
 
-  // Convert JSON tree to markdown for markmap
-  const jsonToMarkdown = useCallback((node, level = 0) => {
-    if (!node) return '';
-    const indent = '  '.repeat(level);
-    let md = '';
-    
-    if (level === 0) {
-      md += `# ${node.title}\n`;
-    } else {
-      md += `${indent}- ${node.title}\n`;
-    }
-    
-    if (node.children && node.children.length > 0) {
-      for (const child of node.children) {
-        md += jsonToMarkdown(child, level + 1);
-      }
-    }
-    
-    return md;
-  }, []);
-
-  // Render mind map when data changes
+  // Cleanup on unmount
   useEffect(() => {
-    // Mind map data will be rendered via React components
-  }, [mindMapData, showMindMap]);
-
-  // Recursive component to render mind map nodes (OLD - kept for reference)
-  // New implementation uses React Flow below
-  const MindMapNode = ({ node, isRoot = false }) => {
-    if (!node) return null;
-    
-    return (
-      <div style={{ 
-        marginLeft: isRoot ? 0 : 20, 
-        marginTop: 8 
-      }}>
-        <div style={{ 
-          display: 'inline-block',
-          padding: isRoot ? '12px 20px' : '8px 16px',
-          background: isRoot ? 'var(--color-primary)' : 'var(--color-white)',
-          color: isRoot ? 'white' : 'var(--text-primary)',
-          borderRadius: 'var(--radius-lg)',
-          border: isRoot ? 'none' : '1px solid var(--border-color)',
-          fontWeight: isRoot ? 'bold' : 'normal',
-          fontSize: isRoot ? '18px' : '14px',
-          boxShadow: isRoot ? 'var(--shadow-md)' : 'var(--shadow-sm)'
-        }}>
-          {node.title}
-        </div>
-        {node.children && node.children.length > 0 && (
-          <div style={{ 
-            borderLeft: '2px solid var(--color-primary)',
-            paddingLeft: 16,
-            marginTop: 8
-          }}>
-            {node.children.map((child, index) => (
-              <MindMapNode key={index} node={child} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Convert mind map data to React Flow nodes and edges with RADIAL layout
-  const convertToFlowElements = (data) => {
-    if (!data || !data.title) return { nodes: [], edges: [] };
-
-    const nodes = [];
-    const edges = [];
-    let nodeId = 0;
-    const generateId = () => `node-${nodeId++}`;
-
-    // Node style
-    const nodeStyle = {
-      background: "#ffffff",
-      border: "1px solid #E5E7EB",
-      borderRadius: "12px",
-      padding: "10px 14px",
-      color: "#1F2937",
-      fontSize: "14px",
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-      width: 180,
-      textAlign: "center",
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
-
-    // Center position
-    const centerX = 600;
-    const centerY = 350;
-
-    // Root node (center)
-    const rootId = "root";
-    nodes.push({
-      id: rootId,
-      type: "input",
-      position: { x: centerX, y: centerY },
-      data: { label: data.title },
-      style: {
-        background: "#2563EB",
-        color: "white",
-        padding: "14px 20px",
-        borderRadius: "16px",
-        fontWeight: "700",
-        fontSize: "18px",
-        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-        width: 200,
-        textAlign: "center",
-      },
-    });
-
-    // Get first level topics
-    const topics = data.children || [];
-
-    // Split topics into left and right
-    const leftTopics = topics.filter((_, i) => i % 2 === 0);
-    const rightTopics = topics.filter((_, i) => i % 2 === 1);
-
-    // Positioning constants
-    const horizontalGap = 280;
-    const verticalGap = 120;
-
-    // Position right topics
-    rightTopics.forEach((topic, i) => {
-      const topicId = generateId();
-      const yOffset = (i - rightTopics.length / 2) * verticalGap;
-
-      nodes.push({
-        id: topicId,
-        position: {
-          x: centerX + horizontalGap,
-          y: centerY + yOffset,
-        },
-        data: { label: topic.title },
-        style: nodeStyle,
-      });
-
-      // Edge from root
-      edges.push({
-        id: `e-root-${topicId}`,
-        source: rootId,
-        target: topicId,
-        type: "smoothstep",
-        style: { stroke: "#94a3b8", strokeWidth: 2 },
-      });
-
-      // Subtopics branching
-      if (topic.children && topic.children.length > 0) {
-        const childGap = 200;
-        topic.children.forEach((child, j) => {
-          const childId = generateId();
-
-          nodes.push({
-            id: childId,
-            position: {
-              x: centerX + horizontalGap + childGap,
-              y: centerY + yOffset + (j - topic.children.length / 2) * 80,
-            },
-            data: { label: child.title },
-            style: nodeStyle,
-          });
-
-          edges.push({
-            id: `e-${topicId}-${childId}`,
-            source: topicId,
-            target: childId,
-            type: "smoothstep",
-            style: { stroke: "#94a3b8", strokeWidth: 2 },
-          });
-        });
-      }
-    });
-
-    // Position left topics
-    leftTopics.forEach((topic, i) => {
-      const topicId = generateId();
-      const yOffset = (i - leftTopics.length / 2) * verticalGap;
-
-      nodes.push({
-        id: topicId,
-        position: {
-          x: centerX - horizontalGap,
-          y: centerY + yOffset,
-        },
-        data: { label: topic.title },
-        style: nodeStyle,
-      });
-
-      // Edge from root
-      edges.push({
-        id: `e-root-${topicId}`,
-        source: rootId,
-        target: topicId,
-        type: "smoothstep",
-        style: { stroke: "#94a3b8", strokeWidth: 2 },
-      });
-
-      // Subtopics branching
-      if (topic.children && topic.children.length > 0) {
-        const childGap = 200;
-        topic.children.forEach((child, j) => {
-          const childId = generateId();
-
-          nodes.push({
-            id: childId,
-            position: {
-              x: centerX - horizontalGap - childGap,
-              y: centerY + yOffset + (j - topic.children.length / 2) * 80,
-            },
-            data: { label: child.title },
-            style: nodeStyle,
-          });
-
-          edges.push({
-            id: `e-${topicId}-${childId}`,
-            source: topicId,
-            target: childId,
-            type: "smoothstep",
-            style: { stroke: "#94a3b8", strokeWidth: 2 },
-          });
-        });
-      }
-    });
-
-    return { nodes, edges };
-  };
-
-  // Inner Flow component that uses ReactFlow hooks
-  const MindMapFlow = ({ mindMapData }) => {
-    const { fitView } = useReactFlow();
-    
-    // Convert mind map data to flow elements (radial layout)
-    const flowData = convertToFlowElements(mindMapData);
-
-    const [nodes, setNodes, onNodesChange] = useNodesState(flowData.nodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(flowData.edges);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-      setNodes(flowData.nodes);
-      setEdges(flowData.edges);
-      setTimeout(() => fitView({ padding: 0.3, duration: 500 }), 100);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mindMapData]);
-
-    return (
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        fitView
-        minZoom={0.4}
-        maxZoom={1.6}
-        panOnScroll
-        selectionOnDrag={false}
-        defaultEdgeOptions={{
-          style: { stroke: "#94a3b8", strokeWidth: 2 },
-          type: "smoothstep",
-        }}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <Background color="#E5E7EB" gap={20} />
-        <Controls />
-      </ReactFlow>
-    );
-  };
+  }, []);
 
   const checkPdfStatus = async () => {
     try {
-      const res = await fetch("http://localhost:5001/health");
+      const res = await fetch(ENDPOINTS.PDF_CHAT.HEALTH);
       const data = await res.json();
       setPdfStatus(data);
     } catch (error) {
@@ -314,16 +260,17 @@ function PdfChatPage() {
       const formData = new FormData();
       formData.append("pdf", file);
 
-      const res = await fetch("http://localhost:5001/upload-pdf", {
+      const res = await fetch(ENDPOINTS.PDF_CHAT.UPLOAD, {
         method: "POST",
         body: formData,
       });
 
       const data = await res.json();
       if (res.ok) {
-        setSessionId(`chat_${Date.now()}`);
+        setSessionId(`chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
         setMessages([
           {
+            id: `msg_${Date.now()}`,
             type: "system",
             content: `✅ PDF "${data.fileName}" uploaded and processed successfully!`,
           },
@@ -333,6 +280,7 @@ function PdfChatPage() {
       } else {
         setMessages([
           {
+            id: `msg_${Date.now()}`,
             type: "error",
             content: `❌ Error uploading PDF: ${data.error || "Unknown error"}`,
           },
@@ -341,6 +289,7 @@ function PdfChatPage() {
     } catch (error) {
       setMessages([
         {
+          id: `msg_${Date.now()}`,
           type: "error",
           content: `❌ Failed to upload PDF: ${error.message}`,
         },
@@ -356,7 +305,11 @@ function PdfChatPage() {
     setInputMessage("");
     setIsLoading(true);
 
-    setMessages((prev) => [...prev, { type: "user", content: userQuestion }]);
+    const userMessageId = `msg_${Date.now()}_user`;
+    setMessages((prev) => [...prev, { id: userMessageId, type: "user", content: userQuestion }]);
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
     try {
       const res = await fetch(ENDPOINTS.AGENT.CHAT, {
@@ -366,6 +319,7 @@ function PdfChatPage() {
           message: userQuestion,
           sessionId,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       const data = await res.json();
@@ -380,6 +334,7 @@ function PdfChatPage() {
         setMessages((prev) => [
           ...prev,
           {
+            id: `msg_${Date.now()}_assistant`,
             type: "assistant",
             content: responseText,
             sources: data.data?.sources || [],
@@ -391,22 +346,27 @@ function PdfChatPage() {
         setMessages((prev) => [
           ...prev,
           {
+            id: `msg_${Date.now()}_error`,
             type: "error",
             content: data.message || data.error || "Failed to get response",
           },
         ]);
       }
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "error",
-          content: `❌ Error: ${error.message}`,
-        },
-      ]);
+      if (error.name !== 'AbortError') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_${Date.now()}_error`,
+            type: "error",
+            content: `❌ Error: ${error.message}`,
+          },
+        ]);
+      }
     }
 
     setIsLoading(false);
+    abortControllerRef.current = null;
   };
 
   const handleKeyPress = (e) => {
@@ -426,7 +386,7 @@ function PdfChatPage() {
       console.log("🧠 Calling mind map generation API...");
       
       // Call mindmap endpoint directly - it fetches text from database
-      const res = await fetch("http://localhost:5001/mindmap", {
+      const res = await fetch(ENDPOINTS.PDF_CHAT.MINDMAP, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -457,7 +417,7 @@ function PdfChatPage() {
 
   const resetChat = async () => {
     try {
-      await fetch("http://localhost:5001/reset", {
+      await fetch(ENDPOINTS.PDF_CHAT.RESET, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
@@ -467,6 +427,7 @@ function PdfChatPage() {
       setShowChatbot(false); // Reset chatbot visibility
       setMessages([
         {
+          id: `msg_${Date.now()}`,
           type: "system",
           content: "🔄 Conversation reset. Upload a new PDF to continue.",
         },
@@ -668,9 +629,9 @@ function PdfChatPage() {
               </p>
             )}
 
-            {messages.map((message, index) => (
+            {messages.map((message) => (
               <div
-                key={index}
+                key={message.id}
                 style={{
                   marginBottom: "var(--space-4)",
                   display: "flex",

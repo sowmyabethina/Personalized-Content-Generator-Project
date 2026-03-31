@@ -161,9 +161,11 @@ function ResultPage() {
 
       const data = await res.json();
       console.log("🤖 Agent response for content:", data);
+      console.log("🤖 Agent response data.data:", data.data);
 
       // Extract content from agent response
       const content = data.data || {};
+      console.log("🤖 Extracted content:", content);
       
       // If content is a string, try to parse it
       let parsedContent = content;
@@ -175,6 +177,21 @@ function ResultPage() {
         }
       }
 
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
       setPersonalizedContent(parsedContent);
       setShowContent(true);
 
@@ -414,12 +431,20 @@ function ResultPage() {
                           marginBottom: '12px',
                           borderLeft: '4px solid var(--color-primary)'
                         }}>
-                          <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
-                            {resource.type}: {resource.title}
-                          </p>
-                          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                            {resource.description}
-                          </p>
+                          {typeof resource === 'string' ? (
+                            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                              {resource}
+                            </p>
+                          ) : (
+                            <>
+                              <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
+                                {resource.type}: {resource.title}
+                              </p>
+                              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                                {resource.description}
+                              </p>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
