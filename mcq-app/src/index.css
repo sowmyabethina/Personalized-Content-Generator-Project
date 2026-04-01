@@ -16,12 +16,12 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
+  background: var(--bg-gradient-subtle) !important;
+  color: #1E293B !important;
 }
 
 #root {
-  background: var(--bg-primary) !important;
+  background: var(--bg-gradient-subtle) !important;
   min-height: 100vh;
 }
 

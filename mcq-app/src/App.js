@@ -163,6 +163,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/result" element={<ResultPage />} />
+            <Route path="/learning" element={<LearningMaterialPage />} />
             <Route path="/learning-material" element={<LearningMaterialPage />} />
             <Route path="/pdf-chat" element={<PdfChatPage />} />
             <Route path="/progress" element={<LearningProgressPage />} />

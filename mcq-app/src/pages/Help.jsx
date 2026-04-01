@@ -14,6 +14,7 @@ function Help() {
     transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
   });
 
+
   const gettingStartedSteps = [
     {
       number: "1",

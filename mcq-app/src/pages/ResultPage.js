@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import ENDPOINTS from "../config/api";
+
+// Debug log to verify component is loaded
+console.log("ACTIVE RESULTS COMPONENT LOADED");
 
 function ResultPage() {
   const navigate = useNavigate();
@@ -39,9 +43,11 @@ function ResultPage() {
     weakAreas: []
   };
 
+
   const psychometricProfile = combinedAnalysis?.psychometricProfile || location.state?.psychometricProfile || null;
 
   const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
+
 
   const [personalizedContent, setPersonalizedContent] = useState(null);
   const [learningMaterial, setLearningMaterial] = useState(null);
@@ -49,6 +55,7 @@ function ResultPage() {
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
   const [analysisId, setAnalysisId] = useState(null);
+  const [learningTopic, setLearningTopic] = useState(topic || "");
 
   const getTechnicalLevel = () => {
     const techScore = technicalScore || score;
@@ -67,7 +74,6 @@ function ResultPage() {
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
       const existingAnalysisId = localStorage.getItem("currentAnalysisId");
-      
       const analysisData = {
         userId: userId || "anonymous",
         sourceType: sourceType || "resume",
@@ -81,14 +87,14 @@ function ResultPage() {
         technicalLevel: getTechnicalLevel(),
         learningStyle: getLearningStyle(),
         overallScore: technicalScore || score || 0,
-        topic: topic || null,
+        topic: learningTopic || topic || null,
         learningScore: learningScore || null,
         technicalScore: technicalScore || score || null,
         psychometricProfile: combinedAnalysis?.psychometricProfile || null
       };
 
       if (existingAnalysisId) {
-        await fetch(`http://localhost:5000/analysis/${existingAnalysisId}`, {
+        await fetch(ENDPOINTS.ANALYSIS.UPDATE(existingAnalysisId), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -99,7 +105,7 @@ function ResultPage() {
             learningRoadmap: roadmapData || contentData?.learningPath || null,
             technicalLevel: getTechnicalLevel(),
             learningStyle: getLearningStyle(),
-            topic: topic || null,
+            topic: learningTopic || topic || null,
             learningScore: learningScore || null,
             technicalScore: technicalScore || score || null,
             psychometricProfile: combinedAnalysis?.psychometricProfile || null
@@ -108,7 +114,7 @@ function ResultPage() {
         setAnalysisId(existingAnalysisId);
         console.log("✅ Analysis updated:", existingAnalysisId);
       } else {
-        const saveRes = await fetch("http://localhost:5000/save-analysis", {
+        const saveRes = await fetch(ENDPOINTS.ANALYSIS.SAVE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(analysisData)
@@ -131,16 +137,21 @@ function ResultPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/generate-combined-content", {
+      // Use the centralized agent for personalized content
+      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: topic || "General Technology",
-          technicalLevel: getTechnicalLevel(),
-          technicalScore: technicalScore || score,
-          learningStyle: getLearningStyle(),
-          learningScore: learningScore || 50,
-          combinedAnalysis: combinedAnalysis?.combinedAnalysis || ""
+          message: `Generate personalized learning content on topic: ${learningTopic || topic || "General Technology"}`,
+          userId: userId,
+          context: {
+            userProfile: {
+              technicalLevel: getTechnicalLevel(),
+              learningStyle: getLearningStyle(),
+              technicalScore: technicalScore || score,
+              learningScore: learningScore || 50
+            }
+          }
         })
       });
 
@@ -148,10 +159,43 @@ function ResultPage() {
         throw new Error(`Server ${res.status}`);
       }
 
-      const content = await res.json();
-      setPersonalizedContent(content);
+      const data = await res.json();
+      console.log("🤖 Agent response for content:", data);
+      console.log("🤖 Agent response data.data:", data.data);
+
+      // Extract content from agent response
+      const content = data.data || {};
+      console.log("🤖 Extracted content:", content);
+      
+      // If content is a string, try to parse it
+      let parsedContent = content;
+      if (typeof content === 'string') {
+        try {
+          parsedContent = JSON.parse(content);
+        } catch (e) {
+          // Use as-is
+        }
+      }
+
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
+      console.log("🤖 Parsed content:", parsedContent);
+      console.log("🤖 Learning path:", parsedContent.learningPath);
+      console.log("🤖 Resources:", parsedContent.resources);
+      console.log("🤖 Tips:", parsedContent.tips);
+      
+      setPersonalizedContent(parsedContent);
       setShowContent(true);
-      saveAnalysisToDatabase(content, content.learningPath);
+
+      saveAnalysisToDatabase(parsedContent, parsedContent.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
       setError("Failed to generate personalized content");
@@ -165,11 +209,11 @@ function ResultPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/generate-learning-material", {
+      const res = await fetch(ENDPOINTS.LEARNING.MATERIAL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: topic || "General Technology",
+          topic: learningTopic || topic || "General Technology",
           technicalLevel: getTechnicalLevel(),
           learningStyle: getLearningStyle()
         })
@@ -181,18 +225,24 @@ function ResultPage() {
 
       const material = await res.json();
       setLearningMaterial(material);
+
       
+
       const roadmapData = {
-        learningPath: material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) || [],
+        learningPath:
+          material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) ||
+          [],
         tips: material.learningTips || [],
         finalProject: material.finalProject
       };
       saveAnalysisToDatabase(material, roadmapData);
+
       
+
       navigate("/learning-material", {
         state: {
           learningMaterial: material,
-          topic: topic,
+          topic: learningTopic || topic,
           technicalLevel: getTechnicalLevel(),
           learningStyle: getLearningStyle(),
           analysisId: analysisId
@@ -206,6 +256,7 @@ function ResultPage() {
     setLoading(false);
   };
 
+
   return (
     <div className="page-container">
       <div className="content-wrapper">
@@ -217,6 +268,7 @@ function ResultPage() {
           {topic && (
             <p style={{ textAlign: 'center', color: 'var(--color-primary)', fontSize: 'var(--text-lg)', fontWeight: 'var(--font-medium)', marginBottom: '24px' }}>
               Topic: {topic}
+
             </p>
           )}
 
@@ -224,7 +276,7 @@ function ResultPage() {
           <div className="stats-grid">
             <div className="stat-card">
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Technical Knowledge</p>
-              <p className="stat-value" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <p className="stat-value" style={{ color: 'var(--color-primary)' }}>
                 {technicalScore || score}%
               </p>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Level: {getTechnicalLevel()}</p>
@@ -232,12 +284,13 @@ function ResultPage() {
 
             <div className="stat-card">
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>Learning Preference</p>
-              <p className="stat-value" style={{ background: 'linear-gradient(135deg, var(--color-success) 0%, #38ef7d 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <p className="stat-value" style={{ color: 'var(--color-success)' }}>
                 {learningScore || 50}%
               </p>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Style: {getLearningStyle()}</p>
             </div>
           </div>
+
 
           {/* Psychometric Assessment Profile */}
           {psychometricProfile && (
@@ -258,9 +311,11 @@ function ResultPage() {
                     <p style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Technical Familiarity</p>
                     <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
                       {psychometricProfile.levels.technicalFamiliarity}
+
                     </p>
                   </div>
                 )}
+
 
                 {/* Documentation Skill */}
                 {psychometricProfile.levels?.documentationSkill && (
@@ -312,8 +367,10 @@ function ResultPage() {
                   </p>
                 </div>
               )}
+
             </div>
           )}
+
 
           {!showContent ? (
             <>
@@ -374,12 +431,20 @@ function ResultPage() {
                           marginBottom: '12px',
                           borderLeft: '4px solid var(--color-primary)'
                         }}>
-                          <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
-                            {resource.type}: {resource.title}
-                          </p>
-                          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                            {resource.description}
-                          </p>
+                          {typeof resource === 'string' ? (
+                            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                              {resource}
+                            </p>
+                          ) : (
+                            <>
+                              <p style={{ margin: '0 0 4px 0', fontWeight: 'var(--font-semibold)', color: 'var(--color-primary)' }}>
+                                {resource.type}: {resource.title}
+                              </p>
+                              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                                {resource.description}
+                              </p>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -398,7 +463,7 @@ function ResultPage() {
 
                   {personalizedContent.nextSteps && (
                     <div style={{
-                      background: 'linear-gradient(135deg, var(--color-success) 0%, #38ef7d 100%)',
+                      background: 'var(--color-success)',
                       padding: 'var(--space-5)',
                       borderRadius: 'var(--radius-lg)',
                       color: 'white',
@@ -432,6 +497,7 @@ function ResultPage() {
             </p>
           )}
         </div>
+
       </div>
     </div>
   );
