@@ -131,7 +131,7 @@ function App() {
                     socialButtonsProviderIcon: "clerk-social-button-icon",
                   },
                   variables: {
-                    colorPrimary: "#2563eb",
+                    colorPrimary: "#219ca9",
                     colorBackground: "#ffffff",
                     colorInputBackground: "#ffffff",
                     colorText: "#1f2937",
