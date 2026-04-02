@@ -410,6 +410,13 @@ Requirements:
  * @returns {Array} - Array of quiz questions
  */
 async function generateQuestionsFromTopic(text) {
+  // Check if text is a topic (short) or document content (long)
+  if (text.length < 200) {
+    // Use the built-in generateQuizQuestions for topic-based generation
+    return generateQuizQuestions(text);
+  }
+  
+  // For longer document content, use the external question generator
   // Dynamic import for the external question generator
   let questionGeneratorModule = null;
   async function getQuestionGenerator() {
