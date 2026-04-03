@@ -82,11 +82,11 @@ router.post('/chat', async (req, res) => {
 
     console.log(`✅ Agent response (${response.tool}):`, response.success ? 'Success' : 'Failed');
 
-    // Return response
+    // Return response (response.message was incorrect for routeMessage output)
     return res.json({
       success: response.success,
       tool: response.tool,
-      message: response.message,
+      message: response.response,
       data: response.rawData,
       timestamp: new Date().toISOString()
     });

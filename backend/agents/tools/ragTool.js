@@ -70,7 +70,7 @@ export async function ragTool({ message, sessionId, userId }) {
   try {
     console.log("🤖 RAG tool: Calling PDF service...");
     const response = await axios.post(`${RAG_SERVICE_URL}/chat`, {
-      message,
+      question: message,
       sessionId: sessionId || `agent_${Date.now()}`,
       userId
     }, {
