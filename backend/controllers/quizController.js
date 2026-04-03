@@ -80,29 +80,49 @@ Generate questions that a ${level} level learner should know about ${topic}.`;
  */
 async function scoreQuiz(req, res) {
   try {
-    const { quizId, answers } = req.body;
-    
+    const { quizId, answers, topic, githubSkills, resumeSkills } = req.body;
+
     if (!quizId || !answers || !Array.isArray(answers)) {
       return res.status(400).json({ error: 'quizId and answers array required' });
     }
-    
+
     // Get quiz from database
     const quizData = await getQuiz(quizId);
-    
+
     if (!quizData) {
       return res.status(404).json({ error: 'Quiz not found' });
     }
-    
+
     const { quizData: storedQuiz, totalQuestions } = quizData;
-    
+
     // Score using service function
     const scoreResult = scoreQuizAnswers(storedQuiz, answers);
-    
+
     // Store result in database
     await storeQuizResult(quizId, answers, scoreResult.score, scoreResult.correct, totalQuestions);
-    
-    return res.json(scoreResult);
-    
+
+    // Evaluate skill level by combining quiz result with profile signals
+    let skillEvaluation = null;
+    try {
+      const { evaluateSkillLevel } = await import('../agents/skillEvaluationAgent.js');
+
+      skillEvaluation = await evaluateSkillLevel({
+        quizScore: scoreResult.score,
+        totalQuestions: scoreResult.total,
+        topic: topic || '',
+        githubSkills: Array.isArray(githubSkills) ? githubSkills : [],
+        resumeSkills: Array.isArray(resumeSkills) ? resumeSkills : []
+      });
+    } catch (evalErr) {
+      // do not fail scoring completely if evaluation fails
+      skillEvaluation = { error: 'Skill evaluation failed', details: evalErr.message };
+    }
+
+    return res.json({
+      ...scoreResult,
+      skillEvaluation
+    });
+
   } catch (err) {
     const errorResponse = handleError(err, '/quiz/score-quiz');
     return res.status(500).json({ error: 'Scoring failed', details: err.message });

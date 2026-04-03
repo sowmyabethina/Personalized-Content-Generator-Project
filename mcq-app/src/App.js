@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { SignedIn, SignedOut, SignIn, useUser } from "@clerk/clerk-react";
 import { useState, useEffect } from "react";
 import Layout from "./components/Layout";
+import OfflineIndicator from "./components/ui/OfflineIndicator";
 import HomePage from "./pages/HomePage";
 import QuizPage from "./pages/QuizPage";
 import ResultPage from "./pages/ResultPage";
@@ -16,6 +17,19 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Register service worker for offline functionality
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
+    }
+
     // Quick load check
     const init = async () => {
       setIsLoading(false);
@@ -25,6 +39,7 @@ function App() {
 
   return (
     <div className="app-wrapper">
+      <OfflineIndicator />
       <SignedOut>
         <div className="split-layout">
           <div className="hero-section">
