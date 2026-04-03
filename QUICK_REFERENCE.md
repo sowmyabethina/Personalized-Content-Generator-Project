@@ -16,7 +16,7 @@ An **AI-powered personalized learning platform** that:
 
 ```
 Frontend (React)           →  Backend (Node.js)        →  Database
-   mcq-app/                    backend/                   PostgreSQL
+   frontend/                    backend/                   PostgreSQL
    - Pages                      - Routes                   - Quizzes
    - Components                 - Controllers              - Results
    - Services                   - Services                 - PDFs
@@ -106,7 +106,7 @@ docker-compose up -d
 cd backend && node index.js
 
 # Terminal 2
-cd mcq-app && npm start
+cd frontend && npm start
 
 # Terminal 3
 cd rag-pdf-service && node server.js
@@ -122,7 +122,7 @@ PgAdmin:   http://localhost:5050
 
 ## 📁 Key Files (What Does What?)
 
-### **Frontend (mcq-app/src/)**
+### **Frontend (frontend/src/)**
 
 | File | Does |
 |------|------|
@@ -507,7 +507,7 @@ curl http://localhost:5001/health
 
 ### **To Deploy**
 1. Set production environment variables
-2. Build React: `npm run build` in mcq-app/
+2. Build React: `npm run build` in frontend/
 3. Update CORS_ORIGIN to production domain
 4. Use PostgreSQL cloud database
 5. Deploy backend to Node.js hosting (Heroku, Railway, Render)
@@ -524,3 +524,4 @@ curl http://localhost:5001/health
 
 **Last Updated**: April 3, 2026  
 **Version**: 1.0
+

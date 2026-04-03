@@ -274,7 +274,7 @@
 ### **1. Frontend - HomePage Component Flow**
 
 ```javascript
-// mcq-app/src/pages/HomePage.js
+// frontend/src/pages/HomePage.js
 
 function HomePage() {
   const [githubProfileUrl, setGithubProfileUrl] = useState("");
@@ -851,7 +851,7 @@ User clicks "Generate Quiz" button
 │ ↓
 
 ┌─────────────────────────────────────────────────────────┐
-│ FRONTEND - React (mcq-app)                              │
+│ FRONTEND - React (frontend)                              │
 └─────────────────────────────────────────────────────────┘
 QuizPage.js triggers generateQuiz()
   ├─ Calls learningService.generateQuiz()
@@ -936,7 +936,7 @@ QuizPage.js triggers generateQuiz()
 │ ↓ (HTTP Response with questions)
 
 ┌─────────────────────────────────────────────────────────┐
-│ FRONTEND - React (mcq-app)                              │
+│ FRONTEND - React (frontend)                              │
 └─────────────────────────────────────────────────────────┘
 
 QuizPage.js receives response
@@ -1134,3 +1134,4 @@ User clicks "Learn More on JavaScript"
 - ✅ Technology stack details
 - ✅ File organization and purpose
 - ✅ Complete user journey examples
+

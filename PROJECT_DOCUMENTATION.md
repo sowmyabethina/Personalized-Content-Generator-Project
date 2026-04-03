@@ -309,7 +309,7 @@ Personalized-Content-Generator-Project/
 │   ├── 📄 postgres.js                 # PostgreSQL specific code
 │   └── 📄 schema.sql                  # Database schema (tables, indexes)
 │
-├── 📂 mcq-app/                         # React Frontend (Main Application)
+├── 📂 frontend/                         # React Frontend (Main Application)
 │   ├── 📄 package.json                # React dependencies & scripts
 │   ├── 📄 README.md                   # CRA readme
 │   ├── 📄 ANALYSIS.md                 # Detailed component analysis
@@ -1103,7 +1103,7 @@ GET /health
 ```bash
 # Install dependencies for all services
 cd backend && npm install
-cd ../mcq-app && npm install
+cd ../frontend && npm install
 cd ../rag-pdf-service && npm install
 cd ../pdf && npm install
 
@@ -1113,7 +1113,7 @@ cd ../pdf && npm install
 cd backend && node index.js
 
 # Start frontend (in another terminal)
-cd mcq-app && npm start
+cd frontend && npm start
 
 # Start RAG service (in another terminal)
 cd rag-pdf-service && node server.js
@@ -1136,13 +1136,13 @@ docker-compose up -d
 | Quiz Generation | Gemini API | backend/services/aiService.js |
 | Learning Materials | Gemini API | backend/services/aiService.js |
 | PDF Chat (RAG) | OpenAI, Vector DB | rag-pdf-service/ |
-| Mind Maps | OpenAI, @xyflow | rag-pdf-service/, mcq-app/ |
-| GitHub Analysis | GitHub API | mcq-app/pages/HomePage.js |
+| Mind Maps | OpenAI, @xyflow | rag-pdf-service/, frontend/ |
+| GitHub Analysis | GitHub API | frontend/pages/HomePage.js |
 | Resume Analysis | pdf-parse, Gemini | backend/controllers/analysisController.js |
-| Progress Tracking | PostgreSQL, Recharts | mcq-app/pages/LearningProgressPage.js |
-| Authentication | Clerk | mcq-app/App.js |
-| Charts/Analytics | Recharts | mcq-app/ |
-| PDF Generation | jsPDF | mcq-app/ |
+| Progress Tracking | PostgreSQL, Recharts | frontend/pages/LearningProgressPage.js |
+| Authentication | Clerk | frontend/App.js |
+| Charts/Analytics | Recharts | frontend/ |
+| PDF Generation | jsPDF | frontend/ |
 
 ---
 
@@ -1228,3 +1228,4 @@ docker-compose up -d
 **Last Updated**: April 3, 2026  
 **Version**: 1.0  
 **Maintained By**: Development Team
+

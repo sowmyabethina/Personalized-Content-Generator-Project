@@ -35,7 +35,7 @@
 
 ### Directory Structure
 ```
-mcq-app/
+frontend/
 ├── public/                    # Static assets
 ├── src/
 │   ├── components/           # Reusable UI components
@@ -715,3 +715,4 @@ The MCQ App is a **feature-rich, well-designed learning platform** with strong p
 *Analysis Date: 2026-04-01*
 *Total Files Analyzed: 30+*
 *Total Lines of Code: ~50,000+*
+
