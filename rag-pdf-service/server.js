@@ -882,7 +882,15 @@ app.post("/chat", async (req, res) => {
   let chatId = `chat_${Date.now()}`; // Default fallback
   
   try {
-    const { question, conversationHistory = [], sessionId, similarityThreshold = 0.05 } = req.body;
+    const {
+      question: rawQuestion,
+      message: rawMessage,
+      conversationHistory = [],
+      sessionId,
+      similarityThreshold = 0.05
+    } = req.body;
+
+    const question = (rawQuestion || rawMessage || '').trim();
 
     if (!question) {
       return res.status(400).json({ error: "Question is required" });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowRight, RotateCcw } from "lucide-react";
 import confetti from "canvas-confetti";
 
 function SuccessResultPage({ 
@@ -107,7 +107,6 @@ function SuccessResultPage({
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#F4F7F6',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -116,13 +115,16 @@ function SuccessResultPage({
       overflow: 'hidden',
       fontFamily: '"Inter", "Montserrat", system-ui, sans-serif'
     }}>
-      {/* Main Card */}
+      {/* Main Glassmorphism Card */}
       <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '24px',
-        boxShadow: '0 25px 50px -12px rgba(45, 90, 90, 0.15), 0 0 0 1px rgba(45, 90, 90, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: '20px',
+        border: '1px solid rgba(255, 255, 255, 0.3)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1)',
         padding: '48px 40px',
-        maxWidth: '480px',
+        maxWidth: '520px',
         width: '100%',
         textAlign: 'center',
         opacity: isVisible ? 1 : 0,
@@ -141,33 +143,51 @@ function SuccessResultPage({
           transform: isVisible ? 'scale(1)' : 'scale(0.9)',
           transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s'
         }}>
-          {/* Success Checkmark */}
+          {/* Success Trophy Icon */}
           <div style={{
             marginBottom: '24px',
             display: 'flex',
             justifyContent: 'center'
           }}>
             <div style={{
-              width: '64px',
-              height: '64px',
+              width: '80px',
+              height: '80px',
               borderRadius: '50%',
-              backgroundColor: '#ECFDF5',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               opacity: isVisible ? 1 : 0,
               transform: isVisible ? 'scale(1)' : 'scale(0.5)',
-              transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s'
+              transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s',
+              boxShadow: '0 0 30px rgba(255, 215, 0, 0.3)'
             }}>
-              <CheckCircle 
-                size={36} 
-                color="#10B981"
+              <svg 
+                width="48" 
+                height="48" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? 'scale(1)' : 'scale(0.8)',
                   transition: 'all 0.4s ease-out 0.4s'
                 }}
-              />
+              >
+                <defs>
+                  <linearGradient id="trophyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#FFD700" />
+                    <stop offset="50%" stopColor="#FFA500" />
+                    <stop offset="100%" stopColor="#FF8C00" />
+                  </linearGradient>
+                </defs>
+                <path d="M12 15C15.866 15 19 11.866 19 8V6H5V8C5 11.866 8.13401 15 12 15Z" fill="url(#trophyGradient)"/>
+                <path d="M5 6H19V8C19 8 17 10 12 10C7 10 5 8 5 8V6Z" fill="url(#trophyGradient)"/>
+                <path d="M12 10V13" stroke="#B8860B" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M8 13H16V15C16 16.1046 15.1046 17 14 17H10C8.89543 17 8 16.1046 8 15V13Z" fill="url(#trophyGradient)" stroke="#B8860B" strokeWidth="1"/>
+                <circle cx="12" cy="5" r="2" fill="#FFD700"/>
+                <path d="M11 3H13V4H11V3Z" fill="#FFD700"/>
+              </svg>
             </div>
           </div>
 
@@ -223,23 +243,24 @@ function SuccessResultPage({
             }}>
               {/* Large Percentage */}
               <span style={{
-                fontSize: '56px',
-                fontWeight: '700',
-                color: '#1E293B',
+                fontSize: '64px',
+                fontWeight: '800',
+                color: '#FFFFFF',
                 display: 'block',
                 lineHeight: 1,
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
-                transition: 'all 0.4s ease-out 0.6s'
+                transition: 'all 0.4s ease-out 0.6s',
+                textShadow: '0 2px 10px rgba(0,0,0,0.2)'
               }}>
                 {animatedPercentage}%
               </span>
               
               {/* Fraction text */}
               <span style={{
-                fontSize: '18px',
-                fontWeight: '500',
-                color: '#64748B',
+                fontSize: '20px',
+                fontWeight: '600',
+                color: 'rgba(255, 255, 255, 0.9)',
                 marginTop: '8px',
                 display: 'block',
                 opacity: isVisible ? 1 : 0,
@@ -251,9 +272,9 @@ function SuccessResultPage({
               
               {/* Motivational text */}
               <span style={{
-                fontSize: '14px',
-                fontWeight: '400',
-                color: scoreGradient.start,
+                fontSize: '16px',
+                fontWeight: '500',
+                color: '#FFD700',
                 marginTop: '12px',
                 display: 'block',
                 opacity: isVisible ? 1 : 0,
@@ -266,35 +287,39 @@ function SuccessResultPage({
           </div>
         </div>
 
-        {/* Title and Description */}
+        {/* Title - Congratulations with gradient */}
         <h1 style={{
-          fontSize: '24px',
-          fontWeight: '700',
-          color: '#1E293B',
+          fontSize: '42px',
+          fontWeight: '800',
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #E8E8E8 50%, #C0C0C0 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
           marginBottom: '8px',
           opacity: isVisible ? 1 : 0,
           transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'all 0.4s ease-out 0.5s'
+          transition: 'all 0.4s ease-out 0.5s',
+          textShadow: '0 2px 4px rgba(255,255,255,0.3)'
         }}>
-          Assessment Complete!
+          Congratulations!
         </h1>
         
         <p style={{
-          fontSize: '15px',
-          color: '#64748B',
+          fontSize: '18px',
+          color: 'rgba(255, 255, 255, 0.85)',
           marginBottom: '24px',
           lineHeight: '1.6',
           opacity: isVisible ? 1 : 0,
           transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
           transition: 'all 0.4s ease-out 0.55s'
         }}>
-          Great job on completing the technical evaluation!
+          You've successfully completed the technical evaluation!
         </p>
 
         {/* Topic display */}
         {topic && (
           <div style={{
-            backgroundColor: '#F4F7F6',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '12px',
             padding: '12px 20px',
             marginBottom: '32px',
@@ -302,10 +327,28 @@ function SuccessResultPage({
             transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
             transition: 'all 0.4s ease-out 0.65s'
           }}>
-            <span style={{ color: '#64748B', fontSize: '14px' }}>Topic: </span>
-            <span style={{ color: '#2D5A5A', fontWeight: '600', fontSize: '14px' }}>{topic}</span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>Topic: </span>
+            <span style={{ color: '#FFFFFF', fontWeight: '600', fontSize: '14px' }}>{topic}</span>
           </div>
         )}
+
+        {/* Next Steps Section */}
+        <div style={{
+          marginBottom: '20px',
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
+          transition: 'all 0.4s ease-out 0.7s'
+        }}>
+          <span style={{
+            fontSize: '14px',
+            fontWeight: '600',
+            color: 'rgba(255, 255, 255, 0.7)',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Next Steps
+          </span>
+        </div>
 
         {/* Action Buttons */}
         <div style={{
@@ -316,7 +359,7 @@ function SuccessResultPage({
           transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
           transition: 'all 0.4s ease-out 0.75s'
         }}>
-          {/* Primary CTA - Begin Level Assessment / Continue */}
+          {/* Primary CTA - Begin Level Assessment / Continue - Solid Style */}
           {fromMaterial ? (
             <button
               onClick={() => {
@@ -332,17 +375,17 @@ function SuccessResultPage({
                 });
               }}
               style={{
-                background: 'linear-gradient(135deg, #FF7E5F 0%, #FEB47B 100%)',
+                background: 'linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '14px',
-                padding: '18px 32px',
+                borderRadius: '12px',
+                padding: '16px 28px',
                 fontSize: '16px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 width: '100%',
                 transition: 'all 0.3s ease',
-                boxShadow: '0 4px 14px 0 rgba(255, 126, 95, 0.4)',
+                boxShadow: '0 4px 15px rgba(95, 176, 183, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -350,11 +393,11 @@ function SuccessResultPage({
               }}
               onMouseOver={(e) => {
                 e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 6px 20px 0 rgba(255, 126, 95, 0.5)';
+                e.target.style.boxShadow = '0 6px 20px rgba(95, 176, 183, 0.5)';
               }}
               onMouseOut={(e) => {
                 e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 14px 0 rgba(255, 126, 95, 0.4)';
+                e.target.style.boxShadow = '0 4px 15px rgba(95, 176, 183, 0.4)';
               }}
             >
               <span>Continue Learning</span>
@@ -364,17 +407,17 @@ function SuccessResultPage({
             <button
               onClick={onContinueToLearning}
               style={{
-                background: 'linear-gradient(135deg, #FF7E5F 0%, #FEB47B 100%)',
+                background: 'linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '14px',
-                padding: '18px 32px',
+                borderRadius: '12px',
+                padding: '16px 28px',
                 fontSize: '16px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 width: '100%',
                 transition: 'all 0.3s ease',
-                boxShadow: '0 4px 14px 0 rgba(255, 126, 95, 0.4)',
+                boxShadow: '0 4px 15px rgba(95, 176, 183, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -382,11 +425,11 @@ function SuccessResultPage({
               }}
               onMouseOver={(e) => {
                 e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 6px 20px 0 rgba(255, 126, 95, 0.5)';
+                e.target.style.boxShadow = '0 6px 20px rgba(95, 176, 183, 0.5)';
               }}
               onMouseOut={(e) => {
                 e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 14px 0 rgba(255, 126, 95, 0.4)';
+                e.target.style.boxShadow = '0 4px 15px rgba(95, 176, 183, 0.4)';
               }}
             >
               <span>Begin Level Assessment</span>
@@ -394,15 +437,15 @@ function SuccessResultPage({
             </button>
           )}
 
-          {/* Secondary Button - Retake Quiz (Outline/Ghost style) */}
+          {/* Secondary Button - Review Answers / Retake Quiz (Outline style) */}
           <button
             onClick={onRetakeQuiz}
             style={{
               backgroundColor: 'transparent',
-              color: '#2D5A5A',
-              border: '2px solid #2D5A5A',
-              borderRadius: '14px',
-              padding: '16px 32px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              border: '2px solid rgba(255, 255, 255, 0.5)',
+              borderRadius: '12px',
+              padding: '14px 28px',
               fontSize: '15px',
               fontWeight: '600',
               cursor: 'pointer',
@@ -414,16 +457,49 @@ function SuccessResultPage({
               gap: '8px'
             }}
             onMouseOver={(e) => {
-              e.target.style.backgroundColor = '#2D5A5A';
-              e.target.style.color = 'white';
+              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.8)';
             }}
             onMouseOut={(e) => {
               e.target.style.backgroundColor = 'transparent';
-              e.target.style.color = '#2D5A5A';
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.5)';
             }}
           >
             <RotateCcw size={18} />
-            <span>Retake Quiz</span>
+            <span>Review Answers</span>
+          </button>
+
+          {/* Back to Dashboard Button (Solid style) */}
+          <button
+            onClick={() => navigate("/")}
+            style={{
+              background: 'linear-gradient(135deg, #5FB0B7 0%, #4A9A9F 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '14px 28px',
+              fontSize: '15px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              width: '100%',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 15px rgba(95, 176, 183, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '4px'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 6px 20px rgba(95, 176, 183, 0.5)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 15px rgba(95, 176, 183, 0.4)';
+            }}
+          >
+            <span>Back to Dashboard</span>
           </button>
         </div>
       </div>

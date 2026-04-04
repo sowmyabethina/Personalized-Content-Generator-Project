@@ -15,8 +15,8 @@ rag-pdf-service/.env
 pdf/.env
 
 # MCQ App environment and build files
-mcq-app/.env
-mcq-app/build/
+frontend/.env
+frontend/build/
 
 # Upload directories (user files)
 backend/uploads/

@@ -492,10 +492,24 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
     // END SPECIAL HANDLING FOR PDF QUIZ
     // ============================================================
     
+    // If it's a direct PDF chat request, use RAG tool directly and skip model rerouting
+    const isPdfChatRequest = isPdfChat(message);
+    if (isPdfChatRequest) {
+      console.log("📄 Direct PDF chat request detected, using ragTool directly");
+      const ragResult = await ragTool({ message, sessionId, userId });
+      return {
+        success: ragResult.success,
+        tool: 'rag',
+        originalMessage: message,
+        response: formatResponse('rag', ragResult),
+        rawData: ragResult.data || null
+      };
+    }
+
     // Check PDF status first for RAG context
     const pdfStatus = await checkPdfStatus();
     console.log("PDF status:", pdfStatus);
-    
+
     // Build user profile context
     const profileContext = context.userProfile ? `
 User Profile:
@@ -553,11 +567,10 @@ User message: "${message}"
     
     // ============================================================
     // API ROUTING RULES:
-    // - PDF chat (Explain PDF, Summarize PDF, etc.) → OpenAI only
-    // - All other workflows (quiz, content, etc.) → Gemini only
+    // - Direct PDF chat handled above via ragTool
+    // - Non-PDF tool selection uses requested model preference
     // ============================================================
-    const isPdfChatRequest = isPdfChat(message);
-    let effectiveModel = isPdfChatRequest ? 'openai' : 'gemini';
+    let effectiveModel = model === 'gemini' ? 'gemini' : 'openai';
     
     console.log(`API Routing: isPdfChat=${isPdfChatRequest}, using=${effectiveModel}`);
     
@@ -1027,7 +1040,7 @@ function formatResponse(tool, result) {
     case 'quiz':
       return result.message || 'Quiz generated successfully!';
     case 'rag':
-      return result.data?.response || result.message || 'Got response from PDF';
+      return result.data?.answer || result.data?.response || result.message || 'Got response from PDF';
     case 'analytics':
       const summary = result.data?.summary;
       if (summary) {

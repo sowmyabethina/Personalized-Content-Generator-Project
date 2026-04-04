@@ -1,5 +1,5 @@
 {
-  "name": "mcq-app",
+  "name": "frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -11,6 +11,7 @@
     "@xyflow/react": "^12.10.0",
     "canvas-confetti": "^1.9.4",
     "dagre": "^0.8.5",
+    "idb": "^8.0.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
     "react": "^19.2.4",
@@ -45,3 +46,4 @@
     ]
   }
 }
+

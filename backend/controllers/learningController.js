@@ -19,14 +19,31 @@ const { log } = require('../utils/logger');
  */
 async function generatePersonalizedContentHandler(req, res) {
   try {
-    const { topic, styleId, technicalLevel, learningStyle } = req.body;
+    const { topic, styleId, technicalLevel, learningStyle, skillLevel, quizScore, totalQuestions, githubSkills, resumeSkills } = req.body;
 
     if (!topic || !topic.trim()) {
       return res.status(400).json({ error: 'topic required' });
     }
 
     const content = await generatePersonalizedContent(topic, learningStyle || styleId, technicalLevel);
-    return res.json(content);
+
+    let validation = null;
+    try {
+      const { validateContent } = await import('../agents/contentValidationAgent.js');
+      validation = await validateContent({
+        topic,
+        generatedContent: content,
+        skillLevel: skillLevel || 'Intermediate',
+        quizScore: typeof quizScore === 'number' ? quizScore : 0,
+        totalQuestions: typeof totalQuestions === 'number' && totalQuestions > 0 ? totalQuestions : 1,
+        githubSkills: Array.isArray(githubSkills) ? githubSkills : [],
+        resumeSkills: Array.isArray(resumeSkills) ? resumeSkills : []
+      });
+    } catch (validationErr) {
+      validation = { error: 'Validation failed', details: validationErr.message };
+    }
+
+    return res.json({ content, validation });
 
   } catch (err) {
     const errorResponse = handleError(err, '/learning/generate-personalized-content');
