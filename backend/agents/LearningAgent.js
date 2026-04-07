@@ -391,13 +391,72 @@ function getFallbackResponse(message) {
 /**
  * Get fallback response specifically for PDF quiz generation
  */
-function getPdfQuizFallbackResponse() {
+function getPdfQuizFallbackResponse(pdfText = '', topic = 'Document Quiz') {
+  const fallbackQuestions = generateHeuristicQuestionsFromText(pdfText, topic);
   return {
     success: true,
     tool: 'quiz',
-    message: 'I apologize, but I encountered an issue generating your quiz from the document. Please try again or upload a different document.',
-    data: { error: 'Gemini service unavailable for PDF quiz generation' }
+    message: `Generated a fallback quiz with ${fallbackQuestions.length} questions while AI service is temporarily unavailable.`,
+    data: {
+      questions: fallbackQuestions,
+      topic,
+      source: 'pdf',
+      fallback: true
+    }
   };
+}
+
+/**
+ * Build a minimal fallback quiz from plain text when AI APIs are unavailable.
+ * Keeps UI flow working by returning valid MCQ objects.
+ */
+function generateHeuristicQuestionsFromText(text = '', topic = 'Document Quiz') {
+  const cleaned = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const words = cleaned
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 5);
+
+  const stop = new Set([
+    'about','above','after','again','against','being','below','between','could','document','during',
+    'first','found','great','their','there','these','those','through','under','where','which','while',
+    'would','content','using','based','other','should','because','learning','question','questions'
+  ]);
+
+  const freq = new Map();
+  words.forEach(w => {
+    if (!stop.has(w)) freq.set(w, (freq.get(w) || 0) + 1);
+  });
+
+  const topKeywords = Array.from(freq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([w]) => w);
+
+  const base = topKeywords.length ? topKeywords : ['concept', 'implementation', 'architecture', 'performance', 'testing', 'security'];
+
+  return base.slice(0, 6).map((kw, idx) => {
+    const cap = kw.charAt(0).toUpperCase() + kw.slice(1);
+    const options = [
+      `${cap} in practical use`,
+      `${cap} as a theoretical model`,
+      `${cap} with no trade-offs`,
+      `${cap} unrelated to the topic`
+    ];
+
+    return {
+      originalIndex: idx,
+      question: `In ${topic}, which statement best reflects ${cap} based on the document context?`,
+      options,
+      correctAnswer: options[0],
+      explanation: `${cap} is presented in the document as an applied concept tied to real usage decisions.`,
+      category: 'Document Understanding'
+    };
+  });
 }
 
 /**
@@ -444,7 +503,7 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
       // Check if Gemini is available
       if (!genAI) {
         console.log("⚠️ Gemini not available, using fallback");
-        return getPdfQuizFallbackResponse();
+        return getPdfQuizFallbackResponse(context.pdfText || '', context.topic || 'Document Quiz');
       }
       
       // Check if PDF text is available in context
@@ -480,11 +539,11 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
         } else {
           // Gemini generation failed, return fallback
           console.log("⚠️ Gemini PDF quiz generation failed, using fallback");
-          return getPdfQuizFallbackResponse();
+          return getPdfQuizFallbackResponse(pdfText, topic);
         }
       } catch (geminiError) {
         console.error("❌ Gemini PDF quiz error:", geminiError.message);
-        return getPdfQuizFallbackResponse();
+        return getPdfQuizFallbackResponse(pdfText, topic);
       }
     }
     

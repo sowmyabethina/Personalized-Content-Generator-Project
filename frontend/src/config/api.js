@@ -48,6 +48,11 @@ const ENDPOINTS = {
     HEALTH: `${BASE_URL}/agent/health`,
     STUDY_PLAN: `${BASE_URL}/agent/study-plan`
   },
+
+  // GitHub profile endpoints
+  GITHUB: {
+    EXTRACT_SKILLS: `${BASE_URL}/api/github/extract-skills`
+  },
   
   // PDF Chat endpoints (RAG service)
   PDF_CHAT: {

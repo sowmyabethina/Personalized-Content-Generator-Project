@@ -18,6 +18,9 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 
+const githubRoutes = require("./routes/githubRoutes");
+
+
 // Import configuration
 const { initDatabase } = require('./config/database');
 
@@ -114,6 +117,8 @@ async function startServer() {
     log(`Server started on http://localhost:${PORT}`);
   });
 }
+
+app.use("/api/github", githubRoutes);
 
 startServer();
 

@@ -58,9 +58,27 @@ function HomePage() {
     return repos;
   };
 
-  // Extract skills from repositories (language + name keywords)
-  const extractSkillsFromRepos = (repos) => {
+  // Fetch commit-derived skills from backend service (uses server-side token if configured)
+  const fetchGithubSkillsFromBackend = async (username) => {
+    const response = await fetch(ENDPOINTS.GITHUB.EXTRACT_SKILLS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody?.error || "Unable to extract skills from backend");
+    }
+
+    const data = await response.json();
+    return Array.isArray(data?.skills) ? data.skills : [];
+  };
+
+  // Extract skills from repositories (language + name keywords) + commit-based file analysis
+  const extractSkillsFromRepos = async (repos, username) => {
     const skillsSet = new Set();
+    const commitSkillsSet = new Set();
     
     // Common programming language keywords
     const languageKeywords = {
@@ -86,6 +104,73 @@ function HomePage() {
       'Vue': ['Vue', 'VueJS', 'Nuxt'],
     };
 
+    // Added: extension-based commit skill mapping
+    const extensionSkillMap = {
+      js: 'JavaScript',
+      jsx: 'React',
+      ts: 'TypeScript',
+      py: 'Python',
+      java: 'Java',
+      css: 'CSS'
+    };
+
+    // Added: commit-based extraction (target user's contributions only)
+    try {
+      const repoCandidates = repos.slice(0, 5);
+      const commitSkillResults = await Promise.all(
+        repoCandidates.map(async (repo) => {
+          try {
+            const commitsRes = await fetch(
+              `https://api.github.com/repos/${repo.owner?.login}/${repo.name}/commits?author=${encodeURIComponent(username)}&per_page=5`,
+              { headers: { Accept: 'application/vnd.github.v3+json' } }
+            );
+            if (!commitsRes.ok) return [];
+
+            const commits = await commitsRes.json();
+            if (!Array.isArray(commits) || commits.length === 0) return [];
+
+            const detailResults = await Promise.all(
+              commits.slice(0, 5).map(async (commit) => {
+                try {
+                  const sha = commit?.sha;
+                  if (!sha) return [];
+
+                  const detailRes = await fetch(
+                    `https://api.github.com/repos/${repo.owner?.login}/${repo.name}/commits/${sha}`,
+                    { headers: { Accept: 'application/vnd.github.v3+json' } }
+                  );
+                  if (!detailRes.ok) return [];
+
+                  const detail = await detailRes.json();
+                  const files = Array.isArray(detail?.files) ? detail.files : [];
+
+                  const fileSkills = [];
+                  files.forEach((file) => {
+                    const filename = file?.filename || '';
+                    const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
+                    const mappedSkill = extensionSkillMap[ext];
+                    if (mappedSkill) fileSkills.push(mappedSkill);
+                  });
+                  return fileSkills;
+                } catch {
+                  return [];
+                }
+              })
+            );
+
+            return detailResults.flat();
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      commitSkillResults.flat().forEach((skill) => commitSkillsSet.add(skill));
+    } catch {
+      // fallback to existing logic only
+    }
+
+    // Existing extraction logic preserved
     repos.forEach(repo => {
       // Add language if available
       if (repo.language) {
@@ -127,7 +212,8 @@ function HomePage() {
       }
     });
     
-    return Array.from(skillsSet);
+    // Added: prioritize commit-based skills by ordering them first
+    return [...commitSkillsSet, ...Array.from(skillsSet)];
   };
 
   const handleKeyPress = (e) => {
@@ -210,7 +296,7 @@ function HomePage() {
         return;
       }
 
-      // Fetch repositories from GitHub API
+      // Fetch repositories from GitHub API (used for content summary display)
       const repos = await fetchGithubRepos(username);
 
       if (!repos || repos.length === 0) {
@@ -219,8 +305,17 @@ function HomePage() {
         return;
       }
 
-      // Extract skills from repositories
-      const skills = extractSkillsFromRepos(repos);
+      // Extract skills from backend first, fallback to existing frontend extraction
+      let skills = [];
+      try {
+        skills = await fetchGithubSkillsFromBackend(username);
+      } catch (backendErr) {
+        console.warn("Backend GitHub extraction failed, falling back to frontend extraction:", backendErr.message);
+      }
+
+      if (!Array.isArray(skills) || skills.length === 0) {
+        skills = await extractSkillsFromRepos(repos, username);
+      }
       
       if (skills.length === 0) {
         setError("Unable to extract skills from repositories");
