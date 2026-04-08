@@ -1,3 +1,9 @@
+import {
+  formatLearningTips,
+  isLearningTipsLesson,
+  shouldHideSectionHeading,
+} from "../../../utils/learning/presentationHelpers";
+
 /**
  * Key Points Component
  * Displays important points in a highlighted box with dynamic heading
@@ -6,27 +12,8 @@ const KeyPointsSection = ({ points, title, lessonTitle }) => {
   if (!points || !Array.isArray(points) || points.length === 0) return null;
   
   const heading = title || 'Key Concepts';
-  const hideHeading = lessonTitle && heading && lessonTitle.toLowerCase().trim() === heading.toLowerCase().trim();
-  const isTips = lessonTitle && (lessonTitle.toLowerCase().includes('tips') || lessonTitle.toLowerCase().includes('tip'));
-  
-  // Format learning tips text into bullet points
-  const formatLearningTips = (tips) => {
-    if (!tips || !Array.isArray(tips)) return [];
-    
-    return tips.map(tip => {
-      if (!tip || typeof tip !== 'string') return null;
-      
-      // Split by ** markers and filter empty strings
-      const parts = tip
-        .split('**')
-        .map(t => t.trim())
-        .filter(t => t.length > 0);
-      
-      // If we have parts, join them as a single formatted tip
-      // Otherwise return the original tip
-      return parts.length > 0 ? parts.join(' ') : tip;
-    }).filter(tip => tip && tip.length > 0);
-  };
+  const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
+  const isTips = isLearningTipsLesson(lessonTitle);
   
   const formattedPoints = isTips ? formatLearningTips(points) : points;
   

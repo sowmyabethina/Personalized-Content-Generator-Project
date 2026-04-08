@@ -5,17 +5,17 @@
  * MUST be thin - ONLY receives req/res, calls services, returns response
  */
 
-const {
+import {
   saveUserAnalysis,
   updateUserAnalysis,
   getUserAnalysis,
   getUserAnalyses,
   updateLastActive,
   saveOnboardingGoal
-} = require('../services/analysisService');
-const { db } = require('../config/database');
-const { handleError } = require('../utils/errorHandler');
-const { log } = require('../utils/logger');
+} from "../services/analysisService.js";
+import { db } from "../config/database.js";
+import { handleError } from "../utils/errorHandler.js";
+import { log } from "../utils/logger.js";
 
 /**
  * Save analysis - handles /save-analysis
@@ -222,11 +222,19 @@ async function saveOnboardingGoalHandler(req, res) {
   }
 }
 
-module.exports = {
+export {
   saveAnalysis,
   getAnalyses,
   getAnalysisById,
   updateAnalysis,
   updateLastActiveHandler,
-  saveOnboardingGoalHandler
+  saveOnboardingGoalHandler,
+};
+export default {
+  saveAnalysis,
+  getAnalyses,
+  getAnalysisById,
+  updateAnalysis,
+  updateLastActiveHandler,
+  saveOnboardingGoalHandler,
 };

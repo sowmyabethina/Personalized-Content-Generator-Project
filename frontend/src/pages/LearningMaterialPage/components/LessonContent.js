@@ -47,40 +47,6 @@ const shouldSkipSummary = (title) => {
 };
 
 /**
- * Check if section heading should be hidden (when same as lesson title)
- */
-const shouldHideSectionHeading = (lessonTitle, heading) => {
-  if (!lessonTitle || !heading) return false;
-  return lessonTitle.toLowerCase().trim() === heading.toLowerCase().trim();
-};
-
-/**
- * Check if the lesson is a Learning Tips lesson
- */
-const isLearningTipsLesson = (title) => {
-  if (!title) return false;
-  return title.toLowerCase().includes('tips') || title.toLowerCase().includes('tip');
-};
-
-/**
- * Format learning tips text into bullet points
- */
-const formatLearningTips = (tips) => {
-  if (!tips || !Array.isArray(tips)) return [];
-  
-  return tips.map(tip => {
-    if (!tip || typeof tip !== 'string') return null;
-    
-    const parts = tip
-      .split('**')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
-    
-    return parts.length > 0 ? parts.join(' ') : tip;
-  }).filter(tip => tip && tip.length > 0);
-};
-
-/**
  * Check if Examples section should be shown
  */
 const shouldShowExamples = (lessonTitle, examples) => {

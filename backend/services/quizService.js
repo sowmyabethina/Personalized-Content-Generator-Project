@@ -3,8 +3,8 @@
  * Handles quiz database operations
  */
 
-const { db } = require('../config/database');
-const { logError, logSuccess, log, logDebug } = require('../utils/logger');
+import { db } from "../config/database.js";
+import { logError, logSuccess, log } from "../utils/logger.js";
 
 // Simple in-memory cache for recently generated quizzes
 // Format: { [topicKey]: { quizId, timestamp, quizData } }
@@ -18,24 +18,6 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  */
 function getCacheKey(topic) {
   return `quiz_${(topic || '').toLowerCase().trim()}`;
-}
-
-/**
- * Get cached quiz if available and not expired
- * @param {string} topic - Topic
- * @returns {Object|null} - Cached quiz or null
- */
-function getCachedQuiz(topic) {
-  const key = getCacheKey(topic);
-  const cached = quizCache.get(key);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    logDebug(`Returning cached quiz for topic: ${topic}`);
-    return cached.quizData;
-  }
-  
-  quizCache.delete(key);
-  return null;
 }
 
 /**
@@ -221,13 +203,21 @@ function scoreQuizAnswers(storedQuiz, userAnswers) {
   };
 }
 
-module.exports = {
+export {
   storeQuiz,
   getQuiz,
   storeQuizResult,
   generateQuizId,
   normalizeQuizAnswer,
   scoreQuizAnswers,
-  getCachedQuiz,
-  cacheQuiz
+  cacheQuiz,
+};
+export default {
+  storeQuiz,
+  getQuiz,
+  storeQuizResult,
+  generateQuizId,
+  normalizeQuizAnswer,
+  scoreQuizAnswers,
+  cacheQuiz,
 };

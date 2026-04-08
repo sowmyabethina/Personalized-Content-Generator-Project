@@ -3,7 +3,7 @@
  * Extracts user-specific skills from commits (with debug logs)
  */
 
-const axios = require("axios");
+import axios from "axios";
 
 // 🔑 GitHub headers (with optional token)
 const GITHUB_HEADERS = {
@@ -11,7 +11,7 @@ const GITHUB_HEADERS = {
 };
 
 if (process.env.GITHUB_TOKEN && process.env.GITHUB_TOKEN.trim()) {
-  GITHUB_HEADERS.Authorization = `token ${process.env.GITHUB_TOKEN.trim()}`;
+  GITHUB_HEADERS.Authorization = `Bearer ${process.env.GITHUB_TOKEN.trim()}`;
 }
 
 // 🔥 Extension → Skill mapping
@@ -182,6 +182,26 @@ async function extractUserCommitSkills(username) {
   return finalSkills;
 }
 
-module.exports = {
-  extractUserCommitSkills
-};
+function buildGithubSkillsContent(username, skills, repos) {
+  return `GitHub Profile: ${username}\n\nSkills: ${skills.join(", ")}\n\nRepositories:\n${repos
+    .slice(0, 10)
+    .map((repo) => `- ${repo.name}: ${repo.language || "Unknown"} - ${repo.description || "No description"}`)
+    .join("\n")}`;
+}
+
+async function processGithubProfile(profileUrl, username) {
+  const repos = await fetchUserRepos(username);
+  const skills = await extractUserCommitSkills(username);
+
+  return {
+    success: true,
+    profileUrl,
+    username,
+    repos,
+    skills,
+    content: buildGithubSkillsContent(username, skills, repos)
+  };
+}
+
+export { extractUserCommitSkills, processGithubProfile };
+export default { extractUserCommitSkills, processGithubProfile };

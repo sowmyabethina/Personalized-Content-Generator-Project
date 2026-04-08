@@ -5,13 +5,13 @@
  * MUST be thin - ONLY receives req/res, calls services, returns response
  */
 
-const { 
+import {
   generateLearningMaterial,
   generatePersonalizedContent, 
   generateCombinedContent 
-} = require('../services/aiService');
-const { handleError } = require('../utils/errorHandler');
-const { log } = require('../utils/logger');
+} from "../services/aiService.js";
+import { handleError } from "../utils/errorHandler.js";
+import { log } from "../utils/logger.js";
 
 /**
  * Generate personalized content - handles /learning/generate-personalized-content
@@ -199,10 +199,17 @@ async function evaluateLearningStyle(req, res) {
   }
 }
 
-module.exports = {
+export {
   generatePersonalizedContentHandler,
   generateCombinedContentHandler,
   generateLearningMaterialHandler,
   generateLearningQuestions,
-  evaluateLearningStyle
+  evaluateLearningStyle,
+};
+export default {
+  generatePersonalizedContentHandler,
+  generateCombinedContentHandler,
+  generateLearningMaterialHandler,
+  generateLearningQuestions,
+  evaluateLearningStyle,
 };

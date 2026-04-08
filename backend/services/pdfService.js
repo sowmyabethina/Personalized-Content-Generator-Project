@@ -3,26 +3,10 @@
  * Handles PDF processing operations
  */
 
-const fs = require('fs');
-const axios = require('axios');
-const pdf = require('pdf-parse');
-const { logError, logSuccess, log } = require('../utils/logger');
-
-/**
- * Extract text from a PDF file
- * @param {string} filePath - Path to PDF file
- * @returns {string} - Extracted text
- */
-async function extractTextFromPdf(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const data = await pdf(buffer);
-  
-  if (!data.text || data.text.trim().length < 50) {
-    throw new Error('Could not extract text from PDF');
-  }
-  
-  return data.text;
-}
+import fs from "fs";
+import axios from "axios";
+import pdf from "pdf-parse";
+import { logError, logSuccess, log } from "../utils/logger.js";
 
 /**
  * Process a resume PDF
@@ -239,10 +223,5 @@ async function readPdfFromGithub(githubUrl) {
   };
 }
 
-module.exports = {
-  extractTextFromPdf,
-  processResumePdf,
-  filterTechnicalContent,
-  extractGitHubUrls,
-  readPdfFromGithub
-};
+export { processResumePdf, filterTechnicalContent, extractGitHubUrls, readPdfFromGithub };
+export default { processResumePdf, filterTechnicalContent, extractGitHubUrls, readPdfFromGithub };

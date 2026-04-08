@@ -3,9 +3,9 @@
  * Handles all AI (Gemini) operations
  */
 
-const { genAI, getModel } = require('../config/ai');
-const { parseJson } = require('../utils/jsonParser');
-const { logError } = require('../utils/logger');
+import { genAI, getModel } from "../config/ai.js";
+import { parseJson } from "../utils/jsonParser.js";
+import { logError } from "../utils/logger.js";
 
 /**
  * Generate quiz questions from text or topic
@@ -421,7 +421,7 @@ async function generateQuestionsFromTopic(text) {
   let questionGeneratorModule = null;
   async function getQuestionGenerator() {
     if (!questionGeneratorModule) {
-      questionGeneratorModule = await import('../pdf/questionGenerator.js');
+      questionGeneratorModule = await import('../../pdf/questionGenerator.js');
     }
     return questionGeneratorModule;
   }
@@ -430,7 +430,7 @@ async function generateQuestionsFromTopic(text) {
   return gen(text);
 }
 
-module.exports = {
+export {
   generateQuizQuestions,
   generateLearningMaterial,
   generateQuizFromMaterial,
@@ -438,5 +438,15 @@ module.exports = {
   generateCombinedContent,
   generateFromPdf,
   buildQuizPrompt,
-  generateQuestionsFromTopic
+  generateQuestionsFromTopic,
+};
+export default {
+  generateQuizQuestions,
+  generateLearningMaterial,
+  generateQuizFromMaterial,
+  generatePersonalizedContent,
+  generateCombinedContent,
+  generateFromPdf,
+  buildQuizPrompt,
+  generateQuestionsFromTopic,
 };

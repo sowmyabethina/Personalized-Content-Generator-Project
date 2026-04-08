@@ -3,16 +3,17 @@
  * Defines learning-related routes
  */
 
-const express = require('express');
-const router = express.Router();
-const {
+import express from "express";
+import {
   generatePersonalizedContentHandler,
   generateCombinedContentHandler,
   generateLearningMaterialHandler,
   generateLearningQuestions,
   evaluateLearningStyle
-} = require('../controllers/learningController');
-const { downloadPdf } = require('../controllers/pdfController');
+} from "../controllers/learningController.js";
+import { downloadPdf } from "../controllers/pdfController.js";
+
+const router = express.Router();
 
 // Auth middleware
 const clerkAuth = (req, res, next) => {
@@ -49,4 +50,4 @@ router.post('/evaluate-learning-style', clerkAuth, evaluateLearningStyle);
 // POST /learning/download-pdf - Download learning material as PDF
 router.post('/download-pdf', clerkAuth, downloadPdf);
 
-module.exports = router;
+export default router;

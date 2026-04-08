@@ -62,11 +62,5 @@ function logResponse(endpoint, status) {
   console.log(`📤 ${endpoint} response status:`, status);
 }
 
-module.exports = {
-  log,
-  logSuccess,
-  logError,
-  logDebug,
-  logRequest,
-  logResponse
-};
+export { log, logSuccess, logError, logDebug, logRequest, logResponse };
+export default { log, logSuccess, logError, logDebug, logRequest, logResponse };

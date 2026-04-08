@@ -1,89 +1,65 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import ENDPOINTS from "../config/api";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import useAnalyses from "../hooks/useAnalyses";
+import {
+  calculateReadiness,
+  dedupeAnalysesByTopic,
+  formatAnalysisDate,
+  formatTopic,
+  getAnalysisScore,
+} from "../utils/analysis/analysisHelpers";
+import {
+  buildLearningMaterialQuizState,
+  calculateTotalEstimatedTime,
+  getStoredScore,
+} from "../utils/learning/learningNavigation";
 
 // Import extracted components
 import {
-  CopyButton,
   EstimatedTime,
-  SummarySection,
-  ImportantConceptSection,
-  KeyPointsSection,
-  ApplicationsSection,
-  ExamplesSection,
-  ThinkQuestionSection,
   LessonContent,
   CompletionScreen
 } from "./LearningMaterialPage/components";
 
-// Import extracted utilities
-import {
-  isValidText,
-  isValidArray,
-  isMeaningfulSummary,
-  shouldSkipSummary,
-  shouldHideSectionHeading,
-  isLearningTipsLesson,
-  formatLearningTips,
-  shouldShowExamples,
-  getDynamicHeading,
-  isValidCheckpoint,
-  generateFallbackCheckpoint,
-  enhanceContent,
-  convertSectionsToLessons
-} from "./LearningMaterialPage/utils/learningHelpers";
+import { processMaterial } from "../services/learning/learningMaterialService";
 
 // Import extracted constants
-import { SAMPLE_LESSONS, styles, dashboardStyles } from "./LearningMaterialPage/constants/learningConstants";
+import { styles, dashboardStyles } from "./LearningMaterialPage/constants/learningConstants";
 
-function LearningProgressPage() {
+function LearningMaterialPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationState = location.state || {};
   
   // Check if we have learning material data passed via navigation state
-  const { learningMaterial, topic, technicalLevel, learningStyle, analysisId } = location.state || {};
+  const { learningMaterial, topic, technicalLevel, learningStyle, reset } = navigationState;
+  let storedMaterial = null;
+  let storedMaterialMeta = null;
+
+  try {
+    storedMaterial = JSON.parse(localStorage.getItem("learningMaterialData") || "null");
+    storedMaterialMeta = JSON.parse(localStorage.getItem("learningMaterialMeta") || "null");
+  } catch (storageError) {
+    storedMaterial = null;
+    storedMaterialMeta = null;
+  }
+
+  const activeLearningMaterial = learningMaterial || (reset ? storedMaterial : null);
+  const activeTopic = topic || (reset ? storedMaterialMeta?.topic : "");
+  const activeTechnicalLevel = technicalLevel || (reset ? storedMaterialMeta?.technicalLevel : "");
+  const activeLearningStyle = learningStyle || (reset ? storedMaterialMeta?.learningStyle : "");
   
   // If we have learning material data, we're in "display material" mode
-  const isDisplayingMaterial = !!learningMaterial;
+  const isDisplayingMaterial = !!activeLearningMaterial;
   
-  const { userId: rawUserId } = location.state || {};
+  const { userId: rawUserId } = navigationState;
   const userId = rawUserId && rawUserId !== "anonymous" ? rawUserId : null;
 
-  const [analyses, setAnalyses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showAllAssessments, setShowAllAssessments] = useState(false);
+  const { analyses, loading, loadAnalyses } = useAnalyses(userId, { autoLoad: false, initialLoading: true });
+  const [showAllAssessments] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-
-  // Deduplicate analyses - keep only the highest progress for each topic
-  // Handle case differences (AI, ai, Ai), extra spaces (AI ), and different score fields
-  const getScore = (item) =>
-    item.technicalScore ?? item.progress ?? 0;
-
-  const uniqueAnalyses = analyses.reduce((acc, current) => {
-    const currentTopic = current.topic?.trim().toLowerCase();
-
-    const existingIndex = acc.findIndex(
-      (a) => a.topic?.trim().toLowerCase() === currentTopic
-    );
-
-    if (existingIndex === -1) {
-      acc.push(current);
-    } else {
-      if (getScore(current) > getScore(acc[existingIndex])) {
-        acc[existingIndex] = current;
-      }
-    }
-
-    return acc;
-  }, []);
-
-  // Format topic name for display (capitalize first letter)
-  const formatTopic = (topic) => {
-    if (!topic) return 'Unknown';
-    return topic.trim().charAt(0).toUpperCase() + topic.trim().slice(1);
-  };
+  const uniqueAnalyses = dedupeAnalysesByTopic(analyses);
 
   // Step-by-step learning state
   const [currentStep, setCurrentStep] = useState(0);
@@ -93,13 +69,13 @@ function LearningProgressPage() {
   
   // Save progress to localStorage
   useEffect(() => {
-    if (isDisplayingMaterial && topic) {
-      localStorage.setItem(`lesson_progress_${topic}`, JSON.stringify({
+    if (isDisplayingMaterial && activeTopic) {
+      localStorage.setItem(`lesson_progress_${activeTopic}`, JSON.stringify({
         currentStep,
         completedAt: new Date().toISOString()
       }));
     }
-  }, [currentStep, isDisplayingMaterial, topic]);
+  }, [activeTopic, currentStep, isDisplayingMaterial]);
   
   // Handle exit with confirmation
   const handleExit = () => {
@@ -108,7 +84,7 @@ function LearningProgressPage() {
   
   const confirmExit = () => {
     // Progress already saved via useEffect
-    navigate("/result", { state: { topic, technicalScore: parseInt(localStorage.getItem("technicalScore") || "0") } });
+    navigate("/result", { state: { topic: activeTopic, technicalScore: getStoredScore("technicalScore") } });
   };
   
   const cancelExit = () => {
@@ -125,7 +101,6 @@ function LearningProgressPage() {
     const margin = 20;
     const maxWidth = pageWidth - (margin * 2);
     let yPos = 20;
-    const lineHeight = 7;
     const titleFontSize = 18;
     const subtitleFontSize = 14;
     const bodyFontSize = 11;
@@ -148,7 +123,7 @@ function LearningProgressPage() {
     // Title
     doc.setFontSize(titleFontSize);
     doc.setFont('helvetica', 'bold');
-    const title = topic || 'Learning Material';
+    const title = activeTopic || 'Learning Material';
     doc.text(title, pageWidth / 2, yPos, { align: 'center' });
     yPos += 15;
     
@@ -275,19 +250,13 @@ function LearningProgressPage() {
     });
     
     // Save the PDF
-    const filename = `${(topic || 'learning-material').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`;
+    const filename = `${(activeTopic || 'learning-material').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`;
     doc.save(filename);
   };
   
   // Scroll to top when step changes
   const handleStepChange = (newStep) => {
     setCurrentStep(newStep);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  
-  // Handle going to completion screen
-  const handleShowCompletion = () => {
-    setShowCompletion(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
@@ -299,34 +268,35 @@ function LearningProgressPage() {
   
   // Convert learning material to lessons array when displaying material
   useEffect(() => {
-    if (isDisplayingMaterial && learningMaterial) {
-      const convertedLessons = convertSectionsToLessons(learningMaterial);
-      setLessons(convertedLessons);
-      setCurrentStep(0);
-    }
-  }, [isDisplayingMaterial, learningMaterial]);
-
-  useEffect(() => { loadAnalyses(); }, [userId]);
-
-  const loadAnalyses = async () => {
-    setLoading(true);
-    try {
-      let url = ENDPOINTS.ANALYSIS.GET_ALL;
-      if (userId) url += `?userId=${encodeURIComponent(userId)}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setAnalyses((data.analyses || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    const loadProcessedMaterial = async () => {
+      if (isDisplayingMaterial && activeLearningMaterial) {
+        const processedMaterial = await processMaterial(activeLearningMaterial, {
+          topic: activeTopic,
+          technicalLevel: activeTechnicalLevel,
+          learningStyle: activeLearningStyle,
+        });
+        setLessons(processedMaterial.lessons || []);
+        setCurrentStep(0);
+        setShowCompletion(false);
+        setShowExitDialog(false);
       }
-    } catch (err) { setError("Failed to load data."); }
-    setLoading(false);
-  };
+    };
+
+    loadProcessedMaterial();
+  }, [activeLearningMaterial, activeLearningStyle, activeTechnicalLevel, activeTopic, isDisplayingMaterial]);
+
+  useEffect(() => {
+    if (reset && activeTopic) {
+      localStorage.removeItem(`lesson_progress_${activeTopic}`);
+    }
+  }, [activeTopic, reset]);
+
+  useEffect(() => { loadAnalyses(); }, [loadAnalyses]);
 
   const continueLearning = (a) => navigate("/result", { state: { ...a, mode: "saved" } });
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "N/A";
 
   const latestAssessment = analyses[0] || null;
-  const readiness = latestAssessment ? ((latestAssessment.technicalScore || 0) * 0.6 + (latestAssessment.learningScore || 0) * 0.4) : 0;
+  const readiness = latestAssessment ? calculateReadiness(latestAssessment.technicalScore || 0, latestAssessment.learningScore || 0) : 0;
 
   if (loading) return <div style={{textAlign:'center', padding:'100px'}}>Loading...</div>;
 
@@ -342,10 +312,7 @@ function LearningProgressPage() {
     };
     
     // Calculate total estimated time
-    const totalEstimatedTime = lessons.reduce((acc, l) => {
-      const time = parseInt(l.estimatedTime?.replace(/\D/g, '') || '0');
-      return acc + time;
-    }, 0);
+    const totalEstimatedTime = calculateTotalEstimatedTime(lessons);
     
     // Progress percentage
     const progressPercent = ((currentStep + 1) / totalSteps) * 100;
@@ -356,15 +323,10 @@ function LearningProgressPage() {
         <div className="lp-page-container">
           <style>{dashboardStyles}</style>
           <div className="lp-content-wrapper">
-            <CompletionScreen 
+              <CompletionScreen 
               lessons={lessons}
               onTakeQuiz={() => navigate("/quiz", { 
-                state: { 
-                  topic: topic || 'Learning Material Quiz', 
-                  fromMaterial: true,
-                  materialTopic: topic || 'Learning Material Quiz',
-                  extractedText: learningMaterial?.sections?.map(s => s.content).join('\n\n') || learningMaterial?.summary || learningMaterial?.title || ''
-                } 
+                state: buildLearningMaterialQuizState(activeLearningMaterial, activeTopic)
               })}
               onGoBack={handleBackToLessons}
             />
@@ -382,7 +344,7 @@ function LearningProgressPage() {
             <h1 style={{ color: '#1e293b', fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
               📚 Learning Material
             </h1>
-            {topic && <p style={{ color: '#64748b', marginTop: '8px', fontSize: '16px' }}>Topic: {topic}</p>}
+            {activeTopic && <p style={{ color: '#64748b', marginTop: '8px', fontSize: '16px' }}>Topic: {activeTopic}</p>}
             
             {/* Total Estimated Time */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
@@ -399,14 +361,14 @@ function LearningProgressPage() {
               }}>
                 ⏱️ Total: ~{totalEstimatedTime} min
               </span>
-              {technicalLevel && (
+              {activeTechnicalLevel && (
                 <span style={{ padding: '6px 16px', background: '#e0e7ff', color: '#4338ca', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>
-                  Level: {technicalLevel}
+                  Level: {activeTechnicalLevel}
                 </span>
               )}
-              {learningStyle && (
+              {activeLearningStyle && (
                 <span style={{ padding: '6px 16px', background: '#d1fae5', color: '#065f46', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>
-                  Style: {learningStyle}
+                  Style: {activeLearningStyle}
                 </span>
               )}
             </div>
@@ -510,12 +472,7 @@ function LearningProgressPage() {
               {isLastStep ? (
                 <button 
                   onClick={() => navigate("/quiz", { 
-                    state: { 
-                      topic: topic || 'Learning Material Quiz', 
-                      fromMaterial: true,
-                      materialTopic: topic || 'Learning Material Quiz',
-                      extractedText: learningMaterial?.sections?.map(s => s.content).join('\n\n') || learningMaterial?.summary || learningMaterial?.title || ''
-                    } 
+                    state: buildLearningMaterialQuizState(activeLearningMaterial, activeTopic)
                   })}
                   className="lp-enterprise-btn"
                   style={{ background: '#059669' }}
@@ -669,7 +626,7 @@ function LearningProgressPage() {
                   <h3>📈 Progress Trend</h3>
                   <div style={{height: 250, marginTop: 24}}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={uniqueAnalyses.slice(0,5).reverse().map(a=>({d:formatDate(a.createdAt), s:a.technicalScore}))}>
+                      <LineChart data={uniqueAnalyses.slice(0,5).reverse().map(a=>({d:formatAnalysisDate(a.createdAt), s:a.technicalScore}))}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="d" hide />
                         <YAxis hide domain={[0, 100]} />
@@ -697,15 +654,15 @@ function LearningProgressPage() {
               <div className="column-flex">
                 <div className="lp-content-card" style={{ textAlign: 'center' }}>
                   <h3>🎯 Career Readiness</h3>
-                  <div style={{ fontSize: '64px', fontWeight: '900', color: '#1e293b', margin: '16px 0' }}>{readiness.toFixed(0)}%</div>
+                    <div style={{ fontSize: '64px', fontWeight: '900', color: '#1e293b', margin: '16px 0' }}>{readiness.toFixed(0)}%</div>
                   <div style={{ padding: '6px 16px', background: '#dcfce7', color: '#166534', borderRadius: '20px', display: 'inline-block', fontSize: '13px', fontWeight: '700' }}>JOB READY</div>
                 </div>
                 <div className="lp-content-card">
                   <h3>📊 Quick Stats</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Source</span><strong>{latestAssessment?.sourceType}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Joined</span><strong>{formatDate(uniqueAnalyses[uniqueAnalyses.length-1]?.createdAt)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f0fdf4', borderRadius: '12px' }}><span style={{ color: '#166534' }}>Last Active</span><strong style={{ color: '#166534' }}>{formatDate(latestAssessment?.createdAt)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Joined</span><strong>{formatAnalysisDate(uniqueAnalyses[uniqueAnalyses.length-1]?.createdAt)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f0fdf4', borderRadius: '12px' }}><span style={{ color: '#166534' }}>Last Active</span><strong style={{ color: '#166534' }}>{formatAnalysisDate(latestAssessment?.createdAt)}</strong></div>
                   </div>
                 </div>
               </div>
@@ -718,11 +675,11 @@ function LearningProgressPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
              
              {/* 🚨 Red: Focus Areas */}
-             {uniqueAnalyses.filter(a => (a.technicalScore || 0) < 45).length > 0 && (
+             {uniqueAnalyses.filter(a => getAnalysisScore(a) < 45).length > 0 && (
                 <div>
                    <h3 style={{ color: '#dc2626', marginBottom: '16px' }}>🚨 Foundational Skills to Master</h3>
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-                      {uniqueAnalyses.filter(a => (a.technicalScore || 0) < 45).map((a, idx) => (
+                      {uniqueAnalyses.filter(a => getAnalysisScore(a) < 45).map((a, idx) => (
                         <div key={idx} className="lp-content-card roadmap-card-urgent">
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <h4 style={{ margin: 0, color: '#991b1b' }}>{formatTopic(a.topic)}</h4>
@@ -730,7 +687,7 @@ function LearningProgressPage() {
                            </div>
                            <p style={{ color: '#7f1d1d', fontSize: '14px', margin: '16px 0', opacity: 0.8 }}>Master basics of {formatTopic(a.topic)} through the course below.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${formatTopic(a.topic)}+full+course`} target="_blank" className="lp-enterprise-btn" style={{ flex: 2 }}>📺 Course</a>
+                           <a href={`https://www.youtube.com/results?search_query=${formatTopic(a.topic)}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ flex: 2 }}>📺 Course</a>
                               <button onClick={() => continueLearning(a)} className="lp-enterprise-btn btn-outline-red" style={{ flex: 1 }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -740,11 +697,11 @@ function LearningProgressPage() {
              )}
 
              {/* ✅ Green: Mastered Areas */}
-             {uniqueAnalyses.filter(a => (a.technicalScore || 0) >= 45).length > 0 && (
+             {uniqueAnalyses.filter(a => getAnalysisScore(a) >= 45).length > 0 && (
                 <div>
                    <h3 style={{ color: '#059669', marginBottom: '16px' }}>🏆 Proficiency Achieved</h3>
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-                      {uniqueAnalyses.filter(a => (a.technicalScore || 0) >= 45).map((a, idx) => (
+                      {uniqueAnalyses.filter(a => getAnalysisScore(a) >= 45).map((a, idx) => (
                         <div key={idx} className="lp-content-card roadmap-card-success">
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <h4 style={{ margin: 0, color: '#064e3b' }}>{formatTopic(a.topic)}</h4>
@@ -764,4 +721,4 @@ function LearningProgressPage() {
   );
 }
 
-export default LearningProgressPage;
+export default LearningMaterialPage;

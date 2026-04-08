@@ -3,8 +3,8 @@
  * Handles analysis database operations
  */
 
-const { db } = require('../config/database');
-const { logError, logSuccess } = require('../utils/logger');
+import { db } from "../config/database.js";
+import { logError, logSuccess } from "../utils/logger.js";
 
 /**
  * Save user analysis
@@ -284,11 +284,19 @@ async function saveOnboardingGoal(userId, careerGoal, experienceLevel) {
   }
 }
 
-module.exports = {
+export {
   saveUserAnalysis,
   updateUserAnalysis,
   getUserAnalysis,
   getUserAnalyses,
   updateLastActive,
-  saveOnboardingGoal
+  saveOnboardingGoal,
+};
+export default {
+  saveUserAnalysis,
+  updateUserAnalysis,
+  getUserAnalysis,
+  getUserAnalyses,
+  updateLastActive,
+  saveOnboardingGoal,
 };

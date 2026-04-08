@@ -1,6 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import ENDPOINTS from "../config/api";
+import { processResult, saveAnalysis, updateAnalysis } from "../services/analysis/analysisService";
+import {
+  generateLearningMaterial as requestLearningMaterial,
+  generatePersonalizedContent,
+} from "../services/learning/learningMaterialService";
+import { getLearningStyle, getTechnicalLevel } from "../utils/quiz/psychometric";
 
 // Debug log to verify component is loaded
 console.log("ACTIVE RESULTS COMPONENT LOADED");
@@ -11,13 +16,10 @@ function ResultPage() {
 
   const {
     score,
-    correctCount,
-    questions,
     topic,
     technicalScore,
     learningScore,
     combinedAnalysis,
-    mode,
     userId,
     sourceType,
     sourceUrl,
@@ -27,13 +29,10 @@ function ResultPage() {
     weakAreas
   } = location.state || {
     score: 0,
-    correctCount: 0,
-    questions: [],
     topic: "",
     technicalScore: 0,
     learningScore: 0,
     combinedAnalysis: null,
-    mode: "direct",
     userId: null,
     sourceType: "resume",
     sourceUrl: null,
@@ -42,90 +41,53 @@ function ResultPage() {
     strengths: [],
     weakAreas: []
   };
-
-
   const psychometricProfile = combinedAnalysis?.psychometricProfile || location.state?.psychometricProfile || null;
 
-  const effectiveCombinedAnalysis = combinedAnalysis || location.state?.combinedData || null;
-
-
   const [personalizedContent, setPersonalizedContent] = useState(null);
-  const [learningMaterial, setLearningMaterial] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showContent, setShowContent] = useState(false);
   const [analysisId, setAnalysisId] = useState(null);
-  const [learningTopic, setLearningTopic] = useState(topic || "");
-
-  const getTechnicalLevel = () => {
-    const techScore = technicalScore || score;
-    if (techScore >= 80) return "Advanced";
-    if (techScore >= 60) return "Intermediate";
-    return "Beginner";
-  };
-
-  const getLearningStyle = () => {
-    const learnScore = learningScore || 50;
-    if (learnScore >= 70) return "Hands-On Learner";
-    if (learnScore >= 35) return "Balanced Learner";
-    return "Theory-First Learner";
-  };
+  const [learningTopic] = useState(topic || "");
+  const effectiveTechnicalLevel = getTechnicalLevel(technicalScore || score || 0);
+  const effectiveLearningStyle = getLearningStyle(learningScore || 50);
 
   const saveAnalysisToDatabase = async (contentData, roadmapData) => {
     try {
       const existingAnalysisId = localStorage.getItem("currentAnalysisId");
-      const analysisData = {
-        userId: userId || "anonymous",
-        sourceType: sourceType || "resume",
-        sourceUrl: sourceUrl || null,
-        extractedText: extractedText || null,
-        skills: skills || [],
-        strengths: strengths || [],
-        weakAreas: weakAreas || [],
-        aiRecommendations: contentData?.resources || contentData?.tips || [],
-        learningRoadmap: roadmapData || contentData?.learningPath || null,
-        technicalLevel: getTechnicalLevel(),
-        learningStyle: getLearningStyle(),
-        overallScore: technicalScore || score || 0,
-        topic: learningTopic || topic || null,
-        learningScore: learningScore || null,
-        technicalScore: technicalScore || score || null,
-        psychometricProfile: combinedAnalysis?.psychometricProfile || null
-      };
+      const processedResult = await processResult({
+        resultData: {
+          score,
+          topic: learningTopic || topic || null,
+          technicalScore: technicalScore || score || 0,
+          learningScore: learningScore || null,
+          technicalLevel: effectiveTechnicalLevel,
+          learningStyle: effectiveLearningStyle,
+          psychometricProfile: combinedAnalysis?.psychometricProfile || null,
+        },
+        userContext: {
+          userId,
+          sourceType,
+          sourceUrl,
+          extractedText,
+          skills,
+          strengths,
+          weakAreas,
+        },
+        contentData,
+        roadmapData,
+      });
+      const analysisData = processedResult.analysisData;
 
       if (existingAnalysisId) {
-        await fetch(ENDPOINTS.ANALYSIS.UPDATE(existingAnalysisId), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            skills: skills || [],
-            strengths: strengths || [],
-            weakAreas: weakAreas || [],
-            aiRecommendations: contentData?.resources || contentData?.tips || [],
-            learningRoadmap: roadmapData || contentData?.learningPath || null,
-            technicalLevel: getTechnicalLevel(),
-            learningStyle: getLearningStyle(),
-            topic: learningTopic || topic || null,
-            learningScore: learningScore || null,
-            technicalScore: technicalScore || score || null,
-            psychometricProfile: combinedAnalysis?.psychometricProfile || null
-          })
-        });
+        await updateAnalysis(existingAnalysisId, analysisData);
         setAnalysisId(existingAnalysisId);
         console.log("✅ Analysis updated:", existingAnalysisId);
       } else {
-        const saveRes = await fetch(ENDPOINTS.ANALYSIS.SAVE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(analysisData)
-        });
-
-        if (saveRes.ok) {
-          const saveData = await saveRes.json();
-          setAnalysisId(saveData.analysisId);
-          localStorage.setItem("currentAnalysisId", saveData.analysisId);
-          console.log("✅ Analysis saved with ID:", saveData.analysisId);
-        }
+        const saveData = await saveAnalysis(analysisData);
+        setAnalysisId(saveData.analysisId);
+        localStorage.setItem("currentAnalysisId", saveData.analysisId);
+        console.log("✅ Analysis saved with ID:", saveData.analysisId);
       }
     } catch (saveErr) {
       console.error("Failed to save analysis:", saveErr);
@@ -137,29 +99,16 @@ function ResultPage() {
     setError("");
 
     try {
-      // Use the centralized agent for personalized content
-      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `Generate personalized learning content on topic: ${learningTopic || topic || "General Technology"}`,
-          userId: userId,
-          context: {
-            userProfile: {
-              technicalLevel: getTechnicalLevel(),
-              learningStyle: getLearningStyle(),
-              technicalScore: technicalScore || score,
-              learningScore: learningScore || 50
-            }
-          }
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = await generatePersonalizedContent(
+        learningTopic || topic || "General Technology",
+        userId,
+        {
+          technicalLevel: effectiveTechnicalLevel,
+          learningStyle: effectiveLearningStyle,
+          technicalScore: technicalScore || score,
+          learningScore: learningScore || 50,
+        }
+      );
       console.log("🤖 Agent response for content:", data);
       console.log("🤖 Agent response data.data:", data.data);
 
@@ -204,38 +153,59 @@ function ResultPage() {
     setLoading(false);
   };
 
-  const generateLearningMaterial = async () => {
+  const handleGenerateLearningMaterial = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch(ENDPOINTS.LEARNING.MATERIAL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: learningTopic || topic || "General Technology",
-          technicalLevel: getTechnicalLevel(),
-          learningStyle: getLearningStyle()
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server ${res.status}`);
-      }
-
-      const material = await res.json();
-      setLearningMaterial(material);
-
+      const material = await requestLearningMaterial(
+        learningTopic || topic || "General Technology",
+        effectiveTechnicalLevel,
+        effectiveLearningStyle
+      );
       
 
-      const roadmapData = {
+      const processedResult = await processResult({
+        resultData: {
+          score,
+          topic: learningTopic || topic || null,
+          technicalScore: technicalScore || score || 0,
+          learningScore: learningScore || null,
+          technicalLevel: effectiveTechnicalLevel,
+          learningStyle: effectiveLearningStyle,
+          psychometricProfile: combinedAnalysis?.psychometricProfile || null,
+        },
+        userContext: {
+          userId,
+          sourceType,
+          sourceUrl,
+          extractedText,
+          skills,
+          strengths,
+          weakAreas,
+        },
+        contentData: material,
+        roadmapData: null,
+      });
+
+      const roadmapData = processedResult.roadmapData || {
         learningPath:
-          material.sections?.map(s => `${s.title}: ${s.keyPoints?.join(", ")}`) ||
+          material.sections?.map((section) => `${section.title}: ${section.keyPoints?.join(", ")}`) ||
           [],
         tips: material.learningTips || [],
         finalProject: material.finalProject
       };
       saveAnalysisToDatabase(material, roadmapData);
+
+      localStorage.setItem("learningMaterialData", JSON.stringify(material));
+      localStorage.setItem(
+        "learningMaterialMeta",
+        JSON.stringify({
+          topic: learningTopic || topic || "",
+          technicalLevel: effectiveTechnicalLevel,
+          learningStyle: effectiveLearningStyle,
+        })
+      );
 
       
 
@@ -243,8 +213,8 @@ function ResultPage() {
         state: {
           learningMaterial: material,
           topic: learningTopic || topic,
-          technicalLevel: getTechnicalLevel(),
-          learningStyle: getLearningStyle(),
+          technicalLevel: effectiveTechnicalLevel,
+          learningStyle: effectiveLearningStyle,
           analysisId: analysisId
         }
       });
@@ -279,7 +249,7 @@ function ResultPage() {
               <p className="stat-value" style={{ color: 'var(--color-primary)' }}>
                 {technicalScore || score}%
               </p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Level: {getTechnicalLevel()}</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Level: {effectiveTechnicalLevel}</p>
             </div>
 
             <div className="stat-card">
@@ -287,7 +257,7 @@ function ResultPage() {
               <p className="stat-value" style={{ color: 'var(--color-success)' }}>
                 {learningScore || 50}%
               </p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Style: {getLearningStyle()}</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Style: {effectiveLearningStyle}</p>
             </div>
           </div>
 
@@ -476,7 +446,7 @@ function ResultPage() {
                   )}
 
                   <button
-                    onClick={generateLearningMaterial}
+                    onClick={handleGenerateLearningMaterial}
                     disabled={loading}
                     className="enterprise-btn"
                     style={{ marginTop: '24px', marginBottom: '16px' }}

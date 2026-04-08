@@ -12,27 +12,24 @@
  * ============================================
  */
 
-require('dotenv').config();
-
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-
-const githubRoutes = require("./routes/githubRoutes");
-
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import fs from "fs";
+import githubRoutes from "./routes/githubRoutes.js";
 
 // Import configuration
-const { initDatabase } = require('./config/database');
+import { initDatabase } from "./config/database.js";
 
 // Import error handling middleware
-const { errorMiddleware, notFoundMiddleware } = require('./utils/errorHandler');
-const { log } = require('./utils/logger');
+import { errorMiddleware, notFoundMiddleware } from "./utils/errorHandler.js";
+import { log } from "./utils/logger.js";
 
 // Import routes
-const quizRoutes = require('./routes/quizRoutes');
-const learningRoutes = require('./routes/learningRoutes');
-const pdfRoutes = require('./routes/pdfRoutes');
-const analysisRoutes = require('./routes/analysisRoutes');
+import quizRoutes from "./routes/quizRoutes.js";
+import learningRoutes from "./routes/learningRoutes.js";
+import pdfRoutes from "./routes/pdfRoutes.js";
+import analysisRoutes from "./routes/analysisRoutes.js";
 
 // ==================== VALIDATION ====================
 
@@ -62,10 +59,23 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 // ==================== MIDDLEWARE ====================
 
 // CORS
-app.use(cors({
-  origin: CORS_ORIGIN,
-  exposedHeaders: ['X-Quiz-Id']
-}));
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 
 // JSON parsing
 app.use(express.json());
@@ -122,4 +132,4 @@ app.use("/api/github", githubRoutes);
 
 startServer();
 
-module.exports = app;
+export default app;

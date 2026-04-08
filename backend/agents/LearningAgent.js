@@ -9,7 +9,6 @@
  * Uses OpenAI or Gemini for intelligent routing via function calling
  */
 
-import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { quizTool, quizToolSchema } from './tools/quizTool.js';
 import { ragTool, ragToolSchema, checkPdfStatus } from './tools/ragTool.js';
@@ -32,10 +31,6 @@ import {
 } from './tools/validationTool.js';
 
 // Initialize AI clients
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
-
 const genAI = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
@@ -44,7 +39,7 @@ const genAI = process.env.GEMINI_API_KEY
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000;
 
-console.log("LearningAgent module loaded, OpenAI:", !!openai, "Gemini:", !!genAI);
+console.log("LearningAgent module loaded, Gemini:", !!genAI);
 
 /**
  * Retry helper with exponential backoff
@@ -482,32 +477,125 @@ function getTools() {
  * @param {string} params.message - User's message
  * @param {string} params.userId - User ID
  * @param {string} params.sessionId - Session ID for RAG
- * @param {string} params.model - AI model to use ('openai' or 'gemini')
- * @param {Object} params.context - Additional context (profile, quiz answers, etc.)
+ * @param {string} params.model - AI model to use (deprecated, always uses Gemini)
+ * @param {Object} params.context - Additional context (profile, quiz answers, quizType, etc.)
  * @returns {Promise<Object>} Agent response
  */
-export async function routeMessage({ message, userId, sessionId, model = 'openai', context = {} }) {
+export async function routeMessage({ message, userId, sessionId, model = 'gemini', context = {} }) {
   console.log("LearningAgent received message:", message);
   console.log("Context received:", JSON.stringify(context));
   
   try {
     // ============================================================
+    // SPECIAL HANDLING: Topic-based quiz generation (uses Gemini via quizTool)
+    // ============================================================
+    if (context?.quizType === "topic" && context?.topic) {
+      console.log("📝 Topic-based quiz request - using Gemini via quizTool");
+      
+      try {
+        const result = await quizTool({
+          topic: context.topic,
+          difficulty: context.difficulty || 'medium',
+          questionCount: context.questionCount || 10,
+          userId
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+      } catch (geminiError) {
+        console.error("❌ Gemini topic quiz error, retrying:", geminiError.message);
+        try {
+          const retryResult = await quizTool({
+            topic: context.topic,
+            difficulty: context.difficulty || 'medium',
+            questionCount: context.questionCount || 10,
+            userId
+          });
+          if (retryResult.success) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: retryResult.message,
+              rawData: retryResult.data
+            };
+          }
+        } catch (retryError) {
+          console.error("❌ Retry failed:", retryError.message);
+        }
+      }
+    }
+
+    // ============================================================
+    // SPECIAL HANDLING: PDF text quiz generation (uses Gemini with chunking)
+    // ============================================================
+    if (context?.pdfText && context.pdfText.length > 1000) {
+      console.log("📄 PDF text quiz request - using Gemini with chunking");
+      
+      try {
+        const result = await generateQuizFromPdfWithGemini({
+          pdfText: context.pdfText,
+          topic: context.topic || 'Document Quiz'
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+      } catch (geminiError) {
+        console.error("❌ Gemini PDF quiz error, retrying:", geminiError.message);
+        try {
+          const retryResult = await generateQuizFromPdfWithGemini({
+            pdfText: context.pdfText,
+            topic: context.topic || 'Document Quiz'
+          });
+          if (retryResult.success) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: retryResult.message,
+              rawData: retryResult.data
+            };
+          }
+        } catch (retryError) {
+          console.error("❌ Retry failed:", retryError.message);
+          return getPdfQuizFallbackResponse(context.pdfText, context.topic || 'Document Quiz');
+        }
+      }
+    }
+    
+    // ============================================================
     // SPECIAL HANDLING: Quiz generation from PDF/Document
     // Use Gemini API (not OpenAI) for intent selection and generation
     // ============================================================
     const isPdfQuizRequest = isQuizFromDocument(message);
+    let topic = context?.topic || 'Document Quiz';
     
     if (isPdfQuizRequest) {
       console.log("📄 PDF Quiz request detected - using Gemini exclusively");
+      topic = context?.topic || 'Document Quiz';
       
       // Check if Gemini is available
       if (!genAI) {
         console.log("⚠️ Gemini not available, using fallback");
-        return getPdfQuizFallbackResponse(context.pdfText || '', context.topic || 'Document Quiz');
+        return getPdfQuizFallbackResponse(context?.pdfText || '', topic);
       }
       
       // Check if PDF text is available in context
-      const pdfText = context.pdfText || '';
+      const pdfText = context?.pdfText || '';
       
       if (!pdfText || pdfText.length < 200) {
         return {
@@ -520,8 +608,6 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
       }
       
       try {
-        const topic = context.topic || 'Document Quiz';
-        
         // Use Gemini with chunking for PDF quiz generation
         const result = await generateQuizFromPdfWithGemini({
           pdfText,
@@ -570,7 +656,7 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
     console.log("PDF status:", pdfStatus);
 
     // Build user profile context
-    const profileContext = context.userProfile ? `
+    const profileContext = context?.userProfile ? `
 User Profile:
 - Technical Level: ${context.userProfile.technicalLevel || 'unknown'}
 - Learning Style: ${context.userProfile.learningStyle || 'unknown'}
@@ -579,14 +665,14 @@ User Profile:
 ` : '';
     
     // Build quiz context if available
-    const quizContext = context.quizAnswers ? `
+    const quizContext = context?.quizAnswers ? `
 Current Quiz:
 - Questions answered: ${context.quizAnswers.length}
 - Current score: ${context.quizAnswers.filter(a => a.correct).length}/${context.quizAnswers.length}
 ` : '';
     
     // Build PDF context if available
-    const pdfContext = context.pdfText ? `
+    const pdfContext = context?.pdfText ? `
 PDF Context (${(context.pdfText.length / 1000).toFixed(1)}KB):
 ${context.pdfText.substring(0, 1000)}...
 ` : '';
@@ -627,21 +713,17 @@ User message: "${message}"
     // ============================================================
     // API ROUTING RULES:
     // - Direct PDF chat handled above via ragTool
-    // - Non-PDF tool selection uses requested model preference
+    // - Always use Gemini (OpenAI disabled)
     // ============================================================
-    let effectiveModel = model === 'gemini' ? 'gemini' : 'openai';
+    // Force Gemini for all requests
+    let effectiveModel = 'gemini';
     
     console.log(`API Routing: isPdfChat=${isPdfChatRequest}, using=${effectiveModel}`);
     
     let toolCall = null;
 
-    // Use OpenAI for PDF chat requests
-    if (effectiveModel === 'openai' && openai) {
-      console.log("Using OpenAI for tool selection (PDF chat)");
-      toolCall = await routeWithOpenAI(toolContext, message);
-    } 
-    // Use Gemini for all other requests
-    else if (effectiveModel === 'gemini' && genAI) {
+    // Use Gemini for all requests
+    if (effectiveModel === 'gemini' && genAI) {
       console.log("Using Gemini for tool selection");
       toolCall = await routeWithGemini(toolContext, message);
     }
@@ -947,7 +1029,7 @@ function routeWithIntent(message, context = {}) {
         { pattern: /quiz.*from.*text|quiz.*from.*document/i, weight: 3 },
         { pattern: /generate.*from.*content/i, weight: 2 }
       ],
-      extractTopic: () => ({ docText: context.pdfText || '' })
+      extractTopic: () => ({ docText: context?.pdfText || '' })
     }
   ];
   
@@ -984,7 +1066,7 @@ function routeWithIntent(message, context = {}) {
   // If message is a question about content, use RAG
   if (lowerMessage.includes('?') || lowerMessage.includes('what') || lowerMessage.includes('how') || lowerMessage.includes('why')) {
     // Check if PDF is available
-    if (context.pdfText || lowerMessage.includes('pdf') || lowerMessage.includes('document')) {
+    if (context?.pdfText || lowerMessage.includes('pdf') || lowerMessage.includes('document')) {
       return { tool: 'rag', params: { message } };
     }
     return { tool: 'content', params: { topic: 'General Knowledge', technicalLevel: 'intermediate', learningStyle: 'reading' } };

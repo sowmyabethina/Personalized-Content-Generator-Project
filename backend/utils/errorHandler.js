@@ -3,7 +3,7 @@
  * Centralized error handling functions
  */
 
-const { logError } = require('./logger');
+import { logError } from "./logger.js";
 
 /**
  * Custom API Error class
@@ -92,10 +92,5 @@ function asyncHandler(fn) {
   };
 }
 
-module.exports = {
-  ApiError,
-  handleError,
-  errorMiddleware,
-  notFoundMiddleware,
-  asyncHandler
-};
+export { ApiError, handleError, errorMiddleware, notFoundMiddleware, asyncHandler };
+export default { ApiError, handleError, errorMiddleware, notFoundMiddleware, asyncHandler };

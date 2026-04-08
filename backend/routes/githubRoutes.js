@@ -1,7 +1,9 @@
-const express = require("express");
+import express from "express";
+import { getGithubSkills, processGithubProfileRequest } from "../controllers/githubController.js";
+
 const router = express.Router();
-const { getGithubSkills } = require("../controllers/githubController");
 
 router.post("/extract-skills", getGithubSkills);
+router.post("/process", processGithubProfileRequest);
 
-module.exports = router;
+export default router;

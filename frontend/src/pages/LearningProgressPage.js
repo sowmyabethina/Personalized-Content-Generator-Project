@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import ENDPOINTS from "../config/api";
+import useAnalyses from "../hooks/useAnalyses";
+import { formatAnalysisDate } from "../utils/analysis/analysisHelpers";
+import { processProgress } from "../services/progress/progressService";
+import { formatCourseName } from "../utils/analysis/progressDashboard";
 
 // Local styles for Learning Progress Dashboard
 /* UI_REFRESH_V2 */
@@ -133,13 +136,15 @@ function LearningProgressPage() {
   const { userId: rawUserId } = location.state || {};
   const userId = rawUserId && rawUserId !== "anonymous" ? rawUserId : null;
 
-  const [analyses, setAnalyses] = useState([]);
-  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const { analyses, loading, error, loadAnalyses } = useAnalyses(userId);
   const [showAllAssessments, setShowAllAssessments] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [processedProgress, setProcessedProgress] = useState({
+    uniqueCourses: [],
+    categories: { needsAttention: [], improving: [], strong: [] },
+    chartData: [],
+    readiness: null,
+  });
 
   useEffect(() => {
     loadAnalyses();
@@ -161,177 +166,37 @@ function LearningProgressPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [userId]);
-
-  const loadAnalyses = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      let url = ENDPOINTS.ANALYSIS.GET_ALL;
-      if (userId) {
-        url += `?userId=${encodeURIComponent(userId)}`;
-      }
-      
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const sortedAnalyses = (data.analyses || []).sort((a, b) => {
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        });
-        setAnalyses(sortedAnalyses);
-        setLastUpdated(new Date());
-      } else {
-        throw new Error("Failed to load analyses");
-      }
-    } catch (err) {
-      console.error("Error loading analyses:", err);
-      setError("Failed to load learning progress. Please try again.");
-    }
-    setLoading(false);
-  };
+  }, [userId, loadAnalyses]);
 
   const latestAssessment = analyses.length > 0 ? analyses[0] : null;
   const previousAssessment = analyses.length > 1 ? analyses[1] : null;
 
-  const loadAnalysisDetail = async (analysisId) => {
-    setLoading(true);
-    try {
-      const res = await fetch(ENDPOINTS.ANALYSIS.GET_BY_ID(analysisId));
-      if (res.ok) {
-        const data = await res.json();
-        setSelectedAnalysis(data.analysis);
-      } else {
-        throw new Error("Failed to load analysis details");
-      }
-    } catch (err) {
-      console.error("Error loading analysis:", err);
-      setError("Failed to load analysis details.");
-    }
-    setLoading(false);
-  };
+  useEffect(() => {
+    const loadProgressInsights = async () => {
+      const processed = await processProgress(analyses);
+      setProcessedProgress({
+        uniqueCourses: processed.uniqueCourses || [],
+        categories: processed.categories || { needsAttention: [], improving: [], strong: [] },
+        chartData: processed.chartData || [],
+        readiness: processed.readiness || null,
+      });
+    };
 
-  const continueLearning = (analysis) => {
+    loadProgressInsights();
+  }, [analyses]);
+
+  const startLearning = (analysis) => {
     const analysisId = analysis.analysisId || analysis.id;
     localStorage.setItem("currentAnalysisId", analysisId);
     
-    navigate("/result", {
-      state: {
-        ...analysis,
-        mode: "saved"
-      }
+    navigate("/learning-material", {
+      state: { reset: true }
     });
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "Unknown date";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  };
-
-  const getScoreColor = (score) => {
-    if (!score) return "#6B7280";
-    if (score >= 80) return "#10b981";
-    if (score >= 60) return "#f59e0b";
-    return "#ef4444";
-  };
-
-  const calculateReadiness = (techScore, learnScore) => {
-    const readiness = (techScore * 0.6) + (learnScore * 0.4);
-    if (readiness >= 80) return { level: "Interview Ready", color: "#10b981", percentage: readiness };
-    if (readiness >= 60) return { level: "Job Ready", color: "#f59e0b", percentage: readiness };
-    if (readiness >= 40) return { level: "Developing", color: "#2563EB", percentage: readiness };
-    return { level: "Beginner", color: "#ef4444", percentage: readiness };
-  };
-
-  // STEP 1: Normalize names
-  const normalizeName = (name) => name?.trim().toLowerCase();
-
-  // STEP 2: Remove duplicates using Map
-  const uniqueCoursesMap = new Map();
-
-  analyses.forEach((item) => {
-    const key = normalizeName(item.topic || item.name);
-    const displayName = item.topic || item.name || 'Unknown';
-
-    if (!uniqueCoursesMap.has(key)) {
-      uniqueCoursesMap.set(key, {
-        ...item,
-        name: displayName,
-        score: item.technicalScore || item.progress || 0
-      });
-    }
-  });
-
-  const uniqueCourses = Array.from(uniqueCoursesMap.values());
-
-  // STEP 3: Categorize
-  const needsAttention = [];
-  const improving = [];
-  const strong = [];
-
-  uniqueCourses.forEach((course) => {
-    const score = course.score;
-
-    if (score < 40) {
-      needsAttention.push(course);
-    } else if (score < 70) {
-      improving.push(course);
-    } else {
-      strong.push(course);
-    }
-  });
-
-  // STEP 4: Sort
-  needsAttention.sort((a, b) => a.score - b.score);
-  improving.sort((a, b) => a.score - b.score);
-  strong.sort((a, b) => b.score - a.score);
-
-  // STEP 5: Format display name
-  const formatName = (name) => {
-    if (!name) return 'Unknown';
-    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-  };
-
-  const weakAreasSummary = (() => {
-    const weakAreasMap = {};
-    analyses.forEach(analysis => {
-      const weakAreas = analysis.weakAreas || [];
-      weakAreas.forEach(area => {
-        weakAreasMap[area] = (weakAreasMap[area] || 0) + 1;
-      });
-    });
-    
-    return Object.entries(weakAreasMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([area, count]) => ({ area, count }));
-  })();
-
-  const chartData = (() => {
-    const recentAnalyses = analyses.slice(0, 10);
-    const mapped = recentAnalyses
-      .filter(a => a.technicalScore > 0 || a.learningScore > 0)
-      .map(a => ({
-        date: formatDate(a.createdAt),
-        technicalScore: a.technicalScore || a.overallScore || 0,
-        learningScore: a.learningScore || 0,
-        fullDate: a.createdAt
-      }));
-    
-    const dateMap = new Map();
-    mapped.forEach(item => {
-      const existing = dateMap.get(item.date);
-      if (!existing || new Date(item.fullDate) > new Date(existing.fullDate)) {
-        dateMap.set(item.date, item);
-      }
-    });
-    
-    return Array.from(dateMap.values()).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
-  })();
+  const uniqueCourses = processedProgress.uniqueCourses;
+  const { needsAttention, improving, strong } = processedProgress.categories;
+  const chartData = processedProgress.chartData;
 
   const getProgressTrend = () => {
     if (!latestAssessment || !previousAssessment) return "neutral";
@@ -349,10 +214,7 @@ function LearningProgressPage() {
     stable: "➡️"
   }[progressTrend] || "➡️";
 
-  const readiness = latestAssessment ? calculateReadiness(
-    latestAssessment?.technicalScore || latestAssessment?.overallScore || 0,
-    latestAssessment?.learningScore || 0
-  ) : null;
+  const readiness = processedProgress.readiness;
 
   if (loading) {
     return (
@@ -464,7 +326,7 @@ function LearningProgressPage() {
                               <strong>{a.topic || "Assessment"}</strong>
                               <span>{a.technicalScore}%</span>
                             </div>
-                            <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ marginTop: '12px' }}>Continue Learning →</button>
+                            <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ marginTop: '12px' }}>Continue Learning →</button>
                           </div>
                         ))}
                       </div>
@@ -494,12 +356,12 @@ function LearningProgressPage() {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: "16px", background: "var(--color-gray-50)", borderRadius: "12px" }}>
                           <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: '500' }}>Joined Date</span>
-                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{formatDate(analyses[analyses.length - 1]?.createdAt)}</span>
+                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{formatAnalysisDate(analyses[analyses.length - 1]?.createdAt)}</span>
                         </div>
                         {/* ✅ RESTORED: Last Active Row */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: "16px", background: latestAssessment ? "#ecfdf5" : "var(--color-gray-50)", borderRadius: "12px", border: latestAssessment ? "1px solid #059669" : "none" }}>
                           <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: '500' }}>Last Active</span>
-                          <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "var(--text-primary)" }}>{latestAssessment ? formatDate(latestAssessment.createdAt) : "N/A"}</span>
+                          <span style={{ fontWeight: "600", color: latestAssessment ? "#059669" : "var(--text-primary)" }}>{latestAssessment ? formatAnalysisDate(latestAssessment.createdAt) : "N/A"}</span>
                         </div>
                       </div>
                     </div>
@@ -524,11 +386,11 @@ function LearningProgressPage() {
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                               <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Focus on basics. Complete these curated courses to build your expertise.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+full+course`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
-                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
                       ))}
@@ -546,11 +408,11 @@ function LearningProgressPage() {
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                               <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Making progress! Deepen your knowledge with advanced implementation scenarios.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+tutorial+advanced`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
-                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+tutorial+advanced`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
                       ))}
@@ -568,11 +430,11 @@ function LearningProgressPage() {
                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                               <span style={{ background: '#d1fae5', color: '#059669', padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '600' }}>{a.score}%</span>
                            </div>
-                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatName(a.name)}</h4>
+                           <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Excellent work! Stay sharp by practicing complex real-world problems.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+practice+problems`} target="_blank" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
-                              <button onClick={() => continueLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Review</button>
+                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+practice+problems`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
+                              <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Review</button>
                            </div>
                         </div>
                       ))}
