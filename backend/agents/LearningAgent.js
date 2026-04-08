@@ -6,7 +6,7 @@
  * - ragTool: For PDF/document chat requests  
  * - analyticsTool: For progress/performance queries
  * 
- * Uses OpenAI or Gemini for intelligent routing via function calling
+ * Uses Gemini for intelligent routing via function calling
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -579,7 +579,7 @@ export async function routeMessage({ message, userId, sessionId, model = 'gemini
     
     // ============================================================
     // SPECIAL HANDLING: Quiz generation from PDF/Document
-    // Use Gemini API (not OpenAI) for intent selection and generation
+    // Use Gemini API for intent selection and generation
     // ============================================================
     const isPdfQuizRequest = isQuizFromDocument(message);
     let topic = context?.topic || 'Document Quiz';
@@ -713,7 +713,7 @@ User message: "${message}"
     // ============================================================
     // API ROUTING RULES:
     // - Direct PDF chat handled above via ragTool
-    // - Always use Gemini (OpenAI disabled)
+    // - Always use Gemini
     // ============================================================
     // Force Gemini for all requests
     let effectiveModel = 'gemini';
@@ -821,79 +821,6 @@ User message: "${message}"
       message: 'An error occurred while processing your request. Please try again.'
     };
   }
-}
-
-/**
- * Route using OpenAI function calling
- */
-async function routeWithOpenAI(systemContext, userMessage) {
-  console.log("routeWithOpenAI called");
-  
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { 
-        role: 'system', 
-        content: systemContext
-      },
-      { 
-        role: 'user', 
-        content: userMessage 
-      }
-    ],
-    tools: [
-      {
-        type: 'function',
-        function: quizToolSchema
-      },
-      {
-        type: 'function',
-        function: ragToolSchema
-      },
-      {
-        type: 'function',
-        function: analyticsToolSchema
-      },
-      {
-        type: 'function',
-        function: contentToolSchema
-      },
-      {
-        type: 'function',
-        function: personalizedContentToolSchema
-      },
-      {
-        type: 'function',
-        function: quizFromTextToolSchema
-      },
-      {
-        type: 'function',
-        function: evaluateLearningStyleToolSchema
-      },
-      {
-        type: 'function',
-        function: evaluateAnswerToolSchema
-      },
-      {
-        type: 'function',
-        function: validateContentToolSchema
-      }
-    ],
-    tool_choice: 'auto',
-    temperature: 0.1
-  });
-
-  const toolCall = response.choices[0]?.message?.tool_calls?.[0];
-  
-  if (!toolCall) {
-    console.log("No tool call from OpenAI, falling back to keywords");
-    return routeWithKeywords(userMessage);
-  }
-
-  return {
-    tool: toolCall.function.name.replace('Tool', ''),
-    params: JSON.parse(toolCall.function.arguments || '{}')
-  };
 }
 
 /**
