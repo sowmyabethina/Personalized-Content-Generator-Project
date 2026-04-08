@@ -24,8 +24,11 @@ import {
 
 import { processMaterial } from "../services/learning/learningMaterialService";
 
-// Import extracted constants
-import { styles, dashboardStyles } from "./LearningMaterialPage/constants/learningConstants";
+// Import global constants
+import { LEARNING_STYLES, TECHNICAL_LEVELS, ERROR_MESSAGES } from "../constants/learningConstants";
+
+// Import component styles
+import { styles, dashboardStyles } from "../components/learningMaterialStyles";
 
 function LearningMaterialPage() {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import ENDPOINTS from "../../config/api";
-import { requestJson } from "../api/http";
+import { requestJson } from "../../utils/http";
 
 export const checkPdfStatus = async () =>
   requestJson(ENDPOINTS.PDF_CHAT.HEALTH, undefined, "Failed to check PDF status.");

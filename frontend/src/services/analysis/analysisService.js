@@ -1,5 +1,5 @@
 import ENDPOINTS from "../../config/api";
-import { requestJson } from "../api/http";
+import { requestJson } from "../../utils/http";
 import { sortAnalysesByNewest } from "../../utils/analysis/analysisHelpers";
 
 export const fetchAnalyses = async (userId) => {

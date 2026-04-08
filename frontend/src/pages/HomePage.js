@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ENDPOINTS from "../config/api";
 import { processProfile } from "../services/github/githubService";
-import { requestJson } from "../services/api/http";
+import { requestJson } from "../utils/http";
 import useQuizGeneration from "../hooks/quiz/useQuizGeneration";
 
 function HomePage() {

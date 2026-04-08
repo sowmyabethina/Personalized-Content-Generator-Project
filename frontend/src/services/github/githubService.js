@@ -1,5 +1,5 @@
 import ENDPOINTS from "../../config/api";
-import { requestJson } from "../api/http";
+import { requestJson } from "../../utils/http";
 
 export const extractGithubUsername = (url) => {
   if (!url || typeof url !== "string") return null;
