@@ -1,15 +1,25 @@
 export const convertSectionsToLessons = (learningMaterial) => {
   const lessons = [];
 
-  if (learningMaterial?.summary) {
+  if (learningMaterial?.overview) {
     lessons.push({
       title: "Overview",
       estimatedTime: "5 min",
       sections: {
-        summary: learningMaterial.summary,
-        keyPoints: learningMaterial.learningTips || [],
-        realWorldApplications: [],
-        examples: [],
+        summary: learningMaterial.overview,
+        keyPoints: learningMaterial.keyConcepts 
+          ? learningMaterial.keyConcepts.map(kc => kc.point || kc.explanation).filter(Boolean)
+          : learningMaterial.learningTips || learningMaterial.bestPractices || [],
+        realWorldApplications: learningMaterial.applications 
+          ? learningMaterial.applications.map(app => ({ title: app.title, description: app.description }))
+          : [],
+        examples: learningMaterial.examples 
+          ? learningMaterial.examples.map(ex => ({
+              title: ex.title,
+              description: ex.explanation,
+              code: ex.code
+            }))
+          : [],
         practiceQuestions: [],
       },
     });
@@ -17,35 +27,99 @@ export const convertSectionsToLessons = (learningMaterial) => {
 
   if (Array.isArray(learningMaterial?.sections)) {
     learningMaterial.sections.forEach((section) => {
-      const examples = Array.isArray(section.examples)
-        ? section.examples.map((example) => ({
-            title: example.title || "Example",
-            description: example.description || "",
-            code: example.code || "",
-          }))
-        : [];
+      let examples = [];
+      
+      if (Array.isArray(section.examples)) {
+        examples = section.examples.map((example) => {
+          if (typeof example === 'string') {
+            return { title: "Example", description: example, code: "" };
+          }
+          return {
+            title: example?.title || "Example",
+            description: example?.description || "",
+            code: example?.code || example?.codeExample || "",
+          };
+        });
+      } else if (section.codeExample) {
+        examples = [{
+          title: "Code Example",
+          description: section.realWorldExample || "",
+          code: section.codeExample
+        }];
+      }
+
+      let keyPoints = [];
+      if (Array.isArray(section.keyPoints)) {
+        keyPoints = section.keyPoints.filter(kp => typeof kp === 'string');
+      }
+
+      const explanation = section.explanation || section.content || "";
 
       lessons.push({
-        title: section.title || `Section ${lessons.length + 1}`,
-        estimatedTime: "10 min",
+        title: section.heading || section.title || `Section ${lessons.length + 1}`,
+        estimatedTime: section.estimatedTime || "15 min",
         sections: {
-          summary: section.content || "",
-          keyPoints: section.keyPoints || [],
-          realWorldApplications: [],
-          examples,
-          practiceQuestions: [],
+          summary: explanation,
+          keyPoints: keyPoints,
+          realWorldApplications: section.realWorldExample 
+            ? [{ title: "Real-World Use", description: section.realWorldExample }]
+            : section.applications 
+              ? section.applications.map(app => ({ title: app.title || "Application", description: app.description || app }))
+              : [],
+          examples: examples,
+          practiceQuestions: section.practiceQuestions || [],
         },
       });
     });
   }
 
-  if (learningMaterial?.learningTips?.length > 0) {
+  if (learningMaterial?.applications?.length > 0) {
+    const validApps = learningMaterial.applications.filter(
+      app => app && (app.title || app.description) && typeof app === 'object'
+    );
+    if (validApps.length > 0) {
+      lessons.push({
+        title: "Real-World Applications",
+        estimatedTime: "10 min",
+        sections: {
+          summary: "Understanding where this technology is used in the real world:",
+          keyPoints: validApps.map(app => app.title || "").filter(Boolean),
+          realWorldApplications: validApps.map(app => ({ title: app.title, description: app.description })),
+          examples: [],
+          practiceQuestions: [],
+        },
+      });
+    }
+  }
+
+  if (learningMaterial?.examples?.length > 0) {
+    const validExamples = learningMaterial.examples.filter(ex => ex && ex.title);
+    if (validExamples.length > 0) {
+      lessons.push({
+        title: "Practical Examples",
+        estimatedTime: "15 min",
+        sections: {
+          summary: "Hands-on examples to reinforce your learning:",
+          keyPoints: [],
+          realWorldApplications: [],
+          examples: validExamples.map(ex => ({
+            title: ex.title,
+            description: ex.explanation,
+            code: ex.code
+          })),
+          practiceQuestions: [],
+        },
+      });
+    }
+  }
+
+  if (learningMaterial?.commonMistakes?.length > 0) {
     lessons.push({
-      title: "Learning Tips",
-      estimatedTime: "3 min",
+      title: "Common Mistakes to Avoid",
+      estimatedTime: "5 min",
       sections: {
-        summary: "Helpful tips to enhance your learning experience:",
-        keyPoints: learningMaterial.learningTips,
+        summary: "Learn from these common mistakes that developers often make when learning this topic:",
+        keyPoints: learningMaterial.commonMistakes,
         realWorldApplications: [],
         examples: [],
         practiceQuestions: [],
@@ -53,23 +127,54 @@ export const convertSectionsToLessons = (learningMaterial) => {
     });
   }
 
-  if (learningMaterial?.finalProject) {
+  if (learningMaterial?.bestPractices?.length > 0) {
     lessons.push({
-      title: "Final Project",
-      estimatedTime: "20 min",
+      title: "Best Practices",
+      estimatedTime: "5 min",
       sections: {
-        summary: learningMaterial.finalProject.description || "Complete this project to practice what you've learned.",
-        keyPoints: [],
-        realWorldApplications: [
-          {
-            title: learningMaterial.finalProject.title || "Project",
-            description: learningMaterial.finalProject.description || "",
-          },
-        ],
+        summary: "Follow these industry-standard best practices:",
+        keyPoints: learningMaterial.bestPractices,
+        realWorldApplications: [],
         examples: [],
-        practiceQuestions: learningMaterial.finalProject.steps || [],
+        practiceQuestions: [],
       },
     });
+  }
+
+  if (learningMaterial?.miniProject) {
+    lessons.push({
+      title: "Mini Project",
+      estimatedTime: "30 min",
+      sections: {
+        summary: learningMaterial.miniProject.description || "Build a mini project to practice what you've learned:",
+        keyPoints: learningMaterial.miniProject.steps || [],
+        realWorldApplications: [
+          {
+            title: learningMaterial.miniProject.title || "Project",
+            description: learningMaterial.miniProject.description || ""
+          }
+        ],
+        examples: [],
+        practiceQuestions: learningMaterial.miniProject.steps || [],
+      },
+    });
+  }
+
+  if (learningMaterial?.interviewQuestions?.length > 0) {
+    const validIQs = learningMaterial.interviewQuestions.filter(iq => iq && iq.question);
+    if (validIQs.length > 0) {
+      lessons.push({
+        title: "Interview Preparation",
+        estimatedTime: "10 min",
+        sections: {
+          summary: "Practice these common interview questions:",
+          keyPoints: validIQs.map(iq => `Q: ${iq.question}\nA: ${iq.answer}`),
+          realWorldApplications: [],
+          examples: [],
+          practiceQuestions: [],
+        },
+      });
+    }
   }
 
   return lessons;

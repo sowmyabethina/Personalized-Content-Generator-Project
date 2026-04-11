@@ -88,79 +88,190 @@ async function generateLearningMaterial(topic, technicalLevel, learningStyle) {
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const prompt = `You are an expert technical educator. Generate comprehensive, structured learning material for the following:
+  const level = (technicalLevel || 'intermediate').toLowerCase();
+  const style = (learningStyle || 'reading').toLowerCase();
 
-Topic: ${topic}
-Technical Level: ${technicalLevel}
-Learning Style: ${learningStyle}
+  const personalization = level === 'beginner' 
+    ? 'Use simple language, everyday analogies, and step-by-step explanations. Avoid jargon unless defined.'
+    : level === 'advanced'
+    ? 'Use technical terminology, cover deep concepts, include edge cases and optimizations.'
+    : 'Balance clarity with practical examples, assume basic understanding.';
 
-Create detailed learning material with the following structure in JSON format:
+  const styleGuidance = style === 'visual'
+    ? 'Describe concepts with visual descriptions, mention diagrams, and spatial relationships.'
+    : style === 'auditory'
+    ? 'Use conversational tone, mention discussions and verbal explanations.'
+    : style === 'kinesthetic'
+    ? 'Include hands-on activities, real-world projects, and practical exercises.'
+    : 'Use structured text with clear headings, bullet points, and detailed explanations.';
+
+  const prompt = `You are an expert educator creating a COMPLETE course module.
+
+Generate DETAILED, HIGH-QUALITY learning content on: ${topic}
+
+User Profile:
+- Technical Level: ${level}
+- Learning Style: ${style}
+
+IMPORTANT:
+This is NOT a short explanation.
+This should feel like a FULL COURSE LESSON.
+
+CONTENT REQUIREMENTS:
+
+1. OVERVIEW:
+- Explain topic in simple real-world way (5-6 lines)
+
+2. CORE CONCEPTS:
+- Minimum 6-8 key points
+- Each point should have explanation (not just 1 line)
+
+3. DETAILED SECTIONS (VERY IMPORTANT):
+Generate at least 5 sections.
+For EACH section:
+- Explanation (minimum 6-8 lines)
+- Real-world example
+- Code example (proper formatted)
+- Why it matters
+
+4. APPLICATIONS (VERY IMPORTANT):
+Generate at least 5 REAL applications:
+Each application must be 2-3 lines explanation
+
+5. EXAMPLES:
+Provide 3-5 practical examples:
+- Each must include:
+  - Title
+  - Code snippet
+  - Explanation
+
+6. COMMON MISTAKES:
+- At least 5 real developer mistakes
+
+7. BEST PRACTICES:
+- At least 5 industry-level practices
+
+8. MINI PROJECT:
+- Give 1 small project idea using this topic
+- Include steps
+
+9. INTERVIEW QUESTIONS:
+- At least 5 questions with short answers
+
+${personalization}
+${styleGuidance}
+
+OUTPUT FORMAT (STRICT JSON):
 
 {
-  "title": "Complete ${topic} Learning Guide",
-  "topic": "${topic}",
-  "level": "${technicalLevel}",
-  "style": "${learningStyle}",
-  "summary": "A comprehensive overview tailored for ${learningStyle} learners at ${technicalLevel} level",
-  "sections": [
+  "title": "string",
+  "overview": "string",
+  "keyConcepts": [
     {
-      "title": "Section Title",
-      "content": "Detailed paragraph(s) explaining the concept with real-world applications and context (2-3 paragraphs)",
-      "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4"],
-      "examples": [
-        {
-          "title": "Example Title",
-          "description": "Detailed description of what this example demonstrates",
-          "code": "Code snippet or practical example"
-        }
-      ],
-      "applications": ["Real-world application 1", "Real-world application 2"],
-      "practiceQuestions": ["Question 1", "Question 2", "Question 3"],
-      "estimatedTime": "20 minutes"
+      "point": "string",
+      "explanation": "string"
     }
   ],
-  "finalProject": {
-    "title": "Capstone Project: [Project Name]",
-    "description": "A comprehensive project that combines all concepts learned",
-    "steps": ["Step 1", "Step 2", "Step 3"],
-    "expectedOutcome": "What learners will achieve after completing this project"
-  },
-  "cheatsheet": {
-    "commands": ["Command 1", "Command 2", "Command 3"],
-    "definitions": {
-      "Term 1": "Definition",
-      "Term 2": "Definition"
+  "sections": [
+    {
+      "heading": "string",
+      "explanation": "string",
+      "realWorldExample": "string",
+      "codeExample": "string",
+      "importance": "string"
     }
+  ],
+  "applications": [
+    {
+      "title": "string",
+      "description": "string"
+    }
+  ],
+  "examples": [
+    {
+      "title": "string",
+      "code": "string",
+      "explanation": "string"
+    }
+  ],
+  "commonMistakes": ["string"],
+  "bestPractices": ["string"],
+  "miniProject": {
+    "title": "string",
+    "steps": ["string"]
   },
-  "furtherReading": ["Resource 1", "Resource 2", "Resource 3"],
-  "learningTips": ["Tip 1", "Tip 2", "Tip 3"]
+  "interviewQuestions": [
+    {
+      "question": "string",
+      "answer": "string"
+    }
+  ]
 }
 
-Requirements:
-- Generate 4-5 comprehensive sections covering different aspects of ${topic}
-- Each section should have detailed explanations with practical applications
-- Include code examples where applicable
-- Provide multiple key points and practice questions per section
-- The content should be suitable for a ${learningStyle} learner at ${technicalLevel} level
-- Include real-world scenarios and use cases
-- Make it engaging and practical
-
-Return ONLY valid JSON, no additional text.`;
+Return ONLY valid JSON, no explanations or markdown outside the JSON.`;
 
   try {
     const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
     if (!rawText) {
       throw new Error('Empty Groq output for learning material');
     }
-    return parseJson(rawText);
+    
+    let parsed = parseJson(rawText);
+    if (parsed && typeof parsed === 'object') {
+      parsed = sanitizeContentObject(parsed);
+    }
+    
+    return parsed;
   } catch (error) {
     console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
     const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
     if (!fallbackText) {
       throw new Error('Empty Groq fallback output for learning material');
     }
-    return parseJson(fallbackText);
+    
+    let parsed = parseJson(fallbackText);
+    if (parsed && typeof parsed === 'object') {
+      parsed = sanitizeContentObject(parsed);
+    }
+    
+    return parsed;
   }
+}
+
+/**
+ * Sanitize content object to ensure all fields are proper strings
+ * @param {Object} obj - Content object to sanitize
+ * @returns {Object} - Sanitized object
+ */
+function sanitizeContentObject(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  const sanitized = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) {
+      sanitized[key] = '';
+    } else if (typeof value === 'object') {
+      if (Array.isArray(value)) {
+        sanitized[key] = value.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            return sanitizeContentObject(item);
+          }
+          return String(item ?? '');
+        });
+      } else {
+        sanitized[key] = JSON.stringify(value);
+      }
+    } else if (typeof value === 'function') {
+      sanitized[key] = '';
+    } else {
+      sanitized[key] = String(value);
+    }
+  }
+  
+  return sanitized;
 }
 
 /**
