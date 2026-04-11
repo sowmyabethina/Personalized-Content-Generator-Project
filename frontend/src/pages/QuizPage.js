@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import ENDPOINTS from "../config/api";
+import { fetchLearningQuestions } from "../services/learning/learningMaterialService";
+import { submitQuiz } from "../services/quiz/quizService";
+import useQuizGeneration from "../hooks/quiz/useQuizGeneration";
+import {
+  compareAnswer,
+  getTechnicalLevel,
+} from "../utils/quiz/psychometric";
 
 function QuizPage() {
   const navigate = useNavigate();
@@ -37,8 +43,6 @@ function QuizPage() {
   const [topic, setTopic] = useState(initialTopic || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [retakeLoading, setRetakeLoading] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
   const [scoreAnimationComplete, setScoreAnimationComplete] = useState(false);
 
@@ -48,7 +52,6 @@ function QuizPage() {
   const [answerLocked, setAnswerLocked] = useState(false);
   const [technicalScore, setTechnicalScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState(false);
 
   // Animate score when entering score stage
   useEffect(() => {
@@ -116,6 +119,7 @@ function QuizPage() {
   const [learningAnswers, setLearningAnswers] = useState([]);
 
   const [generatedQuizQuestions, setGeneratedQuizQuestions] = useState([]);
+  const { generateQuestions } = useQuizGeneration();
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && topic.trim()) {
@@ -126,71 +130,6 @@ function QuizPage() {
   };
 
   const displayQuestions = questions && questions.length > 0 ? questions : generatedQuizQuestions;
-
-  const parseQuestionsFromText = (text) => {
-    const questions = [];
-    if (!text || typeof text !== "string") return [];
-
-    const sections = text.split(/\*\*Multiple-Choice Questions\*\*|\*\*Multiple Choice Questions\*\*/i);
-    const mcqSection = sections.length > 1 ? sections[1] : text;
-
-    const questionBlocks = mcqSection.split(/\n(?=\d+\.)/);
-
-    for (const block of questionBlocks) {
-      const lines = block.trim().split("\n").filter(l => l.trim());
-      if (lines.length < 4) continue;
-
-      let questionText = lines[0].replace(/^\d+\.\s*/, "").trim();
-      questionText = questionText.replace(/http[s]?:\/\/\S+/g, "").trim();
-
-      const options = [];
-      let correctAnswerLetter = null;
-
-      const questionLine = lines[0];
-      const questionCorrectMatch = questionLine.match(/Correct Answer:\s*([A-D])/i);
-      if (questionCorrectMatch) {
-        correctAnswerLetter = questionCorrectMatch[1];
-      }
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        const correctMatch = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
-        if (correctMatch) {
-          correctAnswerLetter = correctMatch[1];
-        }
-
-        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)$/i);
-        if (optionMatch) {
-          let optionText = optionMatch[2].trim();
-          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*/i, "").trim();
-
-          if (optionText && optionText.length > 0) {
-            options.push(optionText);
-          }
-        }
-      }
-
-      if (questionText && options.length >= 3) {
-        const finalOptions = options.slice(0, 4);
-        let answerIndex = 0;
-        if (correctAnswerLetter) {
-          answerIndex = correctAnswerLetter.toUpperCase().charCodeAt(0) - 65;
-          if (answerIndex < 0 || answerIndex >= finalOptions.length) {
-            answerIndex = 0;
-          }
-        }
-
-        questions.push({
-          question: questionText,
-          options: finalOptions,
-          answer: finalOptions[answerIndex] || finalOptions[0]
-        });
-      }
-    }
-
-    return questions;
-  };
 
   useEffect(() => {
     if (stage === "learning") {
@@ -208,102 +147,15 @@ function QuizPage() {
         setError("");
 
         try {
-          // Use the centralized agent for quiz generation
-          const res = await fetch(ENDPOINTS.AGENT.CHAT, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: extractedText ? "Generate quiz questions from the document" : `Generate quiz questions on topic: ${topic}`,
-              userId: userId,
-              context: {
-                pdfText: extractedText || `Topic: ${topic}`,
-                quizType: extractedText ? 'document' : 'topic',
-                topic: topic
-              }
-            })
+          const { questions: generatedQuestions } = await generateQuestions({
+            extractedText,
+            topic,
+            userId,
+            sourceType,
           });
 
-          if (!res.ok) {
-            throw new Error(`Server ${res.status}`);
-          }
-
-          const data = await res.json();
-          console.log("🤖 Agent response for quiz:", data);
-
-          // Parse questions from agent response
-          let parsedQuestions = [];
-          
-          // Try to get questions from different response formats
-          const questionData = data.data?.questions || data.data || [];
-          
-          if (Array.isArray(questionData)) {
-            parsedQuestions = questionData.map(q => {
-              // Backend returns correctAnswer, frontend expects 'answer'
-              // Also handle 'answer' field for compatibility
-              const correctAns = q.correctAnswer || q.answer || '';
-              return {
-                question: q.question,
-                options: Array.isArray(q.options) ? q.options : [q.options],
-                answer: correctAns,
-                explanation: q.explanation || "",
-                category: q.category || ""
-              };
-            });
-          } else if (typeof questionData === 'string') {
-            // Try parsing string response
-            try {
-              const jsonParsed = JSON.parse(questionData);
-              if (Array.isArray(jsonParsed)) {
-                parsedQuestions = jsonParsed.map(q => ({
-                  question: q.question,
-                  options: Array.isArray(q.options) ? q.options : [q.options],
-                  answer: q.answer || q.correctAnswer || q.options?.[0],
-                  explanation: q.explanation || "",
-                  category: q.category || ""
-                }));
-              }
-            } catch (e) {
-              parsedQuestions = parseQuestionsFromText(questionData);
-            }
-          }
-
-          console.log('🔍 Parsed questions before normalization:', parsedQuestions.length);
-          if (parsedQuestions.length > 0) {
-            console.log('🔍 First question answer field:', parsedQuestions[0].answer);
-            console.log('🔍 First question options:', parsedQuestions[0].options);
-          }
-
-          if (parsedQuestions.length > 0) {
-            const normalized = parsedQuestions.map(q => {
-              let correct = q.answer;
-              // Handle letter answers (A, B, C, D)
-              if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
-                const idx = correct.toUpperCase().charCodeAt(0) - 65;
-                correct = q.options[idx];
-              }
-              // Handle numeric indexes
-              if (typeof correct === "number") {
-                correct = q.options[correct];
-              }
-              return {
-                ...q,
-                answer: correct?.trim(),
-                explanation: q.explanation || "",
-                category: q.category || ""
-              };
-            });
-
-            console.log('🔍 Normalized questions:', normalized.length);
-            if (normalized.length > 0) {
-              console.log('🔍 First normalized answer:', normalized[0].answer);
-              console.log('🔍 First normalized options:', normalized[0].options);
-            }
-
-            setGeneratedQuizQuestions(normalized);
-            console.log("✅ Quiz generated via agent:", normalized.length, "questions");
-          } else {
-            setError("Could not parse questions from generated content.");
-          }
+          setGeneratedQuizQuestions(generatedQuestions);
+          console.log("✅ Quiz generated via agent:", generatedQuestions.length, "questions");
         } catch (err) {
           console.error("Auto-generate error:", err);
           setError(`Error generating questions: ${err.message}`);
@@ -314,22 +166,15 @@ function QuizPage() {
     };
 
     autoGenerateQuestions();
-  }, [extractedText, questions]);
+  }, [extractedText, generateQuestions, questions, sourceType, topic, userId]);
 
   const loadLearningQuestions = async () => {
     setLoading(true);
     try {
-      // Use the dedicated endpoint for learning style/psychometric questions
-      const res = await fetch(ENDPOINTS.LEARNING.QUESTIONS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
-      });
+      const questionsResponse = await fetchLearningQuestions();
       
-      const questions = await res.json();
-      
-      if (Array.isArray(questions) && questions.length > 0) {
-        setLearningQuestions(questions);
+      if (Array.isArray(questionsResponse) && questionsResponse.length > 0) {
+        setLearningQuestions(questionsResponse);
         setLearningIndex(0);
         setLearningAnswers([]);
       }
@@ -370,28 +215,14 @@ function QuizPage() {
     if (displayQuestions.length > 0) {
       const completeQuiz = async () => {
         try {
-          const res = await fetch(ENDPOINTS.QUIZ.SCORE, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              quizId,
-              answers: quizAnswers
-            })
+          const data = await submitQuiz({
+            quizId,
+            answers: quizAnswers,
+            questions: displayQuestions,
+            topic,
           });
-
-          const data = await res.json();
-
-          let correct = 0;
-          if (data.error) {
-            console.error("Scoring error:", data.error);
-            quizAnswers.forEach((ans, i) => {
-              const correctAnswer = displayQuestions[i]?.answer;
-              if (correctAnswer && ans.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) correct++;
-            });
-          } else {
-            correct = data.correct || 0;
-          }
-          const score = Math.round((correct / displayQuestions.length) * 100);
+          const correct = data?.correct || 0;
+          const score = data?.score || 0;
           setTechnicalScore(score);
           setCorrectCount(correct);
           localStorage.setItem("technicalScore", score.toString());
@@ -402,27 +233,13 @@ function QuizPage() {
           }, 4000);
         } catch (err) {
           console.error("Failed to score quiz:", err);
-          let correct = 0;
-          quizAnswers.forEach((ans, i) => {
-            const correctAnswer = displayQuestions[i]?.answer;
-            if (correctAnswer && ans.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) correct++;
-          });
-          const score = Math.round((correct / displayQuestions.length) * 100);
-          setTechnicalScore(score);
-          setCorrectCount(correct);
-          localStorage.setItem("technicalScore", score.toString());
-          // Show congratulations screen first, then transition to score
-          setStage("congrats");
-          setTimeout(() => {
-            setStage("score");
-          }, 4000);
+          setError("Failed to score quiz. Please try again.");
         }
       };
 
       const nextQuestion = () => {
-        // Check if the selected answer is correct (case-insensitive comparison)
         const correctAnswer = displayQuestions[quizIndex]?.answer;
-        const isCorrect = correctAnswer ? quizSelected.trim().toLowerCase() === correctAnswer.trim().toLowerCase() : false;
+        const isCorrect = compareAnswer(quizSelected, correctAnswer);
         if (isCorrect) {
           setCorrectCount(prev => prev + 1);
         }
@@ -430,7 +247,6 @@ function QuizPage() {
         const nextAnswers = [...quizAnswers, quizSelected];
         setQuizAnswers(nextAnswers);
         setQuizSelected("");
-        setQuizAnswerSubmitted(false);
         setAnswerLocked(false);
 
         if (quizIndex + 1 < displayQuestions.length) {
@@ -710,7 +526,7 @@ function QuizPage() {
                     state: {
                       learningMaterial: learningMaterial,
                       topic: materialTopic,
-                      technicalLevel: technicalScore >= 80 ? "Advanced" : technicalScore >= 60 ? "Intermediate" : "Beginner",
+                      technicalLevel: getTechnicalLevel(technicalScore),
                       learningScore: parseInt(localStorage.getItem("learningScore") || "50")
                     }
                   });
@@ -960,29 +776,6 @@ function QuizPage() {
     );
   }
 
-  // Helper function for psychometric profile
-  const analyzePsychometricProfile = (answers, questions) => {
-    const levels = {};
-    const categories = ["technicalFamiliarity", "documentationSkill", "learningGoal", "applicationConfidence", "learningBehavior"];
-
-    answers.forEach((score, idx) => {
-      const category = categories[idx];
-      if (score === 0) levels[category] = "Beginner";
-      else if (score === 1) levels[category] = "Intermediate";
-      else levels[category] = "Advanced";
-    });
-
-    const totalScore = answers.reduce((a, b) => a + b, 0);
-    const maxScore = answers.length * 2;
-    const percentage = (totalScore / maxScore) * 100;
-
-    let overallLevel = "Beginner";
-    if (percentage >= 70) overallLevel = "Advanced";
-    else if (percentage >= 35) overallLevel = "Intermediate";
-
-    return { levels, overallLevel };
-  };
-
   // Stage: Learner Level Assessment
   if (stage === "learning") {
     if (loading && learningQuestions.length === 0) {
@@ -1039,39 +832,46 @@ function QuizPage() {
     }
 
     const completeLearningAssessment = async () => {
-      const totalPoints = learningAnswers.reduce((acc, val) => acc + val, 0);
-      const maxPoints = learningQuestions.length * 2;
-      const learnScore = Math.round((totalPoints / maxPoints) * 100);
+      try {
+        const assessmentResult = await submitQuiz({
+          learningAnswers,
+          learningQuestions,
+          topic,
+        });
 
-      localStorage.setItem("learningScore", learnScore.toString());
+        const learnScore = assessmentResult?.learningScore ?? 0;
+        localStorage.setItem("learningScore", learnScore.toString());
 
-      const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
-      const storedTopic = localStorage.getItem("quizTopic") || topic;
-      const techLevel = techScore >= 80 ? "Advanced" : techScore >= 60 ? "Intermediate" : "Beginner";
+        const techScore = parseInt(localStorage.getItem("technicalScore") || "50");
+        const storedTopic = localStorage.getItem("quizTopic") || topic;
+        const techLevel = assessmentResult?.technicalLevel || getTechnicalLevel(techScore);
+        const profile = assessmentResult?.psychometricProfile || null;
 
-      const profile = analyzePsychometricProfile(learningAnswers, learningQuestions);
-
-      navigate("/result", {
-        state: {
-          score: techScore,
-          questions: displayQuestions,
-          topic: storedTopic,
-          technicalScore: techScore,
-          learningScore: learnScore,
-          combinedAnalysis: {
-            combinedAnalysis: `Technical: ${techLevel} level based on quiz score. Learning preference determined through assessment.`,
-            psychometricProfile: profile
-          },
-          mode: "quiz",
-          userId,
-          sourceType,
-          sourceUrl,
-          extractedText,
-          skills,
-          strengths,
-          weakAreas
-        }
-      });
+        navigate("/result", {
+          state: {
+            score: techScore,
+            questions: displayQuestions,
+            topic: storedTopic,
+            technicalScore: techScore,
+            learningScore: learnScore,
+            combinedAnalysis: {
+              combinedAnalysis: assessmentResult?.combinedAnalysis || `Technical: ${techLevel} level based on quiz score. Learning preference determined through assessment.`,
+              psychometricProfile: profile
+            },
+            mode: "quiz",
+            userId,
+            sourceType,
+            sourceUrl,
+            extractedText,
+            skills,
+            strengths,
+            weakAreas
+          }
+        });
+      } catch (assessmentError) {
+        console.error("Failed to process learning assessment:", assessmentError);
+        setError("Failed to process learning assessment. Please try again.");
+      }
     };
 
     return (

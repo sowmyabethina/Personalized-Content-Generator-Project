@@ -2,7 +2,6 @@ import { createServer } from "http";
 import fetch from "node-fetch";
 import { createRequire } from "module";
 import "dotenv/config";
-import { generateQuestions } from "./questionGenerator.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse"); // works with v1.1.1
@@ -137,70 +136,6 @@ const server = createServer((req, res) => {
           id: request.id,
           result: {
             text: cleanText
-          }
-        }));
-
-        return;
-      }
-
-
-      // ---------- PDF + Generate Questions ----------
-      if (name === "read_github_pdf_and_generate_questions") {
-
-        const buffer = await fetchPDF(args.github_url);
-
-        const data = await pdfParse(buffer);
-
-
-        const text = data.text
-          .replace(/\s+/g, " ")
-          .replace(/\n+/g, " ")
-          .trim()
-          .substring(0, 8000);
-
-
-        console.log("📤 Sending to Gemini, length:", text.length);
-
-
-        let questions;
-
-        // Protect Gemini call
-        try {
-          questions = await generateQuestions(text);
-        } catch (aiErr) {
-
-          console.error("❌ AI FAILED:", aiErr);
-
-          res.writeHead(500, {
-            "Content-Type": "application/json"
-          });
-
-          res.end(JSON.stringify({
-            jsonrpc: "2.0",
-            id: request.id,
-            error: {
-              code: -32002,
-              message: "Question generation failed",
-              details: aiErr.message
-            }
-          }));
-
-          return;
-        }
-
-
-        console.log("✅ Questions Generated");
-
-
-        res.writeHead(200, {
-          "Content-Type": "application/json"
-        });
-
-        res.end(JSON.stringify({
-          jsonrpc: "2.0",
-          id: request.id,
-          result: {
-            questions
           }
         }));
 

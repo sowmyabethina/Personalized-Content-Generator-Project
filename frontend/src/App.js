@@ -1,6 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { SignedIn, SignedOut, SignIn, useUser } from "@clerk/clerk-react";
-import { useState, useEffect } from "react";
+import { SignedIn, SignedOut, SignIn } from "@clerk/clerk-react";
 import Layout from "./components/Layout";
 import OfflineIndicator from "./components/ui/OfflineIndicator";
 import HomePage from "./pages/HomePage";
@@ -11,31 +10,11 @@ import PdfChatPage from "./pages/PdfChatPage";
 import LearningProgressPage from "./pages/LearningProgressPage";
 import About from "./pages/About";
 import Help from "./pages/Help";
+import { clerkAppearance, clerkLocalization } from "./constants/app/clerkAppearance";
+import useServiceWorkerRegistration from "./hooks/app/useServiceWorkerRegistration";
 
 function App() {
-  const { user } = useUser();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Register service worker for offline functionality
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('SW registered: ', registration);
-          })
-          .catch((registrationError) => {
-            console.log('SW registration failed: ', registrationError);
-          });
-      });
-    }
-
-    // Quick load check
-    const init = async () => {
-      setIsLoading(false);
-    };
-    init();
-  }, []);
+  useServiceWorkerRegistration();
 
   return (
     <div className="app-wrapper">
@@ -114,58 +93,8 @@ function App() {
           <div className="login-section">
             <div className="login-card">
               <SignIn 
-                appearance={{
-                  elements: {
-                    rootBox: "clerk-root-box",
-                    card: "clerk-card",
-                    headerTitle: "clerk-header-title",
-                    headerSubtitle: "clerk-header-subtitle",
-                    formButtonPrimary: "clerk-button",
-                    footerActionLink: "clerk-footer-link",
-                    socialButtonsBlockButton: "clerk-social-button",
-                    socialButtonsBlockButtonText: "clerk-social-button-text",
-                    socialButtonsBlockButtonIcon: "clerk-socialButtonsBlockButtonIcon",
-                    socialButtonsBlock: "clerk-social-buttons",
-                    socialButtonsBlockButtonInner: "clerk-socialButtonButtonInner",
-                    identityPreviewText: "clerk-identity-text",
-                    identityPreviewEditButton: "clerk-identity-edit",
-                    dividerRow: "clerk-divider",
-                    formFieldLabel: "clerk-field-label",
-                    formFieldInput: "clerk-field-input",
-                    alert: "clerk-alert",
-                    formFieldAction: "clerk-form-field-action",
-                    formFieldRow: "clerk-form-field-row",
-                    main: "clerk-main",
-                    footer: "clerk-footer",
-                    footerAction: "clerk-footer-action",
-                    footerActionText: "clerk-footer-action-text",
-                    footerBranding: "clerk-footer-branding",
-                    footerItem: "clerk-footer-item",
-                    footerSupportText: "clerk-footer-supportText",
-                    footerLogoLink: "clerk-footer-logoLink",
-                    socialButtonsProviderIcon: "clerk-social-button-icon",
-                  },
-                  variables: {
-                    colorPrimary: "#219ca9",
-                    colorBackground: "#ffffff",
-                    colorInputBackground: "#ffffff",
-                    colorText: "#1f2937",
-                    colorTextSecondary: "#64748b",
-                    colorDanger: "#b91c1c",
-                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                    spacingUnit: "4px",
-                    borderRadius: "8px",
-                  },
-                  layout: {
-                    socialButtonsVariant: "blockButton",
-                  },
-                }}
-                localization={{
-                  socialButtonsBlockButton: {
-                    google: "Google",
-                    linkedin: "LinkedIn",
-                  },
-                }}
+                appearance={clerkAppearance}
+                localization={clerkLocalization}
               />
             </div>
           </div>

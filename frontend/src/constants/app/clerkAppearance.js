@@ -1,0 +1,53 @@
+export const clerkAppearance = {
+  elements: {
+    rootBox: "clerk-root-box",
+    card: "clerk-card",
+    headerTitle: "clerk-header-title",
+    headerSubtitle: "clerk-header-subtitle",
+    formButtonPrimary: "clerk-button",
+    footerActionLink: "clerk-footer-link",
+    socialButtonsBlockButton: "clerk-social-button",
+    socialButtonsBlockButtonText: "clerk-social-button-text",
+    socialButtonsBlockButtonIcon: "clerk-socialButtonsBlockButtonIcon",
+    socialButtonsBlock: "clerk-social-buttons",
+    socialButtonsBlockButtonInner: "clerk-socialButtonButtonInner",
+    identityPreviewText: "clerk-identity-text",
+    identityPreviewEditButton: "clerk-identity-edit",
+    dividerRow: "clerk-divider",
+    formFieldLabel: "clerk-field-label",
+    formFieldInput: "clerk-field-input",
+    alert: "clerk-alert",
+    formFieldAction: "clerk-form-field-action",
+    formFieldRow: "clerk-form-field-row",
+    main: "clerk-main",
+    footer: "clerk-footer",
+    footerAction: "clerk-footer-action",
+    footerActionText: "clerk-footer-action-text",
+    footerBranding: "clerk-footer-branding",
+    footerItem: "clerk-footer-item",
+    footerSupportText: "clerk-footer-supportText",
+    footerLogoLink: "clerk-footer-logoLink",
+    socialButtonsProviderIcon: "clerk-social-button-icon",
+  },
+  variables: {
+    colorPrimary: "#219ca9",
+    colorBackground: "#ffffff",
+    colorInputBackground: "#ffffff",
+    colorText: "#1f2937",
+    colorTextSecondary: "#64748b",
+    colorDanger: "#b91c1c",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    spacingUnit: "4px",
+    borderRadius: "8px",
+  },
+  layout: {
+    socialButtonsVariant: "blockButton",
+  },
+};
+
+export const clerkLocalization = {
+  socialButtonsBlockButton: {
+    google: "Google",
+    linkedin: "LinkedIn",
+  },
+};

@@ -3,8 +3,11 @@
  * PostgreSQL connection pool setup
  */
 
-const { Pool } = require('pg');
-const { log } = require('../utils/logger');
+import "dotenv/config";
+import pg from "pg";
+import { log } from "../utils/logger.js";
+
+const { Pool } = pg;
 
 // Validate that database config exists
 function validateDbConfig() {
@@ -125,7 +128,5 @@ async function initDatabase() {
   }
 }
 
-module.exports = {
-  db,
-  initDatabase
-};
+export { db, initDatabase };
+export default { db, initDatabase };

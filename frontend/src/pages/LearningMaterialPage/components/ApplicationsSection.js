@@ -1,9 +1,42 @@
 /**
+ * Safely render any value as string
+ */
+const safeRender = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(item => safeRender(item)).filter(Boolean).join(', ');
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+/**
+ * Check if application is valid
+ */
+const isValidApplication = (app) => {
+  if (!app) return false;
+  if (typeof app === 'string') return app.trim().length > 10;
+  if (typeof app === 'object') {
+    return app.title || app.description;
+  }
+  return false;
+};
+
+/**
  * Real-World Applications Component
  * Displays applications in card/grid format with dynamic heading
+ * Handles both string and object formats safely
  */
 const ApplicationsSection = ({ applications }) => {
   if (!applications || !Array.isArray(applications) || applications.length === 0) return null;
+  
+  const validApps = applications.filter(isValidApplication);
+  if (validApps.length === 0) return null;
   
   return (
     <div style={styles.sectionContainer} className="section-fade-in">
@@ -11,12 +44,18 @@ const ApplicationsSection = ({ applications }) => {
         <h3 style={styles.sectionTitle}>Applications</h3>
       </div>
       <div style={styles.applicationsGrid}>
-        {applications.map((app, idx) => (
-          <div key={idx} style={styles.applicationCard}>
-            <h4 style={styles.applicationTitle}>{app.title}</h4>
-            <p style={styles.applicationDescription}>{app.description}</p>
-          </div>
-        ))}
+        {validApps.map((app, idx) => {
+          const isString = typeof app === 'string';
+          const appTitle = isString ? `Application ${idx + 1}` : (app.title || `Application ${idx + 1}`);
+          const appDescription = isString ? app : (app.description || '');
+          
+          return (
+            <div key={idx} style={styles.applicationCard}>
+              <h4 style={styles.applicationTitle}>{appTitle}</h4>
+              <p style={styles.applicationDescription}>{safeRender(appDescription)}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

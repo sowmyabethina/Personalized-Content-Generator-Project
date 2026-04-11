@@ -3,16 +3,17 @@
  * Defines analysis-related routes
  */
 
-const express = require('express');
-const router = express.Router();
-const {
+import express from "express";
+import {
   saveAnalysis,
   getAnalyses,
   getAnalysisById,
   updateAnalysis,
   updateLastActiveHandler,
   saveOnboardingGoalHandler
-} = require('../controllers/analysisController');
+} from "../controllers/analysisController.js";
+
+const router = express.Router();
 
 // Auth middleware
 const clerkAuth = (req, res, next) => {
@@ -49,4 +50,4 @@ router.patch('/analysis/:id/last-active', clerkAuth, updateLastActiveHandler);
 // POST /onboarding/goal - Save onboarding goal
 router.post('/onboarding/goal', clerkAuth, saveOnboardingGoalHandler);
 
-module.exports = router;
+export default router;

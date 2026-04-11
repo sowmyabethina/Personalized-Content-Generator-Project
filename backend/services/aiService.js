@@ -1,11 +1,14 @@
 /**
  * AI Service
- * Handles all AI (Gemini) operations
+ * Handles all AI (Groq/LLaMA) operations
  */
 
-const { genAI, getModel } = require('../config/ai');
-const { parseJson } = require('../utils/jsonParser');
-const { logError } = require('../utils/logger');
+import { groq, getModel, generateCompletion } from "../config/ai.js";
+import { parseJson } from "../utils/jsonParser.js";
+import { logError } from "../utils/logger.js";
+
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 /**
  * Generate quiz questions from text or topic
@@ -14,24 +17,27 @@ const { logError } = require('../utils/logger');
  * @returns {Array} - Array of quiz questions
  */
 async function generateQuizQuestions(text, options = {}) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const model = getModel('gemini-2.5-flash');
   const prompt = buildQuizPrompt(text, options);
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    // Try fallback model
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -55,7 +61,9 @@ The questions should test practical understanding and application of concepts re
 Include scenario-based questions, concept understanding, and problem-solving. 
 Do not ask about specific names or details mentioned in documents - focus on testing skills and knowledge.
 
-Generate questions that a ${technicalLevel || difficulty} level learner should know about ${text}.`;
+Generate questions that a ${technicalLevel || difficulty} level learner should know about ${text}.
+
+Return ONLY valid JSON as an array of questions.`;
   }
   
   // Text is actual content - generate from it
@@ -63,7 +71,9 @@ Generate questions that a ${technicalLevel || difficulty} level learner should k
 
 ${text}
 
-Generate 10 questions that test understanding and application, not just recall.`;
+Generate 10 questions that test understanding and application, not just recall.
+
+Return ONLY valid JSON as an array of questions.`;
 }
 
 /**
@@ -74,82 +84,227 @@ Generate 10 questions that test understanding and application, not just recall.`
  * @returns {Object} - Generated learning material
  */
 async function generateLearningMaterial(topic, technicalLevel, learningStyle) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const model = getModel('gemini-2.5-flash');
+  const level = (technicalLevel || 'intermediate').toLowerCase();
+  const style = (learningStyle || 'reading').toLowerCase();
 
-  const prompt = `You are an expert technical educator. Generate comprehensive, structured learning material for the following:
+  const personalization = level === 'beginner' 
+    ? 'Use simple language, everyday analogies, and step-by-step explanations. Avoid jargon unless defined.'
+    : level === 'advanced'
+    ? 'Use technical terminology, cover deep concepts, include edge cases and optimizations.'
+    : 'Balance clarity with practical examples, assume basic understanding.';
 
-Topic: ${topic}
-Technical Level: ${technicalLevel}
-Learning Style: ${learningStyle}
+  const styleGuidance = style === 'visual'
+    ? 'Describe concepts with visual descriptions, mention diagrams, and spatial relationships.'
+    : style === 'auditory'
+    ? 'Use conversational tone, mention discussions and verbal explanations.'
+    : style === 'kinesthetic'
+    ? 'Include hands-on activities, real-world projects, and practical exercises.'
+    : 'Use structured text with clear headings, bullet points, and detailed explanations.';
 
-Create detailed learning material with the following structure in JSON format:
+  const prompt = `You are an expert web development instructor.
+
+Generate COMPLETE and DETAILED course content on: ${topic}
+
+User Profile:
+- Technical Level: ${level}
+- Learning Style: ${style}
+
+STRICT RULES:
+
+1. Each lesson must be UNIQUE (no repetition)
+   - No duplicate content between sections
+   - Each section covers different aspect of ${topic}
+
+2. Each lesson must include:
+   - Explanation (minimum 6-8 lines)
+   - Real-world example
+   - Code example (as string)
+
+3. Applications:
+   - At least 5
+   - Each must include explanation (2-3 lines)
+
+4. Examples:
+   - Must be STRING (not object)
+   - Include proper code snippet
+
+5. Mini Project:
+   - MUST include:
+     - title
+     - 5 steps
+
+6. Content must be:
+   - Practical
+   - Detailed
+   - Beginner-friendly
+   - Specific to ${topic} only
+
+7. NEVER return:
+   - [object Object]
+   - repeated content
+   - empty sections
+   - cross-topic content (e.g., no JavaScript in CSS topic)
+
+CONTENT STRUCTURE:
+
+1. OVERVIEW:
+- Explain topic in simple real-world way (5-6 lines)
+
+2. CORE CONCEPTS:
+- Minimum 6-8 key points
+- Each point must have unique explanation (not just 1 line)
+
+3. DETAILED SECTIONS:
+Generate 5 unique sections covering different aspects.
+For EACH section:
+- Explanation (minimum 6-8 lines) - unique content
+- Real-world example - specific to this section
+- Code example (proper formatted as string)
+- Why it matters
+
+4. APPLICATIONS:
+Generate 5 unique REAL applications.
+Each must be 2-3 lines explanation.
+
+5. EXAMPLES:
+Provide 3-5 practical examples.
+Each must include:
+  - Title (unique)
+  - Code snippet (as string)
+  - Explanation (unique)
+
+6. COMMON MISTAKES:
+- 5 unique real developer mistakes
+
+7. BEST PRACTICES:
+- 5 unique industry-level practices
+
+8. MINI PROJECT:
+- Give 1 project idea using ${topic}
+- Include exactly 5 steps
+
+9. INTERVIEW QUESTIONS:
+- 5 questions with answers
+- ONLY from ${topic}
+
+${personalization}
+${styleGuidance}
+
+OUTPUT FORMAT (STRICT JSON):
 
 {
-  "title": "Complete ${topic} Learning Guide",
-  "topic": "${topic}",
-  "level": "${technicalLevel}",
-  "style": "${learningStyle}",
-  "summary": "A comprehensive overview tailored for ${learningStyle} learners at ${technicalLevel} level",
-  "sections": [
+  "title": "string",
+  "overview": "string",
+  "keyConcepts": [
     {
-      "title": "Section Title",
-      "content": "Detailed paragraph(s) explaining the concept with real-world applications and context (2-3 paragraphs)",
-      "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4"],
-      "examples": [
-        {
-          "title": "Example Title",
-          "description": "Detailed description of what this example demonstrates",
-          "code": "Code snippet or practical example"
-        }
-      ],
-      "applications": ["Real-world application 1", "Real-world application 2"],
-      "practiceQuestions": ["Question 1", "Question 2", "Question 3"],
-      "estimatedTime": "20 minutes"
+      "point": "string",
+      "explanation": "string"
     }
   ],
-  "finalProject": {
-    "title": "Capstone Project: [Project Name]",
-    "description": "A comprehensive project that combines all concepts learned",
-    "steps": ["Step 1", "Step 2", "Step 3"],
-    "expectedOutcome": "What learners will achieve after completing this project"
-  },
-  "cheatsheet": {
-    "commands": ["Command 1", "Command 2", "Command 3"],
-    "definitions": {
-      "Term 1": "Definition",
-      "Term 2": "Definition"
+  "sections": [
+    {
+      "heading": "string",
+      "explanation": "string",
+      "realWorldExample": "string",
+      "codeExample": "string",
+      "importance": "string"
     }
+  ],
+  "applications": [
+    {
+      "title": "string",
+      "description": "string"
+    }
+  ],
+  "examples": [
+    {
+      "title": "string",
+      "code": "string",
+      "explanation": "string"
+    }
+  ],
+  "commonMistakes": ["string"],
+  "bestPractices": ["string"],
+  "miniProject": {
+    "title": "string",
+    "steps": ["string", "string", "string", "string", "string"]
   },
-  "furtherReading": ["Resource 1", "Resource 2", "Resource 3"],
-  "learningTips": ["Tip 1", "Tip 2", "Tip 3"]
+  "interviewQuestions": [
+    {
+      "question": "string",
+      "answer": "string"
+    }
+  ]
 }
 
-Requirements:
-- Generate 4-5 comprehensive sections covering different aspects of ${topic}
-- Each section should have detailed explanations with practical applications
-- Include code examples where applicable
-- Provide multiple key points and practice questions per section
-- The content should be suitable for a ${learningStyle} learner at ${technicalLevel} level
-- Include real-world scenarios and use cases
-- Make it engaging and practical
+Return ONLY valid JSON, no explanations or markdown outside the JSON.`;
 
-Return ONLY valid JSON, no additional text.`;
-
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for learning material');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for learning material');
+    }
+    
+    let parsed = parseJson(rawText);
+    if (parsed && typeof parsed === 'object') {
+      parsed = sanitizeContentObject(parsed);
+    }
+    
+    return parsed;
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for learning material');
+    }
+    
+    let parsed = parseJson(fallbackText);
+    if (parsed && typeof parsed === 'object') {
+      parsed = sanitizeContentObject(parsed);
+    }
+    
+    return parsed;
   }
+}
 
-  return parseJson(rawText);
+/**
+ * Sanitize content object to ensure all fields are proper strings
+ * @param {Object} obj - Content object to sanitize
+ * @returns {Object} - Sanitized object
+ */
+function sanitizeContentObject(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  const sanitized = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) {
+      sanitized[key] = '';
+    } else if (typeof value === 'object') {
+      if (Array.isArray(value)) {
+        sanitized[key] = value.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            return sanitizeContentObject(item);
+          }
+          return String(item ?? '');
+        });
+      } else {
+        sanitized[key] = JSON.stringify(value);
+      }
+    } else if (typeof value === 'function') {
+      sanitized[key] = '';
+    } else {
+      sanitized[key] = String(value);
+    }
+  }
+  
+  return sanitized;
 }
 
 /**
@@ -161,11 +316,9 @@ Return ONLY valid JSON, no additional text.`;
  * @returns {Array} - Quiz questions
  */
 async function generateQuizFromMaterial(topic, material, technicalLevel, learningStyle) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
 
   const materialSummary = material.sections
     ?.map(s => `${s.title}: ${s.content}`)
@@ -211,21 +364,27 @@ Return ONLY valid JSON in this format:
   }
 ]`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for quiz');
-  }
-
-  // Try parsing JSON, if direct text return raw
   try {
-    return parseJson(rawText);
-  } catch {
-    return rawText;
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for quiz');
+    }
+    try {
+      return parseJson(rawText);
+    } catch {
+      return rawText;
+    }
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for quiz');
+    }
+    try {
+      return parseJson(fallbackText);
+    } catch {
+      return fallbackText;
+    }
   }
 }
 
@@ -237,11 +396,9 @@ Return ONLY valid JSON in this format:
  * @returns {Object} - Personalized content
  */
 async function generatePersonalizedContent(topic, learningStyle, technicalLevel) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate personalized content recommendations for learning ${topic}.
 
@@ -267,17 +424,20 @@ Requirements:
 - Tips should be practical
 - Return ONLY valid JSON.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for content');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for content');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for content');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -291,11 +451,9 @@ Requirements:
  * @returns {Object} - Combined learning content
  */
 async function generateCombinedContent(topic, technicalLevel, technicalScore, learningStyle, learningScore, combinedAnalysis) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate a highly personalized learning path for a user with the following profile:
 
@@ -337,17 +495,20 @@ Requirements:
 - ${technicalLevel === 'beginner' ? 'Use simple language, provide more guidance, break down into smaller steps' : technicalLevel === 'advanced' ? 'Use technical language, provide less guidance, focus on advanced concepts' : 'Balance between simple and technical language'}
 - Return ONLY valid JSON, no additional text.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for combined content');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for combined content');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for combined content');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -357,11 +518,9 @@ Requirements:
  * @returns {Array} - Assessment questions
  */
 async function generateFromPdf(userProfile, topic) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate 5 learning style assessment questions based on this user profile:
 
@@ -384,14 +543,21 @@ Requirements:
 - Include practical scenarios
 - Return ONLY valid JSON.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (rawText) {
-    return parseJson(rawText);
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (rawText) {
+      return parseJson(rawText);
+    }
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    try {
+      const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+      if (fallbackText) {
+        return parseJson(fallbackText);
+      }
+    } catch (fallbackError) {
+      console.error("Fallback also failed:", fallbackError.message);
+    }
   }
 
   // Fallback to default questions
@@ -421,7 +587,7 @@ async function generateQuestionsFromTopic(text) {
   let questionGeneratorModule = null;
   async function getQuestionGenerator() {
     if (!questionGeneratorModule) {
-      questionGeneratorModule = await import('../pdf/questionGenerator.js');
+      questionGeneratorModule = await import('../../pdf/questionGenerator.js');
     }
     return questionGeneratorModule;
   }
@@ -430,7 +596,7 @@ async function generateQuestionsFromTopic(text) {
   return gen(text);
 }
 
-module.exports = {
+export {
   generateQuizQuestions,
   generateLearningMaterial,
   generateQuizFromMaterial,
@@ -438,5 +604,15 @@ module.exports = {
   generateCombinedContent,
   generateFromPdf,
   buildQuizPrompt,
-  generateQuestionsFromTopic
+  generateQuestionsFromTopic,
+};
+export default {
+  generateQuizQuestions,
+  generateLearningMaterial,
+  generateQuizFromMaterial,
+  generatePersonalizedContent,
+  generateCombinedContent,
+  generateFromPdf,
+  buildQuizPrompt,
+  generateQuestionsFromTopic,
 };

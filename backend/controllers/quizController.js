@@ -5,10 +5,18 @@
  * MUST be thin - ONLY receives req/res, calls services, returns response
  */
 
-const { storeQuiz, getQuiz, storeQuizResult, generateQuizId, normalizeQuizAnswer, scoreQuizAnswers, cacheQuiz } = require('../services/quizService');
-const { generateQuestionsFromTopic } = require('../services/aiService');
-const { handleError } = require('../utils/errorHandler');
-const { log } = require('../utils/logger');
+import {
+  storeQuiz,
+  getQuiz,
+  storeQuizResult,
+  generateQuizId,
+  normalizeQuizAnswer,
+  scoreQuizAnswers,
+  cacheQuiz,
+} from "../services/quizService.js";
+import { generateQuestionsFromTopic, generateQuizFromMaterial } from "../services/aiService.js";
+import { handleError } from "../utils/errorHandler.js";
+import { log } from "../utils/logger.js";
 
 /**
  * Generate quiz - handles /quiz/generate
@@ -142,7 +150,6 @@ async function handleGenerateQuizFromMaterial(req, res) {
     }
 
     // Call AI service directly (this handles the material-based generation)
-    const { generateQuizFromMaterial } = require('../services/aiService');
     const questions = await generateQuizFromMaterial(topic, material, technicalLevel, learningStyle);
 
     const quizId = generateQuizId();
@@ -168,8 +175,5 @@ async function handleGenerateQuizFromMaterial(req, res) {
   }
 }
 
-module.exports = {
-  generateQuiz,
-  scoreQuiz,
-  handleGenerateQuizFromMaterial
-};
+export { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial };
+export default { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial };

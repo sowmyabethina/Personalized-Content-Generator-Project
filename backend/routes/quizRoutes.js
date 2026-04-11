@@ -3,9 +3,10 @@
  * Defines quiz-related routes
  */
 
-const express = require('express');
+import express from "express";
+import { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial } from "../controllers/quizController.js";
+
 const router = express.Router();
-const { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial } = require('../controllers/quizController');
 
 // Auth middleware
 const clerkAuth = (req, res, next) => {
@@ -35,4 +36,4 @@ router.post('/score-quiz', clerkAuth, scoreQuiz);
 // POST /quiz/generate-quiz-from-material - Generate quiz from learning material
 router.post('/generate-quiz-from-material', clerkAuth, handleGenerateQuizFromMaterial);
 
-module.exports = router;
+export default router;

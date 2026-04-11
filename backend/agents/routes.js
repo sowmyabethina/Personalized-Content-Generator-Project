@@ -24,16 +24,16 @@ router.get('/health', (req, res) => {
   console.log("Health endpoint hit");
   
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
-  const hasGemini = !!process.env.GEMINI_API_KEY;
+  const hasGroq = !!process.env.GROQ_API_KEY;
 
   res.json({
     status: 'ok',
     message: "Agent service running",
     service: 'LearningAgent',
-    available: hasOpenAI || hasGemini,
+    available: hasOpenAI || hasGroq,
     models: {
       openai: hasOpenAI ? 'available' : 'not configured',
-      gemini: hasGemini ? 'available' : 'not configured'
+      groq: hasGroq ? 'available' : 'not configured'
     },
     tools: ['quiz', 'rag', 'analytics']
   });

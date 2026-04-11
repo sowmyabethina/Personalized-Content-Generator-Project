@@ -1,3 +1,5 @@
+import { shouldHideSectionHeading } from "../../../utils/learning/presentationHelpers";
+
 /**
  * Summary Section Component
  * Displays the main overview of the lesson with dynamic heading
@@ -6,7 +8,7 @@ const SummarySection = ({ content, title, lessonTitle }) => {
   if (!content || typeof content !== 'string' || content.trim().length === 0) return null;
    
   const heading = title || 'Overview';
-  const hideHeading = lessonTitle && heading && lessonTitle.toLowerCase().trim() === heading.toLowerCase().trim();
+  const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
   
   return (
     <div style={styles.sectionContainer} className="section-fade-in">

@@ -5,11 +5,11 @@
  * MUST be thin - ONLY receives req/res, calls services, returns response
  */
 
-const PDFDocument = require('pdfkit');
-const { generateFromPdf } = require('../services/aiService');
-const { processResumePdf, extractGitHubUrls, readPdfFromGithub } = require('../services/pdfService');
-const { handleError } = require('../utils/errorHandler');
-const { log } = require('../utils/logger');
+import PDFDocument from "pdfkit";
+import { generateFromPdf } from "../services/aiService.js";
+import { processResumePdf, extractGitHubUrls, readPdfFromGithub } from "../services/pdfService.js";
+import { handleError } from "../utils/errorHandler.js";
+import { log } from "../utils/logger.js";
 
 /**
  * Read PDF from GitHub URL - handles /pdf/read-pdf
@@ -154,9 +154,5 @@ async function downloadPdf(req, res) {
   }
 }
 
-module.exports = {
-  readPdf,
-  readResumePdf,
-  generateFromPdfHandler,
-  downloadPdf
-};
+export { readPdf, readResumePdf, generateFromPdfHandler, downloadPdf };
+export default { readPdf, readResumePdf, generateFromPdfHandler, downloadPdf };

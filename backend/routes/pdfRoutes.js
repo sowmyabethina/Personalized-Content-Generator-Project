@@ -3,10 +3,11 @@
  * Defines PDF-related routes
  */
 
-const express = require('express');
-const multer = require('multer');
+import express from "express";
+import multer from "multer";
+import { readPdf, readResumePdf, generateFromPdfHandler } from "../controllers/pdfController.js";
+
 const router = express.Router();
-const { readPdf, readResumePdf, generateFromPdfHandler } = require('../controllers/pdfController');
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -51,4 +52,4 @@ router.post('/read-resume-pdf', upload.single('pdf'), (req, res, next) => {
 // POST /pdf/generate-from-pdf - Generate learning from PDF
 router.post('/generate-from-pdf', clerkAuth, generateFromPdfHandler);
 
-module.exports = router;
+export default router;

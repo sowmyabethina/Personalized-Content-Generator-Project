@@ -1,19 +1,21 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import "dotenv/config";
 
 // Validate API key exists
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-  console.error("❌ ERROR: GEMINI_API_KEY is not set in environment variables");
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.error("❌ ERROR: GROQ_API_KEY is not set in environment variables");
 }
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const groq = new Groq({ apiKey: GROQ_API_KEY });
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 export async function generateQuestions(text) {
   try {
     // Check if API key is configured
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured. Please set it in .env file.");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY is not configured. Please set it in .env file.");
     }
 
     console.log("📝 Input text length:", text.length);
@@ -21,8 +23,6 @@ export async function generateQuestions(text) {
     if (!text || text.length < 200) {
       throw new Error("Not enough content");
     }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
 Your task is to convert resume/PDF content into SKILL TESTING questions.
@@ -86,47 +86,74 @@ CONTENT TO ANALYZE:
 ${text}
 `;
 
-    console.log("🚀 Sending to Gemini...");
-
-    const result = await model.generateContent(prompt);
-    let rawText = result.response.text();
-
-    if (!rawText) {
-      throw new Error("Empty Gemini output");
-    }
-
-    console.log("🧠 AI Text:", rawText);
-
-    // Clean up the response - Gemini 2.5 often returns markdown-wrapped JSON
-    rawText = rawText.trim();
-    
-    // Remove markdown code blocks if present
-    if (rawText.startsWith("```json")) {
-      rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (rawText.startsWith("```")) {
-      rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
-    }
-    
-    // Also handle cases where there's text before/after the JSON
-    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      rawText = jsonMatch[0];
-    }
-
-    let parsed;
+    console.log("🚀 Sending to Groq...");
 
     try {
-      parsed = JSON.parse(rawText);
-    } catch (e) {
-      console.error("❌ JSON Parse Failed");
-      console.error("RAW OUTPUT:\n", rawText);
-      throw new Error("Invalid JSON from Gemini");
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: DEFAULT_MODEL,
+        temperature: 0.7
+      });
+      
+      let rawText = chatCompletion.choices[0]?.message?.content;
+      
+      if (!rawText) {
+        throw new Error("Empty Groq output");
+      }
+
+      console.log("🧠 AI Text:", rawText);
+
+      // Clean up the response - Groq often returns markdown-wrapped JSON
+      rawText = rawText.trim();
+      
+      // Remove markdown code blocks if present
+      if (rawText.startsWith("```json")) {
+        rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (rawText.startsWith("```")) {
+        rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      // Also handle cases where there's text before/after the JSON
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        rawText = jsonMatch[0];
+      }
+
+      const parsed = JSON.parse(rawText);
+      return parsed;
+    } catch (primaryError) {
+      console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+      
+      const fallbackCompletion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: FALLBACK_MODEL,
+        temperature: 0.7
+      });
+      
+      let rawText = fallbackCompletion.choices[0]?.message?.content;
+      if (!rawText) {
+        throw new Error("Empty Groq fallback output");
+      }
+
+      console.log("🧠 Fallback AI Text:", rawText);
+
+      rawText = rawText.trim();
+      if (rawText.startsWith("```json")) {
+        rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (rawText.startsWith("```")) {
+        rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        rawText = jsonMatch[0];
+      }
+
+      return JSON.parse(rawText);
     }
 
-    return parsed;
-
   } catch (err) {
-    console.error("❌ Gemini Error:", err);
+    console.error("❌ Groq Error:", err);
     throw err;
   }
 }

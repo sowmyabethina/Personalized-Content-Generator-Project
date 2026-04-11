@@ -4,7 +4,6 @@
  */
 const CompletionScreen = ({ lessons, onTakeQuiz, onGoBack }) => {
   const completedLessons = lessons.length;
-  const totalLessons = lessons.length;
   
   // Gather all key points from lessons
   const allKeyPoints = lessons.flatMap(l => l.sections?.keyPoints || []).slice(0, 5);

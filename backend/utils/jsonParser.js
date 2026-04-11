@@ -60,8 +60,5 @@ function isValidJson(str) {
   }
 }
 
-module.exports = {
-  parseJson,
-  safeParseJson,
-  isValidJson
-};
+export { parseJson, safeParseJson, isValidJson };
+export default { parseJson, safeParseJson, isValidJson };

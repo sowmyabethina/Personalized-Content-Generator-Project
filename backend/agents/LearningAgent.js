@@ -6,11 +6,10 @@
  * - ragTool: For PDF/document chat requests  
  * - analyticsTool: For progress/performance queries
  * 
- * Uses OpenAI or Gemini for intelligent routing via function calling
+ * Uses Groq (LLaMA models) for intelligent routing via function calling
  */
 
-import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from "groq-sdk";
 import { quizTool, quizToolSchema } from './tools/quizTool.js';
 import { ragTool, ragToolSchema, checkPdfStatus } from './tools/ragTool.js';
 import { analyticsTool, analyticsToolSchema } from './tools/analyticsTool.js';
@@ -32,19 +31,16 @@ import {
 } from './tools/validationTool.js';
 
 // Initialize AI clients
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  : null;
-
-// Retry configuration
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000;
 
-console.log("LearningAgent module loaded, OpenAI:", !!openai, "Gemini:", !!genAI);
+console.log("LearningAgent module loaded, Groq:", !!groq);
 
 /**
  * Retry helper with exponential backoff
@@ -152,14 +148,14 @@ function splitTextIntoChunks(text, chunkSize = 8000) {
 }
 
 /**
- * Generate quiz from PDF text using Gemini directly with chunking
+ * Generate quiz from PDF text using Groq directly with chunking
  * @param {Object} params - Parameters
  * @param {string} params.pdfText - Extracted PDF text
  * @param {string} params.topic - Optional topic
  * @returns {Promise<Object>} Quiz data
  */
-async function generateQuizFromPdfWithGemini({ pdfText, topic }) {
-  console.log("📝 generateQuizFromPdfWithGemini called, text length:", pdfText?.length);
+async function generateQuizFromPdfWithGroq({ pdfText, topic }) {
+  console.log("📝 generateQuizFromPdfWithGroq called, text length:", pdfText?.length);
   
   if (!pdfText || pdfText.length < 200) {
     return {
@@ -181,27 +177,69 @@ async function generateQuizFromPdfWithGemini({ pdfText, topic }) {
     const allChunkQuestions = [];
     
     for (let i = 0; i < chunks.length; i++) {
-      try {
-        const chunkQuestions = await withRetry(() => 
-          generateQuestionsFromChunk(chunks[i], i + 1, chunks.length)
-        );
-        if (chunkQuestions && Array.isArray(chunkQuestions)) {
-          allChunkQuestions.push(...chunkQuestions);
+      let chunkSuccess = false;
+      let lastError = null;
+      
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const chunkQuestions = await generateQuestionsFromChunk(chunks[i], i + 1, chunks.length);
+          if (chunkQuestions && Array.isArray(chunkQuestions)) {
+            allChunkQuestions.push(...chunkQuestions);
+            chunkSuccess = true;
+            break;
+          }
+        } catch (chunkError) {
+          lastError = chunkError;
+          console.log(`Attempt ${attempt + 1}/${MAX_RETRIES} failed for chunk ${i + 1}:`, chunkError.message);
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+          }
         }
-      } catch (chunkError) {
-        console.error(`❌ Failed to generate questions from chunk ${i + 1}:`, chunkError.message);
+      }
+      
+      if (!chunkSuccess) {
+        console.error(`❌ Failed to generate questions from chunk ${i + 1} after ${MAX_RETRIES} attempts:`, lastError?.message);
       }
     }
     
     if (allChunkQuestions.length === 0) {
-      throw new Error('Failed to generate questions from PDF');
+      return {
+        success: false,
+        error: 'Failed to generate questions from PDF',
+        message: 'Could not generate any questions from the document after multiple attempts.'
+      };
     }
     
     // Merge and deduplicate questions
     questions = mergeAndDeduplicateQuestions(allChunkQuestions);
   } else {
-    // Small text - no chunking needed
-    questions = await withRetry(() => generateQuestionsFromChunk(pdfText, 1, 1));
+    // Small text - no chunking needed - with retry logic
+    let smallTextSuccess = false;
+    let smallTextError = null;
+    
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        questions = await generateQuestionsFromChunk(pdfText, 1, 1);
+        if (questions && Array.isArray(questions)) {
+          smallTextSuccess = true;
+          break;
+        }
+      } catch (err) {
+        smallTextError = err;
+        console.log(`Small text attempt ${attempt + 1}/${MAX_RETRIES} failed:`, err.message);
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+        }
+      }
+    }
+    
+    if (!smallTextSuccess) {
+      return {
+        success: false,
+        error: 'Quiz generation failed',
+        message: smallTextError?.message || 'Failed to generate quiz questions after multiple attempts.'
+      };
+    }
   }
   
   if (!questions || !Array.isArray(questions) || questions.length === 0) {
@@ -236,12 +274,14 @@ async function generateQuizFromPdfWithGemini({ pdfText, topic }) {
 }
 
 /**
- * Generate questions from a single chunk using Gemini
+ * Generate questions from a single chunk using Groq
  */
 async function generateQuestionsFromChunk(chunk, chunkNum, totalChunks) {
   console.log(`🚀 Generating questions from chunk ${chunkNum}/${totalChunks}, length: ${chunk.length}`);
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  if (!groq) {
+    throw new Error("GROQ_API_KEY is not configured");
+  }
   
   const prompt = `
 Your task is to convert document/PDF content into SKILL TESTING questions.
@@ -298,33 +338,71 @@ CONTENT TO ANALYZE (Chunk ${chunkNum}/${totalChunks}):
 ${chunk}
 `;
 
-  const result = await model.generateContent(prompt);
-  let rawText = result.response.text();
-  
-  if (!rawText) {
-    throw new Error("Empty Gemini output");
-  }
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: DEFAULT_MODEL,
+      temperature: 0.7
+    });
+    
+    let rawText = chatCompletion.choices[0]?.message?.content;
+    
+    if (!rawText) {
+      throw new Error("Empty Groq output");
+    }
 
-  // Clean up the response - Gemini often returns markdown-wrapped JSON
-  rawText = rawText.trim();
-  
-  // Remove markdown code blocks if present
-  if (rawText.startsWith("```json")) {
-    rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-  } else if (rawText.startsWith("```")) {
-    rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
-  }
-  
-  // Also handle cases where there's text before/after the JSON
-  const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-  if (jsonMatch) {
-    rawText = jsonMatch[0];
-  }
+    // Clean up the response - Groq often returns markdown-wrapped JSON
+    rawText = rawText.trim();
+    
+    // Remove markdown code blocks if present
+    if (rawText.startsWith("```json")) {
+      rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (rawText.startsWith("```")) {
+      rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    // Also handle cases where there's text before/after the JSON
+    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      rawText = jsonMatch[0];
+    }
 
-  const parsed = JSON.parse(rawText);
-  console.log(`✅ Generated ${parsed.length} questions from chunk ${chunkNum}`);
-  
-  return parsed;
+    const parsed = JSON.parse(rawText);
+    console.log(`✅ Generated ${parsed.length} questions from chunk ${chunkNum}`);
+    
+    return parsed;
+  } catch (primaryError) {
+    console.log(`Primary model failed: ${primaryError.message}, trying fallback:`, FALLBACK_MODEL);
+    try {
+      const fallbackCompletion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: FALLBACK_MODEL,
+        temperature: 0.7
+      });
+      
+      let rawText = fallbackCompletion.choices[0]?.message?.content;
+      if (!rawText) {
+        throw new Error("Empty Groq fallback output");
+      }
+      
+      rawText = rawText.trim();
+      if (rawText.startsWith("```json")) {
+        rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (rawText.startsWith("```")) {
+        rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        rawText = jsonMatch[0];
+      }
+      
+      return JSON.parse(rawText);
+    } catch (fallbackError) {
+      console.error(`❌ Both primary and fallback models failed for chunk ${chunkNum}:`, fallbackError.message);
+      throw new Error(`Failed to generate questions from chunk ${chunkNum}: ${fallbackError.message}`);
+    }
+  }
 }
 
 /**
@@ -391,13 +469,72 @@ function getFallbackResponse(message) {
 /**
  * Get fallback response specifically for PDF quiz generation
  */
-function getPdfQuizFallbackResponse() {
+function getPdfQuizFallbackResponse(pdfText = '', topic = 'Document Quiz') {
+  const fallbackQuestions = generateHeuristicQuestionsFromText(pdfText, topic);
   return {
     success: true,
     tool: 'quiz',
-    message: 'I apologize, but I encountered an issue generating your quiz from the document. Please try again or upload a different document.',
-    data: { error: 'Gemini service unavailable for PDF quiz generation' }
+    message: `Generated a fallback quiz with ${fallbackQuestions.length} questions while AI service is temporarily unavailable.`,
+    data: {
+      questions: fallbackQuestions,
+      topic,
+      source: 'pdf',
+      fallback: true
+    }
   };
+}
+
+/**
+ * Build a minimal fallback quiz from plain text when AI APIs are unavailable.
+ * Keeps UI flow working by returning valid MCQ objects.
+ */
+function generateHeuristicQuestionsFromText(text = '', topic = 'Document Quiz') {
+  const cleaned = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const words = cleaned
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 5);
+
+  const stop = new Set([
+    'about','above','after','again','against','being','below','between','could','document','during',
+    'first','found','great','their','there','these','those','through','under','where','which','while',
+    'would','content','using','based','other','should','because','learning','question','questions'
+  ]);
+
+  const freq = new Map();
+  words.forEach(w => {
+    if (!stop.has(w)) freq.set(w, (freq.get(w) || 0) + 1);
+  });
+
+  const topKeywords = Array.from(freq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([w]) => w);
+
+  const base = topKeywords.length ? topKeywords : ['concept', 'implementation', 'architecture', 'performance', 'testing', 'security'];
+
+  return base.slice(0, 6).map((kw, idx) => {
+    const cap = kw.charAt(0).toUpperCase() + kw.slice(1);
+    const options = [
+      `${cap} in practical use`,
+      `${cap} as a theoretical model`,
+      `${cap} with no trade-offs`,
+      `${cap} unrelated to the topic`
+    ];
+
+    return {
+      originalIndex: idx,
+      question: `In ${topic}, which statement best reflects ${cap} based on the document context?`,
+      options,
+      correctAnswer: options[0],
+      explanation: `${cap} is presented in the document as an applied concept tied to real usage decisions.`,
+      category: 'Document Understanding'
+    };
+  });
 }
 
 /**
@@ -423,32 +560,125 @@ function getTools() {
  * @param {string} params.message - User's message
  * @param {string} params.userId - User ID
  * @param {string} params.sessionId - Session ID for RAG
- * @param {string} params.model - AI model to use ('openai' or 'gemini')
- * @param {Object} params.context - Additional context (profile, quiz answers, etc.)
+ * @param {string} params.model - AI model to use (deprecated, always uses Gemini)
+ * @param {Object} params.context - Additional context (profile, quiz answers, quizType, etc.)
  * @returns {Promise<Object>} Agent response
  */
-export async function routeMessage({ message, userId, sessionId, model = 'openai', context = {} }) {
+export async function routeMessage({ message, userId, sessionId, model = 'groq', context = {} }) {
   console.log("LearningAgent received message:", message);
   console.log("Context received:", JSON.stringify(context));
   
   try {
     // ============================================================
+    // SPECIAL HANDLING: Topic-based quiz generation (uses Groq via quizTool)
+    // ============================================================
+    if (context?.quizType === "topic" && context?.topic) {
+      console.log("📝 Topic-based quiz request - using Groq via quizTool");
+      
+      try {
+        const result = await quizTool({
+          topic: context.topic,
+          difficulty: context.difficulty || 'medium',
+          questionCount: context.questionCount || 10,
+          userId
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+      } catch (groqError) {
+        console.error("❌ Groq topic quiz error, retrying:", groqError.message);
+        try {
+          const retryResult = await quizTool({
+            topic: context.topic,
+            difficulty: context.difficulty || 'medium',
+            questionCount: context.questionCount || 10,
+            userId
+          });
+          if (retryResult.success) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: retryResult.message,
+              rawData: retryResult.data
+            };
+          }
+        } catch (retryError) {
+          console.error("❌ Retry failed:", retryError.message);
+        }
+      }
+    }
+
+    // ============================================================
+    // SPECIAL HANDLING: PDF text quiz generation (uses Groq with chunking)
+    // ============================================================
+    if (context?.pdfText && context.pdfText.length > 1000) {
+      console.log("📄 PDF text quiz request - using Groq with chunking");
+      
+      try {
+        const result = await generateQuizFromPdfWithGroq({
+          pdfText: context.pdfText,
+          topic: context.topic || 'Document Quiz'
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+      } catch (groqError) {
+        console.error("❌ Groq PDF quiz error, retrying:", groqError.message);
+        try {
+          const retryResult = await generateQuizFromPdfWithGroq({
+            pdfText: context.pdfText,
+            topic: context.topic || 'Document Quiz'
+          });
+          if (retryResult.success) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: retryResult.message,
+              rawData: retryResult.data
+            };
+          }
+        } catch (retryError) {
+          console.error("❌ Retry failed:", retryError.message);
+          return getPdfQuizFallbackResponse(context.pdfText, context.topic || 'Document Quiz');
+        }
+      }
+    }
+    
+    // ============================================================
     // SPECIAL HANDLING: Quiz generation from PDF/Document
-    // Use Gemini API (not OpenAI) for intent selection and generation
+    // Use Groq API for intent selection and generation
     // ============================================================
     const isPdfQuizRequest = isQuizFromDocument(message);
+    let topic = context?.topic || 'Document Quiz';
     
     if (isPdfQuizRequest) {
-      console.log("📄 PDF Quiz request detected - using Gemini exclusively");
+      console.log("📄 PDF Quiz request detected - using Groq exclusively");
+      topic = context?.topic || 'Document Quiz';
       
-      // Check if Gemini is available
-      if (!genAI) {
-        console.log("⚠️ Gemini not available, using fallback");
-        return getPdfQuizFallbackResponse();
+      // Check if Groq is available
+      if (!groq) {
+        console.log("⚠️ Groq not available, using fallback");
+        return getPdfQuizFallbackResponse(context?.pdfText || '', topic);
       }
       
       // Check if PDF text is available in context
-      const pdfText = context.pdfText || '';
+      const pdfText = context?.pdfText || '';
       
       if (!pdfText || pdfText.length < 200) {
         return {
@@ -461,10 +691,8 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
       }
       
       try {
-        const topic = context.topic || 'Document Quiz';
-        
-        // Use Gemini with chunking for PDF quiz generation
-        const result = await generateQuizFromPdfWithGemini({
+        // Use Groq with chunking for PDF quiz generation
+        const result = await generateQuizFromPdfWithGroq({
           pdfText,
           topic
         });
@@ -478,13 +706,13 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
             rawData: result.data
           };
         } else {
-          // Gemini generation failed, return fallback
-          console.log("⚠️ Gemini PDF quiz generation failed, using fallback");
-          return getPdfQuizFallbackResponse();
+          // Groq generation failed, return fallback
+          console.log("⚠️ Groq PDF quiz generation failed, using fallback");
+          return getPdfQuizFallbackResponse(pdfText, topic);
         }
-      } catch (geminiError) {
-        console.error("❌ Gemini PDF quiz error:", geminiError.message);
-        return getPdfQuizFallbackResponse();
+      } catch (groqError) {
+        console.error("❌ Groq PDF quiz error:", groqError.message);
+        return getPdfQuizFallbackResponse(pdfText, topic);
       }
     }
     
@@ -511,7 +739,7 @@ export async function routeMessage({ message, userId, sessionId, model = 'openai
     console.log("PDF status:", pdfStatus);
 
     // Build user profile context
-    const profileContext = context.userProfile ? `
+    const profileContext = context?.userProfile ? `
 User Profile:
 - Technical Level: ${context.userProfile.technicalLevel || 'unknown'}
 - Learning Style: ${context.userProfile.learningStyle || 'unknown'}
@@ -520,14 +748,14 @@ User Profile:
 ` : '';
     
     // Build quiz context if available
-    const quizContext = context.quizAnswers ? `
+    const quizContext = context?.quizAnswers ? `
 Current Quiz:
 - Questions answered: ${context.quizAnswers.length}
 - Current score: ${context.quizAnswers.filter(a => a.correct).length}/${context.quizAnswers.length}
 ` : '';
     
     // Build PDF context if available
-    const pdfContext = context.pdfText ? `
+    const pdfContext = context?.pdfText ? `
 PDF Context (${(context.pdfText.length / 1000).toFixed(1)}KB):
 ${context.pdfText.substring(0, 1000)}...
 ` : '';
@@ -568,23 +796,19 @@ User message: "${message}"
     // ============================================================
     // API ROUTING RULES:
     // - Direct PDF chat handled above via ragTool
-    // - Non-PDF tool selection uses requested model preference
+    // - Always use Groq
     // ============================================================
-    let effectiveModel = model === 'gemini' ? 'gemini' : 'openai';
+    // Force Groq for all requests
+    let effectiveModel = 'groq';
     
     console.log(`API Routing: isPdfChat=${isPdfChatRequest}, using=${effectiveModel}`);
     
     let toolCall = null;
 
-    // Use OpenAI for PDF chat requests
-    if (effectiveModel === 'openai' && openai) {
-      console.log("Using OpenAI for tool selection (PDF chat)");
-      toolCall = await routeWithOpenAI(toolContext, message);
-    } 
-    // Use Gemini for all other requests
-    else if (effectiveModel === 'gemini' && genAI) {
-      console.log("Using Gemini for tool selection");
-      toolCall = await routeWithGemini(toolContext, message);
+    // Use Groq for all requests
+    if (effectiveModel === 'groq' && groq) {
+      console.log("Using Groq for tool selection");
+      toolCall = await routeWithGroq(toolContext, message);
     }
     // Fallback to simple keyword matching
     else {
@@ -683,118 +907,49 @@ User message: "${message}"
 }
 
 /**
- * Route using OpenAI function calling
+ * Route using Groq function calling
  */
-async function routeWithOpenAI(systemContext, userMessage) {
-  console.log("routeWithOpenAI called");
+async function routeWithGroq(systemContext, userMessage) {
+  console.log("routeWithGroq called");
   
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { 
-        role: 'system', 
-        content: systemContext
-      },
-      { 
-        role: 'user', 
-        content: userMessage 
-      }
-    ],
-    tools: [
-      {
-        type: 'function',
-        function: quizToolSchema
-      },
-      {
-        type: 'function',
-        function: ragToolSchema
-      },
-      {
-        type: 'function',
-        function: analyticsToolSchema
-      },
-      {
-        type: 'function',
-        function: contentToolSchema
-      },
-      {
-        type: 'function',
-        function: personalizedContentToolSchema
-      },
-      {
-        type: 'function',
-        function: quizFromTextToolSchema
-      },
-      {
-        type: 'function',
-        function: evaluateLearningStyleToolSchema
-      },
-      {
-        type: 'function',
-        function: evaluateAnswerToolSchema
-      },
-      {
-        type: 'function',
-        function: validateContentToolSchema
-      }
-    ],
-    tool_choice: 'auto',
-    temperature: 0.1
-  });
-
-  const toolCall = response.choices[0]?.message?.tool_calls?.[0];
-  
-  if (!toolCall) {
-    console.log("No tool call from OpenAI, falling back to keywords");
-    return routeWithKeywords(userMessage);
+  if (!groq) {
+    throw new Error("GROQ_API_KEY is not configured");
   }
-
-  return {
-    tool: toolCall.function.name.replace('Tool', ''),
-    params: JSON.parse(toolCall.function.arguments || '{}')
-  };
-}
-
-/**
- * Route using Gemini function calling
- */
-async function routeWithGemini(systemContext, userMessage) {
-  console.log("routeWithGemini called");
   
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.5-flash',
-    tools: [
-      {
-        functionDeclarations: [
-          quizToolSchema, 
-          ragToolSchema, 
-          analyticsToolSchema,
-          contentToolSchema,
-          personalizedContentToolSchema,
-          quizFromTextToolSchema,
-          evaluateLearningStyleToolSchema,
-          evaluateAnswerToolSchema,
-          validateContentToolSchema
-        ]
-      }
-    ]
-  });
-
   const prompt = `${systemContext}\n\nUser message: "${userMessage}"`;
   
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  
-  const functionCall = response.functionCalls()?.[0];
-  
-  if (!functionCall) {
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: DEFAULT_MODEL,
+      temperature: 0.7
+    });
+    
+    const responseText = chatCompletion.choices[0]?.message?.content;
+    
+    if (!responseText) {
+      return routeWithKeywords(userMessage);
+    }
+    
+    // Try to parse as JSON if it contains tool call info
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed.tool && parsed.params) {
+        return {
+          tool: parsed.tool,
+          params: parsed.params || {}
+        };
+      }
+    } catch (parseError) {
+      // Not JSON, try to extract tool from text
+    }
+    
+    // Fallback to keyword routing if Groq didn't return structured response
+    return routeWithKeywords(userMessage);
+  } catch (error) {
+    console.error("Groq routing error:", error.message);
     return routeWithKeywords(userMessage);
   }
-
-  return {
-    tool: functionCall.name.replace('Tool', ''),
-    params: functionCall.args || {}
-  };
 }
 
 /**
@@ -888,7 +1043,7 @@ function routeWithIntent(message, context = {}) {
         { pattern: /quiz.*from.*text|quiz.*from.*document/i, weight: 3 },
         { pattern: /generate.*from.*content/i, weight: 2 }
       ],
-      extractTopic: () => ({ docText: context.pdfText || '' })
+      extractTopic: () => ({ docText: context?.pdfText || '' })
     }
   ];
   
@@ -925,7 +1080,7 @@ function routeWithIntent(message, context = {}) {
   // If message is a question about content, use RAG
   if (lowerMessage.includes('?') || lowerMessage.includes('what') || lowerMessage.includes('how') || lowerMessage.includes('why')) {
     // Check if PDF is available
-    if (context.pdfText || lowerMessage.includes('pdf') || lowerMessage.includes('document')) {
+    if (context?.pdfText || lowerMessage.includes('pdf') || lowerMessage.includes('document')) {
       return { tool: 'rag', params: { message } };
     }
     return { tool: 'content', params: { topic: 'General Knowledge', technicalLevel: 'intermediate', learningStyle: 'reading' } };

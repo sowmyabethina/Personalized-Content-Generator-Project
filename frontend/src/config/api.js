@@ -12,7 +12,8 @@ const ENDPOINTS = {
   QUIZ: {
     GENERATE: `${BASE_URL}/quiz/generate`,
     SCORE: `${BASE_URL}/quiz/score-quiz`,
-    GENERATE_FROM_MATERIAL: `${BASE_URL}/quiz/generate-quiz-from-material`
+    GENERATE_FROM_MATERIAL: `${BASE_URL}/quiz/generate-quiz-from-material`,
+    PROCESS: `${BASE_URL}/api/quiz/score`
   },
   
   // PDF endpoints
@@ -29,7 +30,8 @@ const ENDPOINTS = {
     GET_BY_ID: (id) => `${BASE_URL}/analysis/${id}`,
     UPDATE: (id) => `${BASE_URL}/analysis/${id}`,
     UPDATE_LAST_ACTIVE: (id) => `${BASE_URL}/analysis/${id}/last-active`,
-    ONBOARDING_GOAL: `${BASE_URL}/onboarding/goal`
+    ONBOARDING_GOAL: `${BASE_URL}/onboarding/goal`,
+    PROCESS: `${BASE_URL}/api/analysis/process`
   },
   
   // Learning endpoints
@@ -39,7 +41,8 @@ const ENDPOINTS = {
     MATERIAL: `${BASE_URL}/learning/generate-learning-material`,
     QUESTIONS: `${BASE_URL}/learning/generate-learning-questions`,
     EVALUATE_STYLE: `${BASE_URL}/learning/evaluate-learning-style`,
-    DOWNLOAD_PDF: `${BASE_URL}/learning/download-pdf`
+    DOWNLOAD_PDF: `${BASE_URL}/learning/download-pdf`,
+    PROCESS_MATERIAL: `${BASE_URL}/api/learning-material/process`
   },
   
   // Agent endpoints
@@ -47,6 +50,16 @@ const ENDPOINTS = {
     CHAT: `${BASE_URL}/agent/chat`,
     HEALTH: `${BASE_URL}/agent/health`,
     STUDY_PLAN: `${BASE_URL}/agent/study-plan`
+  },
+
+  // GitHub profile endpoints
+  GITHUB: {
+    EXTRACT_SKILLS: `${BASE_URL}/api/github/extract-skills`,
+    PROCESS: `${BASE_URL}/api/github/process`
+  },
+
+  PROGRESS: {
+    PROCESS: `${BASE_URL}/api/progress/process`
   },
   
   // PDF Chat endpoints (RAG service)

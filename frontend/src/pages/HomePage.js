@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ENDPOINTS from "../config/api";
+import { processProfile } from "../services/github/githubService";
+import { requestJson } from "../utils/http";
+import useQuizGeneration from "../hooks/quiz/useQuizGeneration";
 
 function HomePage() {
   const navigate = useNavigate();
@@ -15,120 +18,7 @@ function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  // URL Parsing Function - Extract username from GitHub Profile URL
-  const extractGithubUsername = (url) => {
-    if (!url || typeof url !== 'string') return null;
-    
-    // Remove trailing slash
-    let cleanUrl = url.trim().replace(/\/$/, '');
-    
-    // Check if it's a valid GitHub profile URL
-    const githubProfileRegex = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9-_]+$/;
-    
-    if (!githubProfileRegex.test(cleanUrl)) {
-      return null;
-    }
-    
-    // Extract username from URL
-    const parts = cleanUrl.split('/');
-    const username = parts[parts.length - 1];
-    
-    // Validate username format
-    if (username && /^[a-zA-Z0-9-_]+$/.test(username)) {
-      return username;
-    }
-    
-    return null;
-  };
-
-  // Fetch repositories from GitHub API
-  const fetchGithubRepos = async (username) => {
-    const response = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=30`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Unable to fetch GitHub data');
-    }
-    
-    const repos = await response.json();
-    return repos;
-  };
-
-  // Extract skills from repositories (language + name keywords)
-  const extractSkillsFromRepos = (repos) => {
-    const skillsSet = new Set();
-    
-    // Common programming language keywords
-    const languageKeywords = {
-      'JavaScript': ['JavaScript', 'JS', 'React', 'Vue', 'Angular', 'Node', 'Express'],
-      'TypeScript': ['TypeScript', 'TS', 'Angular', 'React'],
-      'Python': ['Python', 'Django', 'Flask', 'FastAPI', 'Machine Learning', 'AI'],
-      'Java': ['Java', 'Spring', 'Android', 'Hibernate'],
-      'C++': ['C++', 'C Plus Plus'],
-      'C#': ['C#', 'C Sharp', '.NET', 'ASP.NET'],
-      'Go': ['Go', 'Golang'],
-      'Rust': ['Rust'],
-      'Swift': ['Swift', 'iOS', 'macOS'],
-      'Kotlin': ['Kotlin', 'Android'],
-      'Ruby': ['Ruby', 'Rails'],
-      'PHP': ['PHP', 'Laravel', 'WordPress'],
-      'HTML': ['HTML', 'HTML5'],
-      'CSS': ['CSS', 'CSS3', 'Sass', 'SCSS'],
-      'SQL': ['SQL', 'MySQL', 'PostgreSQL', 'MongoDB'],
-      'Shell': ['Shell', 'Bash', 'Linux'],
-      'Docker': ['Docker', 'Kubernetes', 'DevOps'],
-      'AWS': ['AWS', 'Amazon Web Services', 'Cloud'],
-      'React': ['React', 'ReactJS', 'Redux'],
-      'Vue': ['Vue', 'VueJS', 'Nuxt'],
-    };
-
-    repos.forEach(repo => {
-      // Add language if available
-      if (repo.language) {
-        skillsSet.add(repo.language);
-        
-        // Add related keywords
-        if (languageKeywords[repo.language]) {
-          languageKeywords[repo.language].forEach(keyword => {
-            skillsSet.add(keyword);
-          });
-        }
-      }
-      
-      // Add skills from repo name
-      if (repo.name) {
-        const nameLower = repo.name.toLowerCase();
-        Object.keys(languageKeywords).forEach(lang => {
-          if (nameLower.includes(lang.toLowerCase())) {
-            skillsSet.add(lang);
-          }
-        });
-      }
-      
-      // Add topics/tags from repo
-      if (repo.topics && Array.isArray(repo.topics)) {
-        repo.topics.forEach(topic => {
-          skillsSet.add(topic);
-        });
-      }
-      
-      // Add description keywords if available
-      if (repo.description) {
-        const descLower = repo.description.toLowerCase();
-        Object.keys(languageKeywords).forEach(lang => {
-          if (descLower.includes(lang.toLowerCase())) {
-            skillsSet.add(lang);
-          }
-        });
-      }
-    });
-    
-    return Array.from(skillsSet);
-  };
+  const { generateQuestions } = useQuizGeneration();
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
@@ -137,63 +27,6 @@ function HomePage() {
     }
   };
 
-  const parseQuestionsFromText = (text) => {
-    const questions = [];
-    if (!text || typeof text !== "string") return [];
-
-    const sections = text.split(/\*\*Multiple-Choice Questions\*\*|\*\*Multiple Choice Questions\*\*/i);
-    const mcqSection = sections.length > 1 ? sections[1] : text;
-
-    const questionBlocks = mcqSection.split(/\n(?=\d+\.)/);
-
-    for (const block of questionBlocks) {
-      const lines = block.trim().split("\n").filter(l => l.trim());
-      if (lines.length < 4) continue;
-
-      let questionText = lines[0].replace(/^\d+\.\s*/, "").trim();
-      questionText = questionText.replace(/http[s]?:\/\/\S+/g, "").trim();
-
-      const options = [];
-      let correctAnswer = null;
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        const optionMatch = line.match(/^([A-D])[.)]\s*(.+?)(?:\s*\*?Correct Answer:\*?.*)?$/i);
-        if (optionMatch) {
-          let optionText = optionMatch[2].trim();
-          optionText = optionText.replace(/\*?Correct Answer:\*?\s*[A-D]?\s*$/i, "").trim();
-
-          if (optionText && optionText.length > 0) {
-            options.push(optionText);
-          }
-
-          if (line.match(/\*?Correct Answer:\*?\s*([A-D])/i)) {
-            const match = line.match(/\*?Correct Answer:\*?\s*([A-D])/i);
-            correctAnswer = match[1];
-          }
-        }
-      }
-
-      if (questionText && options.length >= 3) {
-        const finalOptions = options.slice(0, 4);
-        let answerIndex = 0;
-        if (correctAnswer) {
-          answerIndex = correctAnswer.charCodeAt(0) - 65;
-          if (answerIndex < 0 || answerIndex >= finalOptions.length) {
-            answerIndex = 0;
-          }
-        }
-
-        questions.push({
-          question: questionText,
-          options: finalOptions,
-          answer: finalOptions[answerIndex] || finalOptions[0]
-        });
-      }
-    }
-
-    return questions;
-  };
 
   const extractGithubProfile = async () => {
     setLoading(true);
@@ -201,26 +34,7 @@ function HomePage() {
     setSuccessMessage("");
 
     try {
-      // Validate URL
-      const username = extractGithubUsername(githubProfileUrl);
-      
-      if (!username) {
-        setError("Please enter a valid GitHub profile URL (e.g., https://github.com/username)");
-        setLoading(false);
-        return;
-      }
-
-      // Fetch repositories from GitHub API
-      const repos = await fetchGithubRepos(username);
-
-      if (!repos || repos.length === 0) {
-        setError("No repositories found for this GitHub profile");
-        setLoading(false);
-        return;
-      }
-
-      // Extract skills from repositories
-      const skills = extractSkillsFromRepos(repos);
+      const { skills, content: skillsContent } = await processProfile(githubProfileUrl);
       
       if (skills.length === 0) {
         setError("Unable to extract skills from repositories");
@@ -229,9 +43,6 @@ function HomePage() {
       }
 
       setExtractedSkills(skills);
-      
-      // Create content from skills for quiz generation
-      const skillsContent = `GitHub Profile: ${username}\n\nSkills: ${skills.join(', ')}\n\nRepositories:\n${repos.slice(0, 10).map(r => `- ${r.name}: ${r.language || 'Unknown'} - ${r.description || 'No description'}`).join('\n')}`;
       
       setExtractedContent(skillsContent);
       setIsExtracted(true);
@@ -247,7 +58,11 @@ function HomePage() {
 
     } catch (err) {
       console.error(err);
-      if (err.message.includes('Unable to fetch')) {
+      if (err.message.includes("GitHub user not found")) {
+        setError("GitHub user not found. Please check the profile URL and try again.");
+      } else if (err.message.includes("rate limit")) {
+        setError("GitHub API rate limit exceeded. Please try again later or configure a backend GitHub token.");
+      } else if (err.message.includes('Unable to fetch')) {
         setError("Unable to fetch GitHub data. Please check the URL and try again.");
       } else {
         setError("Failed to analyze GitHub profile. Please try again.");
@@ -273,14 +88,16 @@ function HomePage() {
       const formData = new FormData();
       formData.append("pdf", resumeFile);
 
-      const res = await fetch(ENDPOINTS.PDF.READ_RESUME, {
-        method: "POST",
-        body: formData
-      });
+      const data = await requestJson(
+        ENDPOINTS.PDF.READ_RESUME,
+        {
+          method: "POST",
+          body: formData,
+        },
+        "Failed to extract text from Resume PDF"
+      );
 
-      const data = await res.json();
-
-      if (!res.ok || !data.text) {
+      if (!data?.text) {
         setError(data.error || "Failed to extract text from Resume PDF");
         setLoading(false);
         return;
@@ -309,111 +126,39 @@ function HomePage() {
     setLoading(true);
     setError("");
     setSuccessMessage("");
-    
-    if (!extractedContent || extractedContent.trim().length < 200) {
-      setError("Document too short to generate questions. Provide a longer PDF or use a topic.");
-      setLoading(false);
-      return;
-    }
 
     try {
-      // Use the centralized agent for quiz generation
-      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Generate quiz questions from the document",
-          context: {
-            pdfText: extractedContent
-          }
-        })
+      const sourceType = localStorage.getItem("documentSourceType") || inputType;
+      const topicFallback = extractedSkills.filter(Boolean).join(", ");
+      const shouldUseTopicQuiz =
+        sourceType === "github" &&
+        (!extractedContent || extractedContent.trim().length < 1000) &&
+        topicFallback.length > 0;
+
+      const { questions: parsedQuestions } = await generateQuestions({
+        extractedText: shouldUseTopicQuiz ? "" : extractedContent,
+        topic: shouldUseTopicQuiz ? topicFallback : "",
+        userId: null,
+        sourceType: shouldUseTopicQuiz ? "github" : sourceType,
       });
 
-      if (!res.ok) {
-        const bodyText = await res.text();
-        console.error("Server error:", res.status, bodyText);
-
-        try {
-          const parsed = JSON.parse(bodyText);
-          if (res.status === 429 || parsed?.error === "rate_limit") {
-            setError("AI quota exceeded. Please try again later. See https://ai.dev/rate-limit for usage details.");
-          } else {
-            setError(`Server error: ${res.status} ${parsed?.error || ""}`);
-          }
-        } catch (e) {
-          if (res.status === 429 || (bodyText && bodyText.toLowerCase().includes("quota"))) {
-            setError("AI quota exceeded. Please try again later. See https://ai.dev/rate-limit for usage details.");
-          } else {
-            setError(`Server error: ${res.status}`);
-          }
-        }
-
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      console.log("🤖 Agent response for quiz:", data);
-
-      // Parse questions from agent response
-      let parsedQuestions = [];
-      const questionData = data.data?.questions || data.data || [];
-      
-      if (Array.isArray(questionData)) {
-        parsedQuestions = questionData.map(q => ({
-          question: q.question,
-          options: Array.isArray(q.options) ? q.options : [q.options],
-          answer: q.answer || q.correctAnswer || q.options?.[0],
-          explanation: q.explanation || "",
-          category: q.category || ""
-        }));
-      } else if (typeof questionData === 'string') {
-        try {
-          const jsonParsed = JSON.parse(questionData);
-          if (Array.isArray(jsonParsed)) {
-            parsedQuestions = jsonParsed.map(q => ({
-              question: q.question,
-              options: Array.isArray(q.options) ? q.options : [q.options],
-              answer: q.answer || q.correctAnswer || q.options?.[0],
-              explanation: q.explanation || "",
-              category: q.category || ""
-            }));
-          }
-        } catch (e) {
-          parsedQuestions = parseQuestionsFromText(questionData);
-        }
-      }
-
       if (parsedQuestions.length > 0) {
-        const normalized = parsedQuestions.map(q => {
-          let correct = q.answer;
-          if (typeof correct === "string" && /^[A-D]$/i.test(correct)) {
-            const idx = correct.toUpperCase().charCodeAt(0) - 65;
-            correct = q.options[idx];
-          }
-          if (typeof correct === "number") {
-            correct = q.options[correct];
-          }
-          return {
-            ...q,
-            answer: correct?.trim(),
-            explanation: q.explanation || "",
-            category: q.category || ""
-          };
-        });
-
-        setSuccessMessage("Questions generated successfully!");
+        setSuccessMessage(
+          shouldUseTopicQuiz
+            ? "Using topic-based quiz from extracted GitHub skills."
+            : "Questions generated successfully!"
+        );
         setTimeout(() => setSuccessMessage(""), 3000);
 
         localStorage.removeItem("currentAnalysisId");
 
         navigate("/quiz", {
           state: { 
-            questions: normalized, 
-            quizId: res.headers.get("X-Quiz-Id"),
+            questions: parsedQuestions, 
+            quizId: null,
             userId: null,
-            sourceType: inputType,
-            sourceUrl: inputType === "github" ? githubProfileUrl : null,
+            sourceType,
+            sourceUrl: sourceType === "github" ? githubProfileUrl : null,
             extractedText: extractedContent.substring(0, 12000),
             skills: extractedSkills
           }
@@ -423,7 +168,13 @@ function HomePage() {
       }
     } catch (err) {
       console.error("Error:", err);
-      setError(`Error: ${err.message}`);
+      if (extractedContent && extractedContent.trim().length < 1000 && extractedSkills.length > 0) {
+        setError("Unable to generate quiz from GitHub skills. Please try again.");
+      } else if (!extractedContent || extractedContent.trim().length < 200) {
+        setError("Document too short to generate questions. Provide a longer PDF or use a GitHub profile.");
+      } else {
+        setError(`Error: ${err.message}`);
+      }
     }
 
     setLoading(false);

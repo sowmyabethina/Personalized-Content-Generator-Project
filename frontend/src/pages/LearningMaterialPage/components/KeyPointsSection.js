@@ -1,34 +1,46 @@
+import {
+  formatLearningTips,
+  isLearningTipsLesson,
+  shouldHideSectionHeading,
+} from "../../../utils/learning/presentationHelpers";
+
+/**
+ * Safely render any value as string
+ */
+const safeRender = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(item => safeRender(item)).filter(Boolean).join(', ');
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
 /**
  * Key Points Component
  * Displays important points in a highlighted box with dynamic heading
+ * Handles both string and object formats safely
  */
 const KeyPointsSection = ({ points, title, lessonTitle }) => {
   if (!points || !Array.isArray(points) || points.length === 0) return null;
   
   const heading = title || 'Key Concepts';
-  const hideHeading = lessonTitle && heading && lessonTitle.toLowerCase().trim() === heading.toLowerCase().trim();
-  const isTips = lessonTitle && (lessonTitle.toLowerCase().includes('tips') || lessonTitle.toLowerCase().includes('tip'));
+  const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
+  const isTips = isLearningTipsLesson(lessonTitle);
   
-  // Format learning tips text into bullet points
-  const formatLearningTips = (tips) => {
-    if (!tips || !Array.isArray(tips)) return [];
-    
-    return tips.map(tip => {
-      if (!tip || typeof tip !== 'string') return null;
-      
-      // Split by ** markers and filter empty strings
-      const parts = tip
-        .split('**')
-        .map(t => t.trim())
-        .filter(t => t.length > 0);
-      
-      // If we have parts, join them as a single formatted tip
-      // Otherwise return the original tip
-      return parts.length > 0 ? parts.join(' ') : tip;
-    }).filter(tip => tip && tip.length > 0);
-  };
+  const validPoints = points.filter(p => {
+    const rendered = safeRender(p);
+    return rendered.trim().length > 0;
+  });
   
-  const formattedPoints = isTips ? formatLearningTips(points) : points;
+  if (validPoints.length === 0) return null;
+  
+  const formattedPoints = isTips ? formatLearningTips(validPoints) : validPoints;
   
   return (
     <div style={styles.keyPointsContainer} className="section-fade-in">
@@ -37,7 +49,7 @@ const KeyPointsSection = ({ points, title, lessonTitle }) => {
       </div>
       <ul style={styles.keyPointsList}>
         {formattedPoints.map((point, idx) => (
-          <li key={idx} style={styles.keyPointItem}>{point}</li>
+          <li key={idx} style={styles.keyPointItem}>{safeRender(point)}</li>
         ))}
       </ul>
     </div>

@@ -1,39 +1,80 @@
 import CopyButton from "./CopyButton";
 
 /**
+ * Safely render any value as string
+ */
+const safeRender = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(item => safeRender(item)).filter(Boolean).join(', ');
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+/**
+ * Check if example is valid object with content
+ */
+const isValidExampleObject = (example) => {
+  if (!example) return false;
+  if (typeof example === 'string') return example.trim().length > 0;
+  if (typeof example === 'object') {
+    const hasContent = example.code || example.description || example.explanation;
+    if (!hasContent) return false;
+    const code = example.code;
+    if (code && typeof code === 'string') {
+      const lowerCode = code.toLowerCase();
+      if (lowerCode.includes('example') && lowerCode.length < 50) return false;
+    }
+    return true;
+  }
+  return false;
+};
+
+/**
  * Examples Component
  * Displays code examples with syntax highlighting style
+ * Handles both string and object formats safely
  */
 const ExamplesSection = ({ examples }) => {
   if (!examples || !Array.isArray(examples) || examples.length === 0) return null;
+  
+  const validExamples = examples.filter(isValidExampleObject);
+  if (validExamples.length === 0) return null;
   
   return (
     <div style={styles.sectionContainer} className="section-fade-in">
       <div style={styles.sectionHeader}>
         <h3 style={styles.sectionTitle}>Examples</h3>
       </div>
-      {examples.map((example, idx) => (
-        <div key={idx} style={styles.exampleCard}>
-          <div style={styles.exampleHeader}>
-            <span style={styles.exampleTitle}>{example.title}</span>
-            {example.code && <CopyButton code={example.code} />}
-          </div>
-          {example.description && (
-            <p style={styles.exampleDescription}>{example.description}</p>
-          )}
-          {example.code && (
-            <pre style={styles.codeBlock}>
-              <code>{example.code}</code>
-            </pre>
-          )}
-          {example.output && (
-            <div style={styles.outputContainer}>
-              <span style={styles.outputLabel}>Output:</span>
-              <code style={styles.outputText}>{example.output}</code>
+      {validExamples.map((example, idx) => {
+        const isString = typeof example === 'string';
+        const exampleTitle = !isString ? (example.title || `Example ${idx + 1}`) : `Example ${idx + 1}`;
+        const exampleCode = !isString ? (example.code || example.codeExample || '') : example;
+        const exampleDescription = !isString ? (example.description || example.explanation || '') : '';
+        
+        return (
+          <div key={idx} style={styles.exampleCard}>
+            <div style={styles.exampleHeader}>
+              <span style={styles.exampleTitle}>{exampleTitle}</span>
+              {exampleCode && <CopyButton code={exampleCode} />}
             </div>
-          )}
-        </div>
-      ))}
+            {exampleDescription && (
+              <p style={styles.exampleDescription}>{exampleDescription}</p>
+            )}
+            {exampleCode && (
+              <pre style={styles.codeBlock}>
+                <code>{exampleCode}</code>
+              </pre>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

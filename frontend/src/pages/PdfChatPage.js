@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -9,176 +9,21 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import ENDPOINTS from "../config/api";
-
-// Convert mind map data to React Flow nodes and edges with RADIAL layout
-const convertToFlowElements = (data) => {
-  if (!data || !data.title) return { nodes: [], edges: [] };
-
-  const nodes = [];
-  const edges = [];
-  let nodeId = 0;
-  const generateId = () => `node-${nodeId++}`;
-
-  // Node style
-  const nodeStyle = {
-    background: "#ffffff",
-    border: "1px solid #E5E7EB",
-    borderRadius: "12px",
-    padding: "10px 14px",
-    color: "#1F2937",
-    fontSize: "14px",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-    width: 180,
-    textAlign: "center",
-  };
-
-  // Center position
-  const centerX = 600;
-  const centerY = 350;
-
-  // Root node (center)
-  const rootId = "root";
-  nodes.push({
-    id: rootId,
-    type: "input",
-    position: { x: centerX, y: centerY },
-    data: { label: data.title },
-    style: {
-      background: "#2563EB",
-      color: "white",
-      padding: "14px 20px",
-      borderRadius: "16px",
-      fontWeight: "700",
-      fontSize: "18px",
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-      width: 200,
-      textAlign: "center",
-    },
-  });
-
-  // Get first level topics
-  const topics = data.children || [];
-
-  // Split topics into left and right
-  const leftTopics = topics.filter((_, i) => i % 2 === 0);
-  const rightTopics = topics.filter((_, i) => i % 2 === 1);
-
-  // Positioning constants
-  const horizontalGap = 280;
-  const verticalGap = 120;
-
-  // Position right topics
-  rightTopics.forEach((topic, i) => {
-    const topicId = generateId();
-    const yOffset = (i - rightTopics.length / 2) * verticalGap;
-
-    nodes.push({
-      id: topicId,
-      position: {
-        x: centerX + horizontalGap,
-        y: centerY + yOffset,
-      },
-      data: { label: topic.title },
-      style: nodeStyle,
-    });
-
-    // Edge from root
-    edges.push({
-      id: `e-root-${topicId}`,
-      source: rootId,
-      target: topicId,
-      type: "smoothstep",
-      style: { stroke: "#94a3b8", strokeWidth: 2 },
-    });
-
-    // Subtopics branching
-    if (topic.children && topic.children.length > 0) {
-      const childGap = 200;
-      topic.children.forEach((child, j) => {
-        const childId = generateId();
-
-        nodes.push({
-          id: childId,
-          position: {
-            x: centerX + horizontalGap + childGap,
-            y: centerY + yOffset + (j - topic.children.length / 2) * 80,
-          },
-          data: { label: child.title },
-          style: nodeStyle,
-        });
-
-        edges.push({
-          id: `e-${topicId}-${childId}`,
-          source: topicId,
-          target: childId,
-          type: "smoothstep",
-          style: { stroke: "#94a3b8", strokeWidth: 2 },
-        });
-      });
-    }
-  });
-
-  // Position left topics
-  leftTopics.forEach((topic, i) => {
-    const topicId = generateId();
-    const yOffset = (i - leftTopics.length / 2) * verticalGap;
-
-    nodes.push({
-      id: topicId,
-      position: {
-        x: centerX - horizontalGap,
-        y: centerY + yOffset,
-      },
-      data: { label: topic.title },
-      style: nodeStyle,
-    });
-
-    // Edge from root
-    edges.push({
-      id: `e-root-${topicId}`,
-      source: rootId,
-      target: topicId,
-      type: "smoothstep",
-      style: { stroke: "#94a3b8", strokeWidth: 2 },
-    });
-
-    // Subtopics branching
-    if (topic.children && topic.children.length > 0) {
-      const childGap = 200;
-      topic.children.forEach((child, j) => {
-        const childId = generateId();
-
-        nodes.push({
-          id: childId,
-          position: {
-            x: centerX - horizontalGap - childGap,
-            y: centerY + yOffset + (j - topic.children.length / 2) * 80,
-          },
-          data: { label: child.title },
-          style: nodeStyle,
-        });
-
-        edges.push({
-          id: `e-${topicId}-${childId}`,
-          source: topicId,
-          target: childId,
-          type: "smoothstep",
-          style: { stroke: "#94a3b8", strokeWidth: 2 },
-        });
-      });
-    }
-  });
-
-  return { nodes, edges };
-};
+import usePdfStatus from "../hooks/pdfChat/usePdfStatus";
+import {
+  generateMindMap as generateMindMapRequest,
+  resetPdfChat,
+  sendPdfChatMessage,
+  uploadPdf as uploadPdfRequest,
+} from "../services/pdfChat/pdfChatService";
+import { convertMindMapToFlowElements } from "../utils/pdfChat/mindMapLayout";
 
 // Inner Flow component that uses ReactFlow hooks
 const MindMapFlow = ({ mindMapData }) => {
   const { fitView } = useReactFlow();
   
   // Convert mind map data to flow elements (radial layout)
-  const flowData = convertToFlowElements(mindMapData);
+  const flowData = convertMindMapToFlowElements(mindMapData);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(flowData.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowData.edges);
@@ -219,21 +64,17 @@ function PdfChatPage() {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  const [pdfStatus, setPdfStatus] = useState(null);
   const [showChatbot, setShowChatbot] = useState(false);
   const [mindMapData, setMindMapData] = useState(null);
   const [mindMapLoading, setMindMapLoading] = useState(false);
   const [showMindMap, setShowMindMap] = useState(false);
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const { pdfStatus, setPdfStatus } = usePdfStatus();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  useEffect(() => {
-    checkPdfStatus();
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -244,29 +85,11 @@ function PdfChatPage() {
     };
   }, []);
 
-  const checkPdfStatus = async () => {
-    try {
-      const res = await fetch(ENDPOINTS.PDF_CHAT.HEALTH);
-      const data = await res.json();
-      setPdfStatus(data);
-    } catch (error) {
-      console.error("Failed to check PDF status:", error);
-    }
-  };
-
   const uploadPdf = async (file) => {
     setIsLoading(true);
     try {
-      const formData = new FormData();
-      formData.append("pdf", file);
-
-      const res = await fetch(ENDPOINTS.PDF_CHAT.UPLOAD, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok) {
+      const data = await uploadPdfRequest(file);
+      if (data) {
         setSessionId(`chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
         setMessages([
           {
@@ -301,7 +124,7 @@ function PdfChatPage() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userQuestion = inputMessage.trim();
+      const userQuestion = inputMessage.trim();
     setInputMessage("");
     setIsLoading(true);
 
@@ -312,19 +135,13 @@ function PdfChatPage() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch(ENDPOINTS.AGENT.CHAT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userQuestion,
-          sessionId,
-        }),
+      const data = await sendPdfChatMessage({
+        message: userQuestion,
+        sessionId,
         signal: abortControllerRef.current.signal,
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.success) {
+      if (data.success) {
         // Log which tool was used for debugging
         console.log("🤖 Agent tool used:", data.tool);
         
@@ -386,23 +203,7 @@ function PdfChatPage() {
       console.log("🧠 Calling mind map generation API...");
       
       // Call mindmap endpoint directly - it fetches text from database
-      const res = await fetch(ENDPOINTS.PDF_CHAT.MINDMAP, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache"
-        },
-        body: JSON.stringify({})
-      });
-      
-      console.log("📥 Mind map response status:", res.status);
-      
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to generate mind map');
-      }
-      
-      const data = await res.json();
+      const data = await generateMindMapRequest();
       setMindMapData(data);
     } catch (error) {
       console.error("Mind map error:", error);
@@ -417,11 +218,7 @@ function PdfChatPage() {
 
   const resetChat = async () => {
     try {
-      await fetch(ENDPOINTS.PDF_CHAT.RESET, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
+      await resetPdfChat(sessionId);
       setSessionId(null);
       setPdfStatus(null); // Reset to show upload screen
       setShowChatbot(false); // Reset chatbot visibility
