@@ -1,11 +1,14 @@
 /**
  * AI Service
- * Handles all AI (Gemini) operations
+ * Handles all AI (Groq/LLaMA) operations
  */
 
-import { genAI, getModel } from "../config/ai.js";
+import { groq, getModel, generateCompletion } from "../config/ai.js";
 import { parseJson } from "../utils/jsonParser.js";
 import { logError } from "../utils/logger.js";
+
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 /**
  * Generate quiz questions from text or topic
@@ -14,24 +17,27 @@ import { logError } from "../utils/logger.js";
  * @returns {Array} - Array of quiz questions
  */
 async function generateQuizQuestions(text, options = {}) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const model = getModel('gemini-2.5-flash');
   const prompt = buildQuizPrompt(text, options);
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    // Try fallback model
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -55,7 +61,9 @@ The questions should test practical understanding and application of concepts re
 Include scenario-based questions, concept understanding, and problem-solving. 
 Do not ask about specific names or details mentioned in documents - focus on testing skills and knowledge.
 
-Generate questions that a ${technicalLevel || difficulty} level learner should know about ${text}.`;
+Generate questions that a ${technicalLevel || difficulty} level learner should know about ${text}.
+
+Return ONLY valid JSON as an array of questions.`;
   }
   
   // Text is actual content - generate from it
@@ -63,7 +71,9 @@ Generate questions that a ${technicalLevel || difficulty} level learner should k
 
 ${text}
 
-Generate 10 questions that test understanding and application, not just recall.`;
+Generate 10 questions that test understanding and application, not just recall.
+
+Return ONLY valid JSON as an array of questions.`;
 }
 
 /**
@@ -74,11 +84,9 @@ Generate 10 questions that test understanding and application, not just recall.`
  * @returns {Object} - Generated learning material
  */
 async function generateLearningMaterial(topic, technicalLevel, learningStyle) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
 
   const prompt = `You are an expert technical educator. Generate comprehensive, structured learning material for the following:
 
@@ -139,17 +147,20 @@ Requirements:
 
 Return ONLY valid JSON, no additional text.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for learning material');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for learning material');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for learning material');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -161,11 +172,9 @@ Return ONLY valid JSON, no additional text.`;
  * @returns {Array} - Quiz questions
  */
 async function generateQuizFromMaterial(topic, material, technicalLevel, learningStyle) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
 
   const materialSummary = material.sections
     ?.map(s => `${s.title}: ${s.content}`)
@@ -211,21 +220,27 @@ Return ONLY valid JSON in this format:
   }
 ]`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for quiz');
-  }
-
-  // Try parsing JSON, if direct text return raw
   try {
-    return parseJson(rawText);
-  } catch {
-    return rawText;
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for quiz');
+    }
+    try {
+      return parseJson(rawText);
+    } catch {
+      return rawText;
+    }
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for quiz');
+    }
+    try {
+      return parseJson(fallbackText);
+    } catch {
+      return fallbackText;
+    }
   }
 }
 
@@ -237,11 +252,9 @@ Return ONLY valid JSON in this format:
  * @returns {Object} - Personalized content
  */
 async function generatePersonalizedContent(topic, learningStyle, technicalLevel) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate personalized content recommendations for learning ${topic}.
 
@@ -267,17 +280,20 @@ Requirements:
 - Tips should be practical
 - Return ONLY valid JSON.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for content');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for content');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for content');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -291,11 +307,9 @@ Requirements:
  * @returns {Object} - Combined learning content
  */
 async function generateCombinedContent(topic, technicalLevel, technicalScore, learningStyle, learningScore, combinedAnalysis) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate a highly personalized learning path for a user with the following profile:
 
@@ -337,17 +351,20 @@ Requirements:
 - ${technicalLevel === 'beginner' ? 'Use simple language, provide more guidance, break down into smaller steps' : technicalLevel === 'advanced' ? 'Use technical language, provide less guidance, focus on advanced concepts' : 'Balance between simple and technical language'}
 - Return ONLY valid JSON, no additional text.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty Gemini output for combined content');
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (!rawText) {
+      throw new Error('Empty Groq output for combined content');
+    }
+    return parseJson(rawText);
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+    if (!fallbackText) {
+      throw new Error('Empty Groq fallback output for combined content');
+    }
+    return parseJson(fallbackText);
   }
-
-  return parseJson(rawText);
 }
 
 /**
@@ -357,11 +374,9 @@ Requirements:
  * @returns {Array} - Assessment questions
  */
 async function generateFromPdf(userProfile, topic) {
-  if (!genAI) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!groq) {
+    throw new Error('GROQ_API_KEY is not configured');
   }
-
-  const model = getModel('gemini-2.5-flash');
   
   const prompt = `Generate 5 learning style assessment questions based on this user profile:
 
@@ -384,14 +399,21 @@ Requirements:
 - Include practical scenarios
 - Return ONLY valid JSON.`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: 'application/json' }
-  });
-
-  const rawText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (rawText) {
-    return parseJson(rawText);
+  try {
+    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
+    if (rawText) {
+      return parseJson(rawText);
+    }
+  } catch (error) {
+    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    try {
+      const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
+      if (fallbackText) {
+        return parseJson(fallbackText);
+      }
+    } catch (fallbackError) {
+      console.error("Fallback also failed:", fallbackError.message);
+    }
   }
 
   // Fallback to default questions

@@ -5,7 +5,7 @@ import fs from "fs";
 
 import dotenv from "dotenv";
 dotenv.config();
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import { ingestPdf } from "./rag/ingestPdf.js";
 import { getEmbedding } from "./rag/embeddings.js";
 import { logAgentEvent } from "./agentMonitor.js";
@@ -24,13 +24,13 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES !== 'false';
 
-// Initialize OpenAI - validate API key exists
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Initialize Groq - validate API key exists
+const groq = process.env.GROQ_API_KEY 
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-if (!openai) {
-  console.warn("WARNING: OPENAI_API_KEY not set. Mind map generation will not work.");
+if (!groq) {
+  console.warn("WARNING: GROQ_API_KEY not set. Using fallback mode.");
 }
 
 const RAG_CORS_ORIGIN = process.env.CORS_ORIGIN || true; // Allow all by default
@@ -59,7 +59,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-// Mind Map Generation - Uses RAG retrieval to get relevant chunks, then OpenAI to generate hierarchical JSON mind map
+// Mind Map Generation - Uses RAG retrieval to get relevant chunks, then Groq to generate hierarchical JSON mind map
 app.post("/mindmap", async (req, res) => {
   console.log("🧠 Mind map generation API called");
    
@@ -153,25 +153,24 @@ RETURN ONLY VALID JSON (no explanations, no markdown):
 ]
 }`;
 
-    console.log("🤖 Calling OpenAI for mind map generation...");
+    console.log("🤖 Calling Groq for mind map generation...");
     
-    // Check if OpenAI is configured
-    if (!openai) {
+    // Check if Groq is configured
+    if (!groq) {
       return res.status(503).json({ 
-        error: 'OpenAI API key not configured. Please set OPENAI_API_KEY in environment variables.'
+        error: 'Groq API key not configured. Please set GROQ_API_KEY in environment variables.'
       });
     }
     
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    // Call Groq API
+    const completion = await groq.chat.completions.create({
+      model: DEFAULT_MODEL,
       messages: [
         { role: "system", content: "You are an expert mind map generator. Always return valid JSON only. Never return sentence fragments." },
         { role: "user", content: prompt }
       ],
       temperature: 0.3,
-      max_tokens: 4000,
-      response_format: { type: "json_object" }
+      max_tokens: 4000
     });
 
     const rawResponse = completion.choices[0]?.message?.content;
@@ -228,7 +227,7 @@ RETURN ONLY VALID JSON (no explanations, no markdown):
   } catch (error) {
     console.error('❌ Mind map generation error:', error);
     // Don't return HTTP 500 - use fallback response instead
-    console.log("OpenAI unavailable — using fallback mind map");
+    console.log("Groq unavailable — using fallback mind map");
     
     // Generate a simple fallback mind map from the context
     const fallbackMindMap = {
@@ -628,11 +627,14 @@ Answer ONLY using the provided context.
 If the answer is partially available, explain using the available text.
 Do NOT say "information not found" unless context is completely empty.`;
 
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant";
+
 async function generateAnswer(context, question, history = []) {
   const messages = [
     { role: "system", content: TUTOR_PROMPT },
-    { role: "system", content: `CONTEXT:\n${context}` },
-    { role: "user", content: `QUESTION: ${question}` }
+    { role: "system", content: `Context from PDF document:\n${context.substring(0, 4000)}` },
+    { role: "user", content: `Question: ${question}` }
   ];
 
   history.forEach(h => {
@@ -640,10 +642,8 @@ async function generateAnswer(context, question, history = []) {
     messages.push({ role: "assistant", content: h.answer });
   });
 
-  messages.push({ role: "user", content: question });
-
-  // Check if OpenAI is configured
-  if (!openai) {
+  // Check if Groq is configured
+  if (!groq) {
     return {
       answer: generateFallbackAnswer(context, question),
       isFallback: true
@@ -651,30 +651,51 @@ async function generateAnswer(context, question, history = []) {
   }
 
   try {
-    logAgentEvent("OPENAI_CALL_STARTED");
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages
+    logAgentEvent("GROQ_CALL_STARTED");
+    const completion = await groq.chat.completions.create({
+      model: DEFAULT_MODEL,
+      messages,
+      temperature: 0.3,
+      max_tokens: 1024
     });
     
-    logAgentEvent("OPENAI_SUCCESS");
+    logAgentEvent("GROQ_SUCCESS");
     
     return {
       answer: completion.choices[0]?.message?.content || "No response generated.",
       isFallback: false
     };
-  } catch (error) {
-    console.error('❌ OpenAI generateAnswer error:', error.message);
-    logAgentEvent("FALLBACK_TRIGGERED", error.message);
-    return {
-      answer: generateFallbackAnswer(context, question),
-      isFallback: true
-    };
+  } catch (primaryError) {
+    console.error('❌ Groq generateAnswer error:', primaryError.message);
+    logAgentEvent("GROQ_FALLBACK_TRIGGERED", primaryError.message);
+    
+    // Try fallback model
+    try {
+      console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+      const fallbackCompletion = await groq.chat.completions.create({
+        model: FALLBACK_MODEL,
+        messages,
+        temperature: 0.3,
+        max_tokens: 1024
+      });
+      
+      return {
+        answer: fallbackCompletion.choices[0]?.message?.content || "No response generated.",
+        isFallback: false
+      };
+    } catch (fallbackError) {
+      console.error('❌ Fallback model also failed:', fallbackError.message);
+      logAgentEvent("FALLBACK_TRIGGERED", fallbackError.message);
+      return {
+        answer: generateFallbackAnswer(context, question),
+        isFallback: true
+      };
+    }
   }
 }
 
 /**
- * Fallback answer generator - provides rule-based responses when OpenAI fails
+ * Fallback answer generator - provides rule-based responses when Groq fails
  * @param {string} context - Retrieved context from PDF
  * @param {string} question - User's question
  * @returns {string} Fallback answer
@@ -862,7 +883,7 @@ app.post("/ask", async (req, res) => {
   } catch (error) {
     console.error("❌ Error answering question:", error.message);
     // Don't return HTTP 500 - use fallback response instead
-    console.log("OpenAI unavailable — using fallback answer");
+    console.log("Groq unavailable — using fallback answer");
     const fallbackAnswer = "I'm currently operating in offline mode. " +
       "I found relevant content in the document but cannot process it with AI right now. " +
       "Please try again later for full AI-powered answers.";
@@ -991,7 +1012,7 @@ app.post("/chat", async (req, res) => {
     const isFallback = answerResult.isFallback;
     
     // Set the mode based on whether fallback was used
-    mode = isFallback ? "rule-based" : "openai";
+    mode = isFallback ? "rule-based" : "groq";
 
     const sources = topChunks.map((r) => ({
       text: (r.text || r.chunk_text).substring(0, 200) + "...",
@@ -1019,7 +1040,7 @@ app.post("/chat", async (req, res) => {
   } catch (error) {
     console.error("❌ Error in chat endpoint:", error.message);
     // Don't return HTTP 500 - use fallback response instead
-    console.log("OpenAI unavailable — using fallback answer");
+    console.log("Groq unavailable — using fallback answer");
     logAgentEvent("FALLBACK_TRIGGERED", error.message);
     mode = "rule-based";
     
