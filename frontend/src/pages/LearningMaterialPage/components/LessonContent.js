@@ -48,6 +48,7 @@ const shouldSkipSummary = (title) => {
 
 /**
  * Check if Examples section should be shown
+ * Handles both string and object formats
  */
 const shouldShowExamples = (lessonTitle, examples) => {
   if (!examples || !Array.isArray(examples) || examples.length === 0) return false;
@@ -59,33 +60,26 @@ const shouldShowExamples = (lessonTitle, examples) => {
     return false;
   }
   
-  if (title.includes('project')) {
-    const hasRealCode = examples.some(
-      ex => ex && ex.code &&
-            typeof ex.code === 'string' &&
-            ex.code.trim().length > 10 &&
-            !ex.code.toLowerCase().includes('example') &&
-            !ex.code.toLowerCase().includes('basic')
-    );
-    if (!hasRealCode) return false;
-  }
-  
-  const isValidExample = (ex) => {
-    if (!ex || !ex.code || typeof ex.code !== 'string') return false;
-    const code = ex.code.trim();
-    if (code.length < 10) return false;
-    const lowerCode = code.toLowerCase();
-    if (lowerCode.includes('example code here') ||
-        lowerCode.includes('basic example') ||
-        lowerCode.includes('sample code here')) {
-      return false;
+  const hasValidExample = examples.some(ex => {
+    if (!ex) return false;
+    if (typeof ex === 'string') return ex.trim().length > 10;
+    if (typeof ex === 'object') {
+      const code = ex.code || ex.codeExample || '';
+      if (!code || typeof code !== 'string') return false;
+      const trimmed = code.trim();
+      if (trimmed.length < 10) return false;
+      const lowerCode = code.toLowerCase();
+      if (lowerCode.includes('example code here') ||
+          lowerCode.includes('basic example') ||
+          lowerCode.includes('sample code here')) {
+        return false;
+      }
+      return true;
     }
-    return true;
-  };
+    return false;
+  });
   
-  const validExamples = examples.filter(isValidExample);
-  
-  return validExamples.length > 0;
+  return hasValidExample;
 };
 
 /**

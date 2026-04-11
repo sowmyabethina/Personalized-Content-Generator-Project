@@ -5,8 +5,26 @@ import {
 } from "../../../utils/learning/presentationHelpers";
 
 /**
+ * Safely render any value as string
+ */
+const safeRender = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(item => safeRender(item)).filter(Boolean).join(', ');
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+/**
  * Key Points Component
  * Displays important points in a highlighted box with dynamic heading
+ * Handles both string and object formats safely
  */
 const KeyPointsSection = ({ points, title, lessonTitle }) => {
   if (!points || !Array.isArray(points) || points.length === 0) return null;
@@ -15,7 +33,14 @@ const KeyPointsSection = ({ points, title, lessonTitle }) => {
   const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
   const isTips = isLearningTipsLesson(lessonTitle);
   
-  const formattedPoints = isTips ? formatLearningTips(points) : points;
+  const validPoints = points.filter(p => {
+    const rendered = safeRender(p);
+    return rendered.trim().length > 0;
+  });
+  
+  if (validPoints.length === 0) return null;
+  
+  const formattedPoints = isTips ? formatLearningTips(validPoints) : validPoints;
   
   return (
     <div style={styles.keyPointsContainer} className="section-fade-in">
@@ -24,7 +49,7 @@ const KeyPointsSection = ({ points, title, lessonTitle }) => {
       </div>
       <ul style={styles.keyPointsList}>
         {formattedPoints.map((point, idx) => (
-          <li key={idx} style={styles.keyPointItem}>{point}</li>
+          <li key={idx} style={styles.keyPointItem}>{safeRender(point)}</li>
         ))}
       </ul>
     </div>

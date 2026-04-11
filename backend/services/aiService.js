@@ -105,58 +105,91 @@ async function generateLearningMaterial(topic, technicalLevel, learningStyle) {
     ? 'Include hands-on activities, real-world projects, and practical exercises.'
     : 'Use structured text with clear headings, bullet points, and detailed explanations.';
 
-  const prompt = `You are an expert educator creating a COMPLETE course module.
+  const prompt = `You are an expert web development instructor.
 
-Generate DETAILED, HIGH-QUALITY learning content on: ${topic}
+Generate COMPLETE and DETAILED course content on: ${topic}
 
 User Profile:
 - Technical Level: ${level}
 - Learning Style: ${style}
 
-IMPORTANT:
-This is NOT a short explanation.
-This should feel like a FULL COURSE LESSON.
+STRICT RULES:
 
-CONTENT REQUIREMENTS:
+1. Each lesson must be UNIQUE (no repetition)
+   - No duplicate content between sections
+   - Each section covers different aspect of ${topic}
+
+2. Each lesson must include:
+   - Explanation (minimum 6-8 lines)
+   - Real-world example
+   - Code example (as string)
+
+3. Applications:
+   - At least 5
+   - Each must include explanation (2-3 lines)
+
+4. Examples:
+   - Must be STRING (not object)
+   - Include proper code snippet
+
+5. Mini Project:
+   - MUST include:
+     - title
+     - 5 steps
+
+6. Content must be:
+   - Practical
+   - Detailed
+   - Beginner-friendly
+   - Specific to ${topic} only
+
+7. NEVER return:
+   - [object Object]
+   - repeated content
+   - empty sections
+   - cross-topic content (e.g., no JavaScript in CSS topic)
+
+CONTENT STRUCTURE:
 
 1. OVERVIEW:
 - Explain topic in simple real-world way (5-6 lines)
 
 2. CORE CONCEPTS:
 - Minimum 6-8 key points
-- Each point should have explanation (not just 1 line)
+- Each point must have unique explanation (not just 1 line)
 
-3. DETAILED SECTIONS (VERY IMPORTANT):
-Generate at least 5 sections.
+3. DETAILED SECTIONS:
+Generate 5 unique sections covering different aspects.
 For EACH section:
-- Explanation (minimum 6-8 lines)
-- Real-world example
-- Code example (proper formatted)
+- Explanation (minimum 6-8 lines) - unique content
+- Real-world example - specific to this section
+- Code example (proper formatted as string)
 - Why it matters
 
-4. APPLICATIONS (VERY IMPORTANT):
-Generate at least 5 REAL applications:
-Each application must be 2-3 lines explanation
+4. APPLICATIONS:
+Generate 5 unique REAL applications.
+Each must be 2-3 lines explanation.
 
 5. EXAMPLES:
-Provide 3-5 practical examples:
-- Each must include:
-  - Title
-  - Code snippet
-  - Explanation
+Provide 3-5 practical examples.
+Each must include:
+  - Title (unique)
+  - Code snippet (as string)
+  - Explanation (unique)
 
 6. COMMON MISTAKES:
-- At least 5 real developer mistakes
+- 5 unique real developer mistakes
 
 7. BEST PRACTICES:
-- At least 5 industry-level practices
+- 5 unique industry-level practices
 
 8. MINI PROJECT:
-- Give 1 small project idea using this topic
-- Include steps
+- Give 1 project idea using ${topic}
+- Include exactly 5 steps
 
 9. INTERVIEW QUESTIONS:
-- At least 5 questions with short answers
+- 5 questions with answers
+- ONLY from ${topic}
 
 ${personalization}
 ${styleGuidance}
@@ -198,7 +231,7 @@ OUTPUT FORMAT (STRICT JSON):
   "bestPractices": ["string"],
   "miniProject": {
     "title": "string",
-    "steps": ["string"]
+    "steps": ["string", "string", "string", "string", "string"]
   },
   "interviewQuestions": [
     {
