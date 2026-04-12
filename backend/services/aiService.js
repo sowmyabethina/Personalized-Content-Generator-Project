@@ -3,12 +3,9 @@
  * Handles all AI (Groq/LLaMA) operations
  */
 
-import { groq, getModel, generateCompletion } from "../config/ai.js";
+import { groq, getModel, generateCompletion, DEFAULT_MODEL, FALLBACK_MODEL } from "../config/ai.js";
 import { parseJson } from "../utils/jsonParser.js";
 import { logError } from "../utils/logger.js";
-
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 /**
  * Generate quiz questions from text or topic

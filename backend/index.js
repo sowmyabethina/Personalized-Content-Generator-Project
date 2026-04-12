@@ -19,7 +19,7 @@ import fs from "fs";
 import githubRoutes from "./routes/githubRoutes.js";
 
 // Import configuration
-import { initDatabase } from "./config/database.js";
+import { initDatabase, appConfig, getCorsAllowedOrigins } from "./config/index.js";
 
 // Import error handling middleware
 import { errorMiddleware, notFoundMiddleware } from "./utils/errorHandler.js";
@@ -27,6 +27,7 @@ import { log } from "./utils/logger.js";
 
 // Import routes
 import quizRoutes from "./routes/quizRoutes.js";
+import apiQuizRoutes from "./routes/apiQuizRoutes.js";
 import learningRoutes from "./routes/learningRoutes.js";
 import pdfRoutes from "./routes/pdfRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
@@ -53,17 +54,12 @@ function validateEnv() {
 // ==================== APP SETUP ====================
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const PORT = appConfig.port;
+const allowedOrigins = getCorsAllowedOrigins();
 
 // ==================== MIDDLEWARE ====================
 
-// CORS
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-];
-
+// CORS — allowed origins from env (see backend/.env.example)
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -81,7 +77,7 @@ app.use(
 app.use(express.json());
 
 // Create uploads directory if needed
-const uploadsDir = './uploads';
+const uploadsDir = appConfig.uploadsDir;
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -95,6 +91,7 @@ app.get('/health', (req, res) => {
 
 // Quiz routes
 app.use('/quiz', quizRoutes);
+app.use('/api/quiz', apiQuizRoutes);
 
 // Learning routes
 app.use('/learning', learningRoutes);
@@ -124,7 +121,7 @@ async function startServer() {
   
   // Start server
   app.listen(PORT, () => {
-    log(`Server started on http://localhost:${PORT}`);
+    log(`Server listening on port ${PORT}`);
   });
 }
 

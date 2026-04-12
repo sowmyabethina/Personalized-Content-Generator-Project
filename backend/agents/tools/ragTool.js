@@ -5,8 +5,9 @@
  */
 
 import axios from 'axios';
+import { getRagServiceUrl } from '../../config/app.config.js';
 
-const RAG_SERVICE_URL = process.env.RAG_SERVICE_URL || 'http://localhost:5001';
+const RAG_SERVICE_URL = getRagServiceUrl();
 
 // Simple in-memory cache for chat responses
 const responseCache = new Map();

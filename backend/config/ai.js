@@ -5,14 +5,15 @@
 
 import "dotenv/config";
 import Groq from "groq-sdk";
+import {
+  GROQ_MODEL_PRIMARY as DEFAULT_MODEL,
+  GROQ_MODEL_FALLBACK as FALLBACK_MODEL,
+} from "./ai.models.js";
 
 // Initialize Groq AI client
 const groq = process.env.GROQ_API_KEY 
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
-
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 /**
  * Get a configured Groq model instance

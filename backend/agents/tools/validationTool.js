@@ -3,8 +3,9 @@
  */
 
 import axios from 'axios';
+import { getBackendPublicUrl } from '../../config/app.config.js';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const backendBaseUrl = getBackendPublicUrl();
 
 /**
  * Evaluate learning style based on user responses
@@ -14,7 +15,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
  */
 export async function evaluateLearningStyleTool({ answers }) {
   try {
-    const response = await axios.post(`${BACKEND_URL}/learning/evaluate-learning-style`, {
+    const response = await axios.post(`${backendBaseUrl}/learning/evaluate-learning-style`, {
       answers: answers || []
     }, {
       timeout: 30000,

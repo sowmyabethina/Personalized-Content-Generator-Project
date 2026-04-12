@@ -29,14 +29,16 @@ import {
   evaluateAnswerToolSchema,
   validateContentToolSchema
 } from './tools/validationTool.js';
+import {
+  GROQ_MODEL_PRIMARY as DEFAULT_MODEL,
+  GROQ_MODEL_FALLBACK as FALLBACK_MODEL,
+} from "../config/ai.models.js";
 
 // Initialize AI clients
 const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const FALLBACK_MODEL = "llama-3.1-8b-instant";
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000;
 
