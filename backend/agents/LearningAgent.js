@@ -1254,7 +1254,7 @@ function formatResponse(tool, result) {
     case 'content':
     case 'personalizedContent':
       if (result.data?.sections) {
-        return `Here's your learning material on ${result.data.topic || 'the topic'}:\n\n${result.data.sections?.slice(0, 3).map(s => `**${s.title}**\n${s.content?.substring(0, 200)}`).join('\n\n')}`;
+        return `Here's your learning material on ${result.data.topic || 'the topic'}:\n\n${result.data.sections?.slice(0, 3).map(s => `**${s.title || s.heading || 'Section'}**\n${(s.content || s.explanation || '').substring(0, 200)}`).join('\n\n')}`;
       }
       return result.message || 'Generated learning material successfully!';
     case 'quizFromText':

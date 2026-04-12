@@ -1,16 +1,19 @@
+import { coerceDisplayString } from "../../../utils/learning/coerceDisplayString";
+
 /**
  * Think Question Component
  * Displays a reflective question for deeper engagement
  */
 const ThinkQuestionSection = ({ question }) => {
-  if (!question || typeof question !== 'string' || question.trim().length === 0) return null;
+  const text = coerceDisplayString(question);
+  if (!text.trim()) return null;
   
   return (
     <div style={styles.thinkQuestionContainer} className="section-fade-in">
       <div style={styles.thinkQuestionHeader}>
         <span style={styles.thinkTitle}>Think About It</span>
       </div>
-      <p style={styles.thinkQuestionText}>{question}</p>
+      <p style={styles.thinkQuestionText}>{text}</p>
     </div>
   );
 };

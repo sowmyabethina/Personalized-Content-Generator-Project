@@ -23,6 +23,7 @@ import {
 } from "./LearningMaterialPage/components";
 
 import { processMaterial } from "../services/learning/learningMaterialService";
+import { coerceDisplayString, coerceExampleRecord } from "../utils/learning/coerceDisplayString";
 
 // Import global constants
 import { LEARNING_STYLES, TECHNICAL_LEVELS, ERROR_MESSAGES } from "../constants/learningConstants";
@@ -118,9 +119,10 @@ function LearningMaterialPage() {
       return false;
     };
     
-    // Helper function to wrap text
+    // Helper function to wrap text (never pass raw objects to jsPDF)
     const wrapText = (text, maxWidth) => {
-      return doc.splitTextToSize(text, maxWidth);
+      const s = coerceDisplayString(text) || " ";
+      return doc.splitTextToSize(s, maxWidth);
     };
     
     // Title
@@ -148,13 +150,13 @@ function LearningMaterialPage() {
       // Lesson title
       doc.setFontSize(subtitleFontSize);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Lesson ${index + 1}: ${lesson.title}`, margin, yPos);
+      doc.text(`Lesson ${index + 1}: ${coerceDisplayString(lesson.title)}`, margin, yPos);
       yPos += 8;
       
       // Estimated time
       doc.setFontSize(10);
       doc.setFont('helvetica', 'italic');
-      doc.text(`Estimated Time: ${lesson.estimatedTime || 'N/A'}`, margin, yPos);
+      doc.text(`Estimated Time: ${coerceDisplayString(lesson.estimatedTime || 'N/A')}`, margin, yPos);
       yPos += 10;
       
       // Summary
@@ -208,9 +210,23 @@ function LearningMaterialPage() {
         yPos += 6;
         doc.setFont('helvetica', 'normal');
         lesson.sections.examples.forEach((ex, i) => {
-          const exLines = wrapText(`${i + 1}. ${ex}`, maxWidth - 5);
+          const block =
+            typeof ex === "string"
+              ? `${i + 1}. ${ex}`
+              : (() => {
+                  const r = coerceExampleRecord(ex);
+                  return [
+                    `${i + 1}. ${r.title || "Example"}`,
+                    r.description,
+                    r.code ? `Code:\n${r.code}` : "",
+                    r.output ? `Output:\n${r.output}` : "",
+                  ]
+                    .filter((line) => line && String(line).trim())
+                    .join("\n\n");
+                })();
+          const exLines = wrapText(block, maxWidth - 5);
           doc.text(exLines, margin + 3, yPos);
-          yPos += (exLines.length * 5);
+          yPos += Math.max(exLines.length, 1) * 5 + 4;
         });
         yPos += 5;
       }
