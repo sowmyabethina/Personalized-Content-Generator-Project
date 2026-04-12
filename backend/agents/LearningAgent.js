@@ -719,6 +719,48 @@ export async function routeMessage({ message, userId, sessionId, model = 'groq',
     // ============================================================
     // END SPECIAL HANDLING FOR PDF QUIZ
     // ============================================================
+
+    // ============================================================
+    // Explicit personalized learning path (Result page / clients with intent)
+    // Bypasses Groq tool-selection so "Generate personalized..." cannot be misrouted to quiz.
+    // ============================================================
+    if (
+      context?.intent === "personalizedLearningPath" ||
+      /\bgenerate\s+personalized\s+learning\b/i.test(message || "")
+    ) {
+      const profile = context?.userProfile || {};
+      const fromCtx = typeof context?.topic === "string" ? context.topic.trim() : "";
+      const topicMatch =
+        typeof message === "string" &&
+        (message.match(/topic:\s*(.+)$/i) || message.match(/on\s+topic:\s*(.+)$/i));
+      const topicForTool =
+        fromCtx ||
+        (topicMatch && topicMatch[1] ? topicMatch[1].trim() : "") ||
+        "General Technology";
+
+      const result = await personalizedContentTool({
+        topic: topicForTool,
+        technicalLevel: profile.technicalLevel || "intermediate",
+        learningStyle: profile.learningStyle || "reading",
+        technicalScore:
+          typeof profile.technicalScore === "number"
+            ? profile.technicalScore
+            : Number(profile.technicalScore) || 50,
+        learningScore:
+          typeof profile.learningScore === "number"
+            ? profile.learningScore
+            : Number(profile.learningScore) || 50,
+        userId,
+      });
+
+      return {
+        success: result.success,
+        tool: "personalizedContent",
+        originalMessage: message,
+        response: formatResponse("personalizedContent", result),
+        rawData: result.data || null,
+      };
+    }
     
     // If it's a direct PDF chat request, use RAG tool directly and skip model rerouting
     const isPdfChatRequest = isPdfChat(message);
@@ -808,12 +850,12 @@ User message: "${message}"
     // Use Groq for all requests
     if (effectiveModel === 'groq' && groq) {
       console.log("Using Groq for tool selection");
-      toolCall = await routeWithGroq(toolContext, message);
+      toolCall = await routeWithGroq(toolContext, message, context);
     }
     // Fallback to simple keyword matching
     else {
       console.log("Using keyword matching for tool selection (no AI API key)");
-      toolCall = routeWithKeywords(message);
+      toolCall = routeWithKeywords(message, context);
     }
 
     console.log("Selected tool:", toolCall.tool, "with params:", toolCall.params);
@@ -909,7 +951,7 @@ User message: "${message}"
 /**
  * Route using Groq function calling
  */
-async function routeWithGroq(systemContext, userMessage) {
+async function routeWithGroq(systemContext, userMessage, routingContext = {}) {
   console.log("routeWithGroq called");
   
   if (!groq) {
@@ -928,7 +970,7 @@ async function routeWithGroq(systemContext, userMessage) {
     const responseText = chatCompletion.choices[0]?.message?.content;
     
     if (!responseText) {
-      return routeWithKeywords(userMessage);
+      return routeWithKeywords(userMessage, routingContext);
     }
     
     // Try to parse as JSON if it contains tool call info
@@ -945,10 +987,10 @@ async function routeWithGroq(systemContext, userMessage) {
     }
     
     // Fallback to keyword routing if Groq didn't return structured response
-    return routeWithKeywords(userMessage);
+    return routeWithKeywords(userMessage, routingContext);
   } catch (error) {
     console.error("Groq routing error:", error.message);
-    return routeWithKeywords(userMessage);
+    return routeWithKeywords(userMessage, routingContext);
   }
 }
 
@@ -1100,13 +1142,13 @@ function routeWithIntent(message, context = {}) {
 /**
  * Fallback keyword-based routing (kept for compatibility)
  */
-function routeWithKeywords(message) {
+function routeWithKeywords(message, routingContext = {}) {
   console.log("routeWithKeywords called with:", message);
   
   const lowerMessage = message.toLowerCase();
   
-  // Quiz keywords
-  const quizKeywords = ['quiz', 'test', 'question', 'practice', 'exam', 'assess', 'generate', 'create quiz', 'take a quiz'];
+  // Quiz keywords (avoid bare "generate" — it matches UI copy like "Generate personalized learning...")
+  const quizKeywords = ['quiz', 'test', 'question', 'practice', 'exam', 'assess', 'generate quiz', 'generate a quiz', 'create quiz', 'take a quiz'];
   if (quizKeywords.some(kw => lowerMessage.includes(kw))) {
     let topic = lowerMessage
       .replace(/quiz|test|question|practice|exam|assess|generate|create|take a/i, '')
@@ -1129,9 +1171,16 @@ function routeWithKeywords(message) {
     
     // Check if personalized content is requested
     if (lowerMessage.includes('personalized') || lowerMessage.includes('learning path')) {
+      const profile = routingContext.userProfile || {};
       return {
         tool: 'personalizedContent',
-        params: { topic, technicalLevel: 'intermediate', learningStyle: 'balanced' }
+        params: {
+          topic,
+          technicalLevel: profile.technicalLevel || 'intermediate',
+          learningStyle: profile.learningStyle || 'reading',
+          technicalScore: profile.technicalScore ?? 50,
+          learningScore: profile.learningScore ?? 50
+        }
       };
     }
     

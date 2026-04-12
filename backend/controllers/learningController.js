@@ -14,6 +14,24 @@ import { handleError } from "../utils/errorHandler.js";
 import { log } from "../utils/logger.js";
 
 /**
+ * Normalize combined-content payload for clients (camelCase path + success flag).
+ * @param {object} content - Parsed AI payload
+ */
+function shapeCombinedLearningResponse(content) {
+  const base = content && typeof content === "object" ? content : {};
+  const learningPath =
+    (Array.isArray(base.learningPath) && base.learningPath) ||
+    (Array.isArray(base.learning_path) && base.learning_path) ||
+    (Array.isArray(base.suggestedPath) && base.suggestedPath) ||
+    [];
+  return {
+    success: true,
+    ...base,
+    learningPath,
+  };
+}
+
+/**
  * Generate personalized content - handles /learning/generate-personalized-content
  * Expects: { topic, styleId?, technicalLevel?, learningStyle? }
  */
@@ -71,7 +89,7 @@ async function generateCombinedContentHandler(req, res) {
       learningScore, 
       combinedAnalysis
     );
-    return res.json(content);
+    return res.json(shapeCombinedLearningResponse(content));
 
   } catch (err) {
     const errorResponse = handleError(err, '/learning/generate-combined-content');
