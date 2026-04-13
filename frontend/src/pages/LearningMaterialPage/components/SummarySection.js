@@ -1,11 +1,13 @@
 import { shouldHideSectionHeading } from "../../../utils/learning/presentationHelpers";
+import { coerceDisplayString } from "../../../utils/learning/coerceDisplayString";
 
 /**
  * Summary Section Component
  * Displays the main overview of the lesson with dynamic heading
  */
 const SummarySection = ({ content, title, lessonTitle }) => {
-  if (!content || typeof content !== 'string' || content.trim().length === 0) return null;
+  const body = coerceDisplayString(content);
+  if (!body.trim()) return null;
    
   const heading = title || 'Overview';
   const hideHeading = shouldHideSectionHeading(lessonTitle, heading);
@@ -15,7 +17,7 @@ const SummarySection = ({ content, title, lessonTitle }) => {
       <div style={styles.sectionHeader}>
         {!hideHeading && <h3 style={styles.sectionTitle}>{heading}</h3>}
       </div>
-      <p style={styles.summaryText}>{content}</p>
+      <p style={styles.summaryText}>{body}</p>
     </div>
   );
 };

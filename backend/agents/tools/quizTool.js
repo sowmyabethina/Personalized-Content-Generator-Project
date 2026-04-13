@@ -5,7 +5,9 @@
 
 import axios from 'axios';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+import { getBackendPublicUrl } from '../../config/app.config.js';
+
+const backendBaseUrl = getBackendPublicUrl();
 
 /**
  * Generates a quiz based on user request
@@ -19,7 +21,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
  */
 export async function quizTool({ topic, difficulty = 'medium', questionCount = 10, userId, docText }) {
   try {
-    const response = await axios.post(`${BACKEND_URL}/quiz/generate`, {
+    const response = await axios.post(`${backendBaseUrl}/quiz/generate`, {
       topic,
       difficulty,
       questionCount,

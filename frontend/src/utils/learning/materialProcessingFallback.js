@@ -1,3 +1,5 @@
+import { coerceDisplayString, coerceExampleRecord } from "./coerceDisplayString";
+
 export const convertSectionsToLessons = (learningMaterial) => {
   const lessons = [];
 
@@ -6,18 +8,31 @@ export const convertSectionsToLessons = (learningMaterial) => {
       title: "Overview",
       estimatedTime: "5 min",
       sections: {
-        summary: learningMaterial.overview,
-        keyPoints: learningMaterial.keyConcepts 
-          ? learningMaterial.keyConcepts.map(kc => kc.point || kc.explanation).filter(Boolean)
-          : learningMaterial.learningTips || learningMaterial.bestPractices || [],
-        realWorldApplications: learningMaterial.applications 
-          ? learningMaterial.applications.map(app => ({ title: app.title, description: app.description }))
+        summary: coerceDisplayString(learningMaterial.overview),
+        keyPoints: learningMaterial.keyConcepts
+          ? learningMaterial.keyConcepts
+              .map((kc) => {
+                const p = coerceDisplayString(kc?.point);
+                const e = coerceDisplayString(kc?.explanation);
+                if (p && e) return `${p}: ${e}`;
+                return p || e;
+              })
+              .filter(Boolean)
+          : (learningMaterial.learningTips || learningMaterial.bestPractices || []).map((x) =>
+              coerceDisplayString(x)
+            ),
+        realWorldApplications: learningMaterial.applications
+          ? learningMaterial.applications.map((app) => ({
+              title: coerceDisplayString(app?.title),
+              description: coerceDisplayString(app?.description),
+            }))
           : [],
-        examples: learningMaterial.examples 
-          ? learningMaterial.examples.map(ex => ({
-              title: ex.title,
-              description: ex.explanation,
-              code: ex.code
+        examples: learningMaterial.examples
+          ? learningMaterial.examples.map((ex) => ({
+              title: coerceDisplayString(ex?.title),
+              description: coerceDisplayString(ex?.explanation || ex?.description),
+              code: coerceDisplayString(ex?.code || ex?.codeExample),
+              output: coerceDisplayString(ex?.output),
             }))
           : [],
         practiceQuestions: [],
@@ -28,46 +43,80 @@ export const convertSectionsToLessons = (learningMaterial) => {
   if (Array.isArray(learningMaterial?.sections)) {
     learningMaterial.sections.forEach((section) => {
       let examples = [];
-      
+
       if (Array.isArray(section.examples)) {
         examples = section.examples.map((example) => {
-          if (typeof example === 'string') {
-            return { title: "Example", description: example, code: "" };
+          if (typeof example === "string") {
+            return { title: "Example", description: example, code: "", output: "" };
           }
+          const r = coerceExampleRecord(example);
           return {
-            title: example?.title || "Example",
-            description: example?.description || "",
-            code: example?.code || example?.codeExample || "",
+            title: r.title || "Example",
+            description: r.description,
+            code: r.code,
+            output: r.output,
           };
         });
       } else if (section.codeExample) {
-        examples = [{
-          title: "Code Example",
-          description: section.realWorldExample || "",
-          code: section.codeExample
-        }];
+        examples = [
+          {
+            title: "Code Example",
+            description: coerceDisplayString(section.realWorldExample || ""),
+            code: coerceDisplayString(section.codeExample),
+            output: "",
+          },
+        ];
       }
 
       let keyPoints = [];
       if (Array.isArray(section.keyPoints)) {
-        keyPoints = section.keyPoints.filter(kp => typeof kp === 'string');
+        keyPoints = section.keyPoints
+          .map((kp) => (typeof kp === "string" ? kp : coerceDisplayString(kp)))
+          .filter(Boolean);
       }
 
-      const explanation = section.explanation || section.content || "";
+      const summaryParts = [];
+      if (section.conceptExplanation) {
+        summaryParts.push(coerceDisplayString(section.conceptExplanation));
+      }
+      if (section.explanation || section.content) {
+        summaryParts.push(coerceDisplayString(section.explanation || section.content));
+      }
+      if (Array.isArray(section.useCases) && section.useCases.length) {
+        summaryParts.push(
+          "Use cases:\n" +
+            section.useCases
+              .map((u, i) => `${i + 1}. ${coerceDisplayString(u)}`)
+              .join("\n\n")
+        );
+      }
+      const explanation = summaryParts.join("\n\n") || "";
+
+      const practiceQuestions = Array.isArray(section.practiceQuestions)
+        ? section.practiceQuestions.map((q) => coerceDisplayString(q)).filter(Boolean)
+        : [];
+
+      const keyPointsWithPractice = [
+        ...keyPoints,
+        ...practiceQuestions.map((q, i) => `Practice ${i + 1}: ${q}`),
+      ];
 
       lessons.push({
         title: section.heading || section.title || `Section ${lessons.length + 1}`,
         estimatedTime: section.estimatedTime || "15 min",
         sections: {
           summary: explanation,
-          keyPoints: keyPoints,
-          realWorldApplications: section.realWorldExample 
-            ? [{ title: "Real-World Use", description: section.realWorldExample }]
-            : section.applications 
-              ? section.applications.map(app => ({ title: app.title || "Application", description: app.description || app }))
+          keyPoints: keyPointsWithPractice,
+          realWorldApplications: section.realWorldExample
+            ? [{ title: "Real-World Use", description: coerceDisplayString(section.realWorldExample) }]
+            : section.applications
+              ? section.applications.map((app) => ({
+                  title: coerceDisplayString(app.title || "Application"),
+                  description: coerceDisplayString(app.description || app),
+                }))
               : [],
           examples: examples,
-          practiceQuestions: section.practiceQuestions || [],
+          practiceQuestions,
         },
       });
     });
@@ -83,8 +132,11 @@ export const convertSectionsToLessons = (learningMaterial) => {
         estimatedTime: "10 min",
         sections: {
           summary: "Understanding where this technology is used in the real world:",
-          keyPoints: validApps.map(app => app.title || "").filter(Boolean),
-          realWorldApplications: validApps.map(app => ({ title: app.title, description: app.description })),
+          keyPoints: validApps.map((app) => coerceDisplayString(app.title || "")).filter(Boolean),
+          realWorldApplications: validApps.map((app) => ({
+            title: coerceDisplayString(app.title),
+            description: coerceDisplayString(app.description),
+          })),
           examples: [],
           practiceQuestions: [],
         },
@@ -102,11 +154,15 @@ export const convertSectionsToLessons = (learningMaterial) => {
           summary: "Hands-on examples to reinforce your learning:",
           keyPoints: [],
           realWorldApplications: [],
-          examples: validExamples.map(ex => ({
-            title: ex.title,
-            description: ex.explanation,
-            code: ex.code
-          })),
+          examples: validExamples.map((ex) => {
+            const r = coerceExampleRecord(ex);
+            return {
+              title: r.title || coerceDisplayString(ex.title),
+              description: r.description,
+              code: r.code,
+              output: r.output,
+            };
+          }),
           practiceQuestions: [],
         },
       });
@@ -119,7 +175,9 @@ export const convertSectionsToLessons = (learningMaterial) => {
       estimatedTime: "5 min",
       sections: {
         summary: "Learn from these common mistakes that developers often make when learning this topic:",
-        keyPoints: learningMaterial.commonMistakes,
+        keyPoints: Array.isArray(learningMaterial.commonMistakes)
+          ? learningMaterial.commonMistakes.map((m) => coerceDisplayString(m))
+          : [],
         realWorldApplications: [],
         examples: [],
         practiceQuestions: [],
@@ -133,7 +191,9 @@ export const convertSectionsToLessons = (learningMaterial) => {
       estimatedTime: "5 min",
       sections: {
         summary: "Follow these industry-standard best practices:",
-        keyPoints: learningMaterial.bestPractices,
+        keyPoints: Array.isArray(learningMaterial.bestPractices)
+          ? learningMaterial.bestPractices.map((m) => coerceDisplayString(m))
+          : [],
         realWorldApplications: [],
         examples: [],
         practiceQuestions: [],
@@ -146,16 +206,18 @@ export const convertSectionsToLessons = (learningMaterial) => {
       title: "Mini Project",
       estimatedTime: "30 min",
       sections: {
-        summary: learningMaterial.miniProject.description || "Build a mini project to practice what you've learned:",
-        keyPoints: learningMaterial.miniProject.steps || [],
+        summary:
+          coerceDisplayString(learningMaterial.miniProject.description) ||
+          "Build a mini project to practice what you've learned:",
+        keyPoints: (learningMaterial.miniProject.steps || []).map((s) => coerceDisplayString(s)),
         realWorldApplications: [
           {
-            title: learningMaterial.miniProject.title || "Project",
-            description: learningMaterial.miniProject.description || ""
-          }
+            title: coerceDisplayString(learningMaterial.miniProject.title || "Project"),
+            description: coerceDisplayString(learningMaterial.miniProject.description || ""),
+          },
         ],
         examples: [],
-        practiceQuestions: learningMaterial.miniProject.steps || [],
+        practiceQuestions: (learningMaterial.miniProject.steps || []).map((s) => coerceDisplayString(s)),
       },
     });
   }
@@ -168,7 +230,9 @@ export const convertSectionsToLessons = (learningMaterial) => {
         estimatedTime: "10 min",
         sections: {
           summary: "Practice these common interview questions:",
-          keyPoints: validIQs.map(iq => `Q: ${iq.question}\nA: ${iq.answer}`),
+          keyPoints: validIQs.map(
+            (iq) => `Q: ${coerceDisplayString(iq.question)}\nA: ${coerceDisplayString(iq.answer)}`
+          ),
           realWorldApplications: [],
           examples: [],
           practiceQuestions: [],

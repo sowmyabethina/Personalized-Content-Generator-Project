@@ -5,14 +5,15 @@
 
 import "dotenv/config";
 import Groq from "groq-sdk";
+import {
+  GROQ_MODEL_PRIMARY as DEFAULT_MODEL,
+  GROQ_MODEL_FALLBACK as FALLBACK_MODEL,
+} from "./ai.models.js";
 
 // Initialize Groq AI client
 const groq = process.env.GROQ_API_KEY 
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
-
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 /**
  * Get a configured Groq model instance
@@ -38,15 +39,33 @@ async function generateCompletion(prompt, options = {}) {
   }
 
   const model = options.model || DEFAULT_MODEL;
-  const temperature = options.temperature || 0.7;
+  const temperature = options.temperature ?? 0.7;
+  let maxTokens = options.max_tokens ?? options.maxTokens;
+  const useJsonObject = options.useJsonObject !== false;
+
+  // Smaller models / org tiers often have low TPM per request; cap fallback completion budget.
+  if (typeof maxTokens === "number" && maxTokens > 0 && model === FALLBACK_MODEL) {
+    const cap = Number(process.env.GROQ_FALLBACK_MAX_TOKENS);
+    const fallbackCap = Number.isFinite(cap) && cap > 256 ? cap : 2048;
+    maxTokens = Math.min(maxTokens, fallbackCap);
+  }
+
+  const requestPayload = {
+    messages: [{ role: "user", content: prompt }],
+    model: model,
+    temperature: temperature,
+  };
+
+  if (typeof maxTokens === "number" && maxTokens > 0) {
+    requestPayload.max_tokens = maxTokens;
+  }
+
+  if (useJsonObject) {
+    requestPayload.response_format = { type: "json_object" };
+  }
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: model,
-      temperature: temperature,
-      response_format: { type: "json_object" }
-    });
+    const chatCompletion = await groq.chat.completions.create(requestPayload);
 
     return chatCompletion.choices[0]?.message?.content || '';
   } catch (error) {

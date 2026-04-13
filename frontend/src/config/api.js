@@ -3,8 +3,10 @@
  * Centralized API endpoints for the frontend
  */
 
-// Base URL - defaults to localhost:5000 for development
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+import { getApiBaseUrl, getRagServiceBaseUrl } from "./environment.js";
+
+const BASE_URL = getApiBaseUrl();
+const RAG_SERVICE_BASE = getRagServiceBaseUrl();
 
 // API Endpoints
 const ENDPOINTS = {
@@ -64,10 +66,10 @@ const ENDPOINTS = {
   
   // PDF Chat endpoints (RAG service)
   PDF_CHAT: {
-    HEALTH: `http://localhost:5001/health`,
-    UPLOAD: `http://localhost:5001/upload-pdf`,
-    MINDMAP: `http://localhost:5001/mindmap`,
-    RESET: `http://localhost:5001/reset`
+    HEALTH: `${RAG_SERVICE_BASE}/health`,
+    UPLOAD: `${RAG_SERVICE_BASE}/upload-pdf`,
+    MINDMAP: `${RAG_SERVICE_BASE}/mindmap`,
+    RESET: `${RAG_SERVICE_BASE}/reset`
   },
   
   // Health check

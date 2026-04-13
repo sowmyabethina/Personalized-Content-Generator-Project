@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { coerceDisplayString } from "../../../utils/learning/coerceDisplayString";
 
 /**
  * Copy Button Component
@@ -8,7 +9,9 @@ const CopyButton = ({ code }) => {
   const [copied, setCopied] = useState(false);
   
   const handleCopy = () => {
-    navigator.clipboard.writeText(code);
+    const safe = coerceDisplayString(code);
+    navigator.clipboard.writeText(safe);
+
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

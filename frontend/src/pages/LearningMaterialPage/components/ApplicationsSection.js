@@ -46,7 +46,9 @@ const ApplicationsSection = ({ applications }) => {
       <div style={styles.applicationsGrid}>
         {validApps.map((app, idx) => {
           const isString = typeof app === 'string';
-          const appTitle = isString ? `Application ${idx + 1}` : (app.title || `Application ${idx + 1}`);
+          const appTitle = isString
+            ? `Application ${idx + 1}`
+            : safeRender(app.title || `Application ${idx + 1}`);
           const appDescription = isString ? app : (app.description || '');
           
           return (

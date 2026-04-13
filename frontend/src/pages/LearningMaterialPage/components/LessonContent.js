@@ -1,3 +1,4 @@
+import { coerceDisplayString, coerceExampleRecord } from "../../../utils/learning/coerceDisplayString";
 import SummarySection from "./SummarySection";
 import ImportantConceptSection from "./ImportantConceptSection";
 import KeyPointsSection from "./KeyPointsSection";
@@ -64,17 +65,23 @@ const shouldShowExamples = (lessonTitle, examples) => {
     if (!ex) return false;
     if (typeof ex === 'string') return ex.trim().length > 10;
     if (typeof ex === 'object') {
-      const code = ex.code || ex.codeExample || '';
-      if (!code || typeof code !== 'string') return false;
-      const trimmed = code.trim();
-      if (trimmed.length < 10) return false;
-      const lowerCode = code.toLowerCase();
-      if (lowerCode.includes('example code here') ||
+      const rec = coerceExampleRecord(ex);
+      const code = rec.code;
+      const expl = rec.description;
+      const out = rec.output;
+      if (code.trim().length >= 10) {
+        const lowerCode = code.toLowerCase();
+        if (
+          lowerCode.includes('example code here') ||
           lowerCode.includes('basic example') ||
-          lowerCode.includes('sample code here')) {
-        return false;
+          lowerCode.includes('sample code here')
+        ) {
+          return false;
+        }
+        return true;
       }
-      return true;
+      if (expl.trim().length > 40 || out.trim().length > 0) return true;
+      return false;
     }
     return false;
   });

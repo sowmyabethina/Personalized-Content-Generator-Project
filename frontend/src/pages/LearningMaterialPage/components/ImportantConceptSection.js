@@ -1,16 +1,19 @@
+import { coerceDisplayString } from "../../../utils/learning/coerceDisplayString";
+
 /**
  * Important Concept Component
  * Highlights a key concept in a purple/violet box after summary
  */
 const ImportantConceptSection = ({ concept }) => {
-  if (!concept || typeof concept !== 'string' || concept.trim().length === 0) return null;
+  const text = coerceDisplayString(concept);
+  if (!text.trim()) return null;
   
   return (
     <div style={styles.importantConceptContainer} className="section-fade-in">
       <div style={styles.importantConceptHeader}>
         <span style={styles.importantTitle}>Important Concept</span>
       </div>
-      <p style={styles.importantText}>{concept}</p>
+      <p style={styles.importantText}>{text}</p>
     </div>
   );
 };

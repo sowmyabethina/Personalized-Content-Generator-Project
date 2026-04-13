@@ -109,45 +109,55 @@ function ResultPage() {
           learningScore: learningScore || 50,
         }
       );
-      console.log("🤖 Agent response for content:", data);
-      console.log("🤖 Agent response data.data:", data.data);
+      console.log("API RESPONSE:", data);
 
-      // Extract content from agent response
-      const content = data.data || {};
-      console.log("🤖 Extracted content:", content);
-      
-      // If content is a string, try to parse it
-      let parsedContent = content;
-      if (typeof content === 'string') {
-        try {
-          parsedContent = JSON.parse(content);
-        } catch (e) {
-          // Use as-is
-        }
+      if (!data || typeof data !== "object") {
+        setError("Unexpected response from the server.");
+        return;
       }
 
-      console.log("🤖 Parsed content:", parsedContent);
-      console.log("🤖 Learning path:", parsedContent.learningPath);
-      console.log("🤖 Resources:", parsedContent.resources);
-      console.log("🤖 Tips:", parsedContent.tips);
-      
-      console.log("🤖 Parsed content:", parsedContent);
-      console.log("🤖 Learning path:", parsedContent.learningPath);
-      console.log("🤖 Resources:", parsedContent.resources);
-      console.log("🤖 Tips:", parsedContent.tips);
-      
-      console.log("🤖 Parsed content:", parsedContent);
-      console.log("🤖 Learning path:", parsedContent.learningPath);
-      console.log("🤖 Resources:", parsedContent.resources);
-      console.log("🤖 Tips:", parsedContent.tips);
-      
+      if (data.success === false || data.error) {
+        setError(
+          typeof data.details === "string"
+            ? data.details
+            : data.error || data.message || "Failed to generate personalized content."
+        );
+        return;
+      }
+
+      // Direct /learning/generate-combined-content payload (optionally nested from older agent clients)
+      const raw =
+        data.data && typeof data.data === "object"
+          ? data.data
+          : data;
+
+      let parsedContent =
+        typeof raw === "string"
+          ? (() => {
+              try {
+                return JSON.parse(raw);
+              } catch {
+                return {};
+              }
+            })()
+          : { ...raw };
+
+      const path =
+        (Array.isArray(parsedContent.learningPath) && parsedContent.learningPath) ||
+        (Array.isArray(parsedContent.learning_path) && parsedContent.learning_path) ||
+        (Array.isArray(parsedContent.suggestedPath) && parsedContent.suggestedPath) ||
+        [];
+
+      const { success: _omitSuccess, ...rest } = parsedContent;
+      parsedContent = { ...rest, learningPath: path };
+
       setPersonalizedContent(parsedContent);
       setShowContent(true);
 
       saveAnalysisToDatabase(parsedContent, parsedContent.learningPath);
     } catch (err) {
       console.error("Content generation error:", err);
-      setError("Failed to generate personalized content");
+      setError(err.message || "Failed to generate personalized content");
     }
 
     setLoading(false);
@@ -379,16 +389,20 @@ function ResultPage() {
                     </p>
                   )}
 
-                  {personalizedContent.learningPath && (
-                    <div style={{ marginBottom: '24px' }}>
-                      <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📋 Learning Path:</h4>
+                  <div style={{ marginBottom: '24px' }}>
+                    <h4 style={{ color: 'var(--text-primary)', marginBottom: '16px' }}>📋 Personalized Learning Path</h4>
+                    {Array.isArray(personalizedContent.learningPath) && personalizedContent.learningPath.length > 0 ? (
                       <ol style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
                         {personalizedContent.learningPath.map((step, idx) => (
-                          <li key={idx} style={{ marginBottom: '10px' }}>{step}</li>
+                          <li key={idx} style={{ marginBottom: '10px' }}>{typeof step === "string" ? step : JSON.stringify(step)}</li>
                         ))}
                       </ol>
-                    </div>
-                  )}
+                    ) : (
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                        No step-by-step path was returned. Check the overview, resources, and tips below, or try generating again.
+                      </p>
+                    )}
+                  </div>
 
                   {personalizedContent.resources && (
                     <div style={{ marginBottom: '24px' }}>
