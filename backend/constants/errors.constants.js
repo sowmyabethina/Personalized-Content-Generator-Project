@@ -55,7 +55,7 @@ export const PROCESSING_ERRORS = {
   GITHUB_NOT_FOUND: 'GitHub user not found',
   GITHUB_RATE_LIMIT: 'GitHub API rate limit exceeded',
   GITHUB_FETCH_FAILED: 'Unable to fetch GitHub data',
-  INVALID_GEMINI_RESPONSE: 'Invalid Gemini response',
+  INVALID_AI_RESPONSE: 'Invalid AI response',
   EMPTY_GROQ_OUTPUT: 'Empty Groq output',
   EMPTY_FALLBACK_OUTPUT: 'Empty Groq fallback output',
 };

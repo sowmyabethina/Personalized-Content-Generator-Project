@@ -3,9 +3,10 @@
  */
 
 import axios from 'axios';
-import { getBackendPublicUrl } from '../../config/app.config.js';
+import { appConfig, getBackendPublicUrl } from '../../config/app.config.js';
 
 const backendBaseUrl = getBackendPublicUrl();
+const VALIDATION_TIMEOUT_MS = appConfig.timeouts.validation;
 
 /**
  * Evaluate learning style based on user responses
@@ -18,7 +19,7 @@ export async function evaluateLearningStyleTool({ answers }) {
     const response = await axios.post(`${backendBaseUrl}/learning/evaluate-learning-style`, {
       answers: answers || []
     }, {
-      timeout: 30000,
+      timeout: VALIDATION_TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json'
       }

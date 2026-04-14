@@ -69,10 +69,27 @@ export const API_TIMEOUTS = {
 export const PAGES = {
   HOME: '/',
   QUIZ: '/quiz',
+  RESULT: '/result',
+  LEARNING_MATERIAL: '/learning-material',
   LEARNING: '/learning',
   ANALYSIS: '/analysis',
   PDF_CHAT: '/pdf-chat',
+  PROGRESS: '/progress',
+  ABOUT: '/about',
+  HELP: '/help',
   RESULTS: '/results',
+};
+
+// ============================================
+// EXTERNAL URLS
+// ============================================
+export const EXTERNAL_URLS = {
+  GITHUB_PROFILE_EXAMPLE:
+    process.env.REACT_APP_GITHUB_PROFILE_EXAMPLE ||
+    'https://github.com/username',
+  YOUTUBE_SEARCH_BASE_URL:
+    process.env.REACT_APP_YOUTUBE_SEARCH_BASE_URL ||
+    'https://www.youtube.com/results',
 };
 
 // ============================================

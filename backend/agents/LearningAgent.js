@@ -562,7 +562,7 @@ function getTools() {
  * @param {string} params.message - User's message
  * @param {string} params.userId - User ID
  * @param {string} params.sessionId - Session ID for RAG
- * @param {string} params.model - AI model to use (deprecated, always uses Gemini)
+ * @param {string} params.model - AI model to use (deprecated, routed by current provider config)
  * @param {Object} params.context - Additional context (profile, quiz answers, quizType, etc.)
  * @returns {Promise<Object>} Agent response
  */

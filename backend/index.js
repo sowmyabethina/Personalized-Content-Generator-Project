@@ -12,14 +12,21 @@
  * ============================================
  */
 
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
 import githubRoutes from "./routes/githubRoutes.js";
 
 // Import configuration
-import { initDatabase, appConfig, getCorsAllowedOrigins } from "./config/index.js";
+import {
+  initDatabase,
+  verifyDatabaseConnection,
+  appConfig,
+  getCorsAllowedOrigins,
+} from "./config/index.js";
 
 // Import error handling middleware
 import { errorMiddleware, notFoundMiddleware } from "./utils/errorHandler.js";
@@ -32,6 +39,10 @@ import learningRoutes from "./routes/learningRoutes.js";
 import pdfRoutes from "./routes/pdfRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
 // ==================== VALIDATION ====================
 
 // Validate required environment variables
@@ -40,10 +51,6 @@ function validateEnv() {
   
   if (!process.env.DB_USER && !process.env.DATABASE_URL) {
     errors.push('DB_USER or DATABASE_URL is required');
-  }
-  
-  if (!process.env.GEMINI_API_KEY) {
-    log('Warning: GEMINI_API_KEY not set - AI features will be disabled', { type: 'warn' });
   }
   
   if (errors.length > 0) {
@@ -108,8 +115,9 @@ async function startServer() {
   // Validate environment
   validateEnv();
   
-  // Initialize database
-  initDatabase();
+  // Verify and initialize database before accepting traffic
+  await verifyDatabaseConnection();
+  await initDatabase();
   
   // Load agent routes
   const { default: agentRoutes } = await import('./agents/routes.js');
@@ -127,6 +135,9 @@ async function startServer() {
 
 app.use("/api/github", githubRoutes);
 
-startServer();
+startServer().catch((error) => {
+  log(`Server startup failed: ${error.message}`, { type: "error" });
+  process.exit(1);
+});
 
 export default app;

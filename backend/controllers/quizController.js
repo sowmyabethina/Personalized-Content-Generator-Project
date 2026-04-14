@@ -56,7 +56,7 @@ Generate questions that a ${level} level learner should know about ${topic}.`;
     const questions = await generateQuestionsFromTopic(text);
     
     if (!Array.isArray(questions)) {
-      throw new Error('Invalid Gemini response');
+      throw new Error('Invalid AI response');
     }
 
     // Create quiz ID and normalize data

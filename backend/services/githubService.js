@@ -4,6 +4,9 @@
  */
 
 import axios from "axios";
+import { getGithubApiBaseUrl } from "../config/index.js";
+
+const GITHUB_API_BASE_URL = getGithubApiBaseUrl();
 
 // 🔑 GitHub headers (with optional token)
 const GITHUB_HEADERS = {
@@ -53,7 +56,7 @@ async function fetchUserRepos(username) {
     console.log("📡 Fetching repositories for:", username);
 
     const { data } = await axios.get(
-      `https://api.github.com/users/${username}/repos`,
+      `${GITHUB_API_BASE_URL}/users/${username}/repos`,
       {
         headers: GITHUB_HEADERS,
         params: {
@@ -115,7 +118,7 @@ async function extractUserCommitSkills(username) {
       try {
         // ✅ Get commits ONLY by this user
         const { data: commits } = await axios.get(
-          `https://api.github.com/repos/${repo.owner.login}/${repo.name}/commits`,
+          `${GITHUB_API_BASE_URL}/repos/${repo.owner.login}/${repo.name}/commits`,
           {
             headers: GITHUB_HEADERS,
             params: {
@@ -138,7 +141,7 @@ async function extractUserCommitSkills(username) {
           try {
             // ✅ Get commit details
             const { data: detail } = await axios.get(
-              `https://api.github.com/repos/${repo.owner.login}/${repo.name}/commits/${sha}`,
+              `${GITHUB_API_BASE_URL}/repos/${repo.owner.login}/${repo.name}/commits/${sha}`,
               {
                 headers: GITHUB_HEADERS
               }

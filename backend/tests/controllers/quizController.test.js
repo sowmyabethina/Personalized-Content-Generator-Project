@@ -19,6 +19,7 @@ jest.unstable_mockModule("../../services/quizService.js", () => ({
   generateQuizId: mockGenerateQuizId,
   normalizeQuizAnswer: mockNormalizeQuizAnswer,
   scoreQuizAnswers: jest.fn(),
+  scoreClientQuizAnswers: jest.fn(),
   cacheQuiz: jest.fn(),
 }));
 

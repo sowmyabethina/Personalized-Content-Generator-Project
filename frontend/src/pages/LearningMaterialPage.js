@@ -27,11 +27,13 @@ import { coerceDisplayString, coerceExampleRecord } from "../utils/learning/coer
 
 // Import global constants
 import { LEARNING_STYLES, TECHNICAL_LEVELS, ERROR_MESSAGES } from "../constants/learningConstants";
+import { EXTERNAL_URLS, PAGES } from "../constants/config.constants";
 
 // Import component styles
 import { styles, dashboardStyles } from "../components/learningMaterialStyles";
 
 function LearningMaterialPage() {
+  const youtubeSearchBaseUrl = EXTERNAL_URLS.YOUTUBE_SEARCH_BASE_URL;
   const navigate = useNavigate();
   const location = useLocation();
   const navigationState = location.state || {};
@@ -88,7 +90,7 @@ function LearningMaterialPage() {
   
   const confirmExit = () => {
     // Progress already saved via useEffect
-    navigate("/result", { state: { topic: activeTopic, technicalScore: getStoredScore("technicalScore") } });
+    navigate(PAGES.RESULT, { state: { topic: activeTopic, technicalScore: getStoredScore("technicalScore") } });
   };
   
   const cancelExit = () => {
@@ -312,7 +314,7 @@ function LearningMaterialPage() {
 
   useEffect(() => { loadAnalyses(); }, [loadAnalyses]);
 
-  const continueLearning = (a) => navigate("/result", { state: { ...a, mode: "saved" } });
+  const continueLearning = (a) => navigate(PAGES.RESULT, { state: { ...a, mode: "saved" } });
 
   const latestAssessment = analyses[0] || null;
   const readiness = latestAssessment ? calculateReadiness(latestAssessment.technicalScore || 0, latestAssessment.learningScore || 0) : 0;
@@ -344,7 +346,7 @@ function LearningMaterialPage() {
           <div className="lp-content-wrapper">
               <CompletionScreen 
               lessons={lessons}
-              onTakeQuiz={() => navigate("/quiz", { 
+              onTakeQuiz={() => navigate(PAGES.QUIZ, { 
                 state: buildLearningMaterialQuizState(activeLearningMaterial, activeTopic)
               })}
               onGoBack={handleBackToLessons}
@@ -490,7 +492,7 @@ function LearningMaterialPage() {
               {/* Next/Finish Button */}
               {isLastStep ? (
                 <button 
-                  onClick={() => navigate("/quiz", { 
+                  onClick={() => navigate(PAGES.QUIZ, { 
                     state: buildLearningMaterialQuizState(activeLearningMaterial, activeTopic)
                   })}
                   className="lp-enterprise-btn"
@@ -706,7 +708,7 @@ function LearningMaterialPage() {
                            </div>
                            <p style={{ color: '#7f1d1d', fontSize: '14px', margin: '16px 0', opacity: 0.8 }}>Master basics of {formatTopic(a.topic)} through the course below.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                           <a href={`https://www.youtube.com/results?search_query=${formatTopic(a.topic)}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ flex: 2 }}>📺 Course</a>
+                           <a href={`${youtubeSearchBaseUrl}?search_query=${formatTopic(a.topic)}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ flex: 2 }}>📺 Course</a>
                               <button onClick={() => continueLearning(a)} className="lp-enterprise-btn btn-outline-red" style={{ flex: 1 }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -727,7 +729,7 @@ function LearningMaterialPage() {
                               <span style={{ color: '#059669', fontWeight: '800' }}>{a.technicalScore}%</span>
                            </div>
                            <p style={{ color: '#064e3b', fontSize: '14px', margin: '16px 0', opacity: 0.8 }}>Excellent grasp! Challenge yourself with advanced projects.</p>
-                           <button onClick={() => navigate("/pdf-chat")} className="lp-enterprise-btn" style={{ background: '#059669' }}>🔥 Advanced Practice</button>
+                           <button onClick={() => navigate(PAGES.PDF_CHAT)} className="lp-enterprise-btn" style={{ background: '#059669' }}>🔥 Advanced Practice</button>
                         </div>
                       ))}
                    </div>

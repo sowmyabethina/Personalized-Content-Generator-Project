@@ -2,24 +2,27 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import dotenv from "dotenv";
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, ".env"), override: true });
 import Groq from "groq-sdk";
-import { ingestPdf } from "./rag/ingestPdf.js";
-
-import { getEmbedding } from "./rag/embeddings.js";
 import { logAgentEvent } from "./agentMonitor.js";
-import { 
-  similaritySearch, 
-  similaritySearchWithThreshold, 
+const { ingestPdf } = await import("./rag/ingestPdf.js");
+const { getEmbedding } = await import("./rag/embeddings.js");
+const {
+  similaritySearch,
+  similaritySearchWithThreshold,
   initVectorStore,
   getChunkCount,
   clearVectorStore,
   getSequentialChunks,
   getAllChunkTexts,
-  getChunksByPdfId
-} from "./rag/vectorStore.js";
+  getChunksByPdfId,
+} = await import("./rag/vectorStore.js");
 
 const app = express();
 const PORT = process.env.PORT || 5001;

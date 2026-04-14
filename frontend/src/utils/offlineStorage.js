@@ -1,4 +1,5 @@
 import { openDB } from 'idb';
+import ENDPOINTS from '../config/api';
 
 /**
  * Initialize IndexedDB for offline storage
@@ -172,7 +173,7 @@ export const syncPendingData = async () => {
     const pendingResults = await db.getAll('pending-quiz-results');
     for (const result of pendingResults) {
       try {
-        const response = await fetch('/quiz/score-quiz', {
+        const response = await fetch(ENDPOINTS.QUIZ.SCORE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(result.data)
@@ -191,7 +192,7 @@ export const syncPendingData = async () => {
     const pendingProgress = await db.getAll('pending-progress');
     for (const progress of pendingProgress) {
       try {
-        const response = await fetch('/learning/progress', {
+        const response = await fetch(ENDPOINTS.PROGRESS.PROCESS, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(progress.data)

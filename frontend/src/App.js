@@ -11,6 +11,7 @@ import LearningProgressPage from "./pages/LearningProgressPage";
 import About from "./pages/About";
 import Help from "./pages/Help";
 import { clerkAppearance, clerkLocalization } from "./constants/app/clerkAppearance";
+import { PAGES } from "./constants/config.constants";
 import useServiceWorkerRegistration from "./hooks/app/useServiceWorkerRegistration";
 
 function App() {
@@ -104,15 +105,15 @@ function App() {
       <SignedIn>
         <Layout>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/quiz" element={<QuizPage />} />
-            <Route path="/result" element={<ResultPage />} />
-            <Route path="/learning" element={<LearningMaterialPage />} />
-            <Route path="/learning-material" element={<LearningMaterialPage />} />
-            <Route path="/pdf-chat" element={<PdfChatPage />} />
-            <Route path="/progress" element={<LearningProgressPage />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/help" element={<Help />} />
+            <Route path={PAGES.HOME} element={<HomePage />} />
+            <Route path={PAGES.QUIZ} element={<QuizPage />} />
+            <Route path={PAGES.RESULT} element={<ResultPage />} />
+            <Route path={PAGES.LEARNING} element={<LearningMaterialPage />} />
+            <Route path={PAGES.LEARNING_MATERIAL} element={<LearningMaterialPage />} />
+            <Route path={PAGES.PDF_CHAT} element={<PdfChatPage />} />
+            <Route path={PAGES.PROGRESS} element={<LearningProgressPage />} />
+            <Route path={PAGES.ABOUT} element={<About />} />
+            <Route path={PAGES.HELP} element={<Help />} />
           </Routes>
         </Layout>
       </SignedIn>

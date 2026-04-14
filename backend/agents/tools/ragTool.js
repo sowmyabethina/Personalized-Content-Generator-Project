@@ -5,14 +5,16 @@
  */
 
 import axios from 'axios';
-import { getRagServiceUrl } from '../../config/app.config.js';
+import { appConfig, getRagServiceUrl } from '../../config/app.config.js';
 
 const RAG_SERVICE_URL = getRagServiceUrl();
+const CACHE_TTL = appConfig.cache.ragResponseTtlMs;
+const MAX_CACHE_SIZE = appConfig.cache.ragMaxEntries;
+const RAG_TIMEOUT_MS = appConfig.timeouts.ragOperation;
+const API_TIMEOUT_MS = appConfig.timeouts.apiStandard;
 
 // Simple in-memory cache for chat responses
 const responseCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const MAX_CACHE_SIZE = 100;
 
 /**
  * Generate cache key from message and session
@@ -75,7 +77,7 @@ export async function ragTool({ message, sessionId, userId }) {
       sessionId: sessionId || `agent_${Date.now()}`,
       userId
     }, {
-      timeout: 90000, // 90 second timeout for RAG operations
+      timeout: RAG_TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json'
       }
@@ -121,7 +123,7 @@ export async function ragTool({ message, sessionId, userId }) {
 export async function checkPdfStatus() {
   try {
     const response = await axios.get(`${RAG_SERVICE_URL}/health`, {
-      timeout: 5000
+      timeout: API_TIMEOUT_MS
     });
     
     return {

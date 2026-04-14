@@ -3,8 +3,9 @@
  * PostgreSQL connection pool setup
  */
 
-import "dotenv/config";
+import "./env.js";
 import pg from "pg";
+import { DATABASE } from "../constants/index.js";
 import { log } from "../utils/logger.js";
 
 const { Pool } = pg;
@@ -19,16 +20,28 @@ function validateDbConfig() {
   }
 }
 
+function logDbEnvDebug() {
+  if (process.env.DB_DEBUG !== "true") return;
+
+  // Intentionally explicit for local debugging as requested.
+  console.log("[DB DEBUG] DB_USER:", process.env.DB_USER);
+  console.log("[DB DEBUG] DB_PASSWORD:", process.env.DB_PASSWORD);
+  console.log("[DB DEBUG] DB_HOST:", process.env.DB_HOST);
+  console.log("[DB DEBUG] DB_PORT:", process.env.DB_PORT);
+  console.log("[DB DEBUG] DB_NAME:", process.env.DB_NAME);
+}
+
 // Initialize pool
+logDbEnvDebug();
 validateDbConfig();
 
 const pool = new Pool({
-  user: process.env.DB_USER || undefined,
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'rag_pdf_db',
-  password: process.env.DB_PASSWORD || undefined,
-  port: process.env.DB_PORT || 5432,
-  ...(process.env.DATABASE_URL && { connectionString: process.env.DATABASE_URL })
+  user: DATABASE.USER || undefined,
+  host: DATABASE.HOST,
+  database: DATABASE.NAME,
+  password: DATABASE.PASSWORD || undefined,
+  port: DATABASE.PORT,
+  ...(DATABASE.CONNECTION_URL && { connectionString: DATABASE.CONNECTION_URL })
 });
 
 pool.on('connect', () => {
@@ -45,6 +58,27 @@ const db = {
   pool,
   close: () => pool.end()
 };
+
+/**
+ * Validate active database connection.
+ * Throws on auth/network errors so startup can fail fast with actionable logs.
+ */
+async function verifyDatabaseConnection() {
+  try {
+    await db.query("SELECT 1");
+    log("Database connectivity check passed");
+  } catch (error) {
+    if (error.code === "28P01") {
+      log(
+        "Database authentication failed. Check DB_USER/DB_PASSWORD in backend/.env and PostgreSQL user credentials.",
+        { type: "error" }
+      );
+    } else {
+      log(`Database connectivity failed: ${error.message}`, { type: "error" });
+    }
+    throw error;
+  }
+}
 
 /**
  * Initialize database tables
@@ -128,5 +162,5 @@ async function initDatabase() {
   }
 }
 
-export { db, initDatabase };
-export default { db, initDatabase };
+export { db, verifyDatabaseConnection, initDatabase };
+export default { db, verifyDatabaseConnection, initDatabase };

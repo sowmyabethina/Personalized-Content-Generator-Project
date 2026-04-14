@@ -6,12 +6,13 @@
 import express from "express";
 import multer from "multer";
 import { readPdf, readResumePdf, generateFromPdfHandler } from "../controllers/pdfController.js";
+import { appConfig } from "../config/index.js";
 
 const router = express.Router();
 
 // Configure multer for file uploads
 const upload = multer({ 
-  dest: 'uploads/',
+  dest: appConfig.uploadsDir,
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true);

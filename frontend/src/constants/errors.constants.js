@@ -3,6 +3,8 @@
  * User-friendly messages for the frontend
  */
 
+import { EXTERNAL_URLS } from "./config.constants";
+
 // ============================================
 // ERROR MESSAGES
 // ============================================
@@ -102,7 +104,7 @@ export const BUTTON_LABELS = {
 // PLACEHOLDER TEXTS
 // ============================================
 export const PLACEHOLDERS = {
-  GITHUB_URL: 'https://github.com/username',
+  GITHUB_URL: EXTERNAL_URLS.GITHUB_PROFILE_EXAMPLE,
   TOPIC_INPUT: 'Enter a topic to learn',
   MESSAGE_INPUT: 'Type your question here...',
   SEARCH: 'Search...',

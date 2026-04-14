@@ -6,7 +6,10 @@
 import fs from "fs";
 import axios from "axios";
 import pdf from "pdf-parse";
+import { getRpcServiceUrl } from "../config/index.js";
 import { logError, logSuccess, log } from "../utils/logger.js";
+
+const RPC_SERVICE_URL = getRpcServiceUrl();
 
 /**
  * Process a resume PDF
@@ -207,7 +210,7 @@ async function readPdfFromGithub(githubUrl) {
     params: { name: 'read_github_pdf', arguments: { github_url: githubUrl } }
   };
 
-  const response = await axios.post('http://localhost:3333', rpcBody, {
+  const response = await axios.post(RPC_SERVICE_URL, rpcBody, {
     headers: { 'Content-Type': 'application/json' }
   });
 

@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
+import { PAGES } from "../constants/config.constants";
+
+const NAV_LINKS = [
+  { path: PAGES.HOME, label: "Home", icon: "🏠" },
+  { path: PAGES.PDF_CHAT, label: "PDF Chat", icon: "📄" },
+  { path: PAGES.PROGRESS, label: "Progress", icon: "📈" },
+  { path: PAGES.ABOUT, label: "About", icon: "ℹ️" },
+  { path: PAGES.HELP, label: "Help", icon: "❓" },
+];
+
+const NO_BACK_BUTTON_PATHS = NAV_LINKS.map((link) => link.path);
 
 function Navbar({ onBackClick }) {
   const navigate = useNavigate();
@@ -9,10 +20,10 @@ function Navbar({ onBackClick }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
 
-  const showBackButton = !["/", "/pdf-chat", "/progress", "/about", "/help"].includes(location.pathname);
+  const showBackButton = !NO_BACK_BUTTON_PATHS.includes(location.pathname);
 
   const handleBackClick = () => {
-    if (location.pathname === "/quiz") {
+    if (location.pathname === PAGES.QUIZ) {
       if (onBackClick) {
         onBackClick();
       } else {
@@ -25,7 +36,7 @@ function Navbar({ onBackClick }) {
 
   const handleExitConfirm = () => {
     setShowExitModal(false);
-    navigate("/");
+    navigate(PAGES.HOME);
   };
 
   const handleExitCancel = () => {
@@ -70,14 +81,6 @@ function Navbar({ onBackClick }) {
     };
   }, [sidebarOpen]);
 
-  const navLinks = [
-    { path: "/", label: "Home", icon: "🏠" },
-    { path: "/pdf-chat", label: "PDF Chat", icon: "📄" },
-    { path: "/progress", label: "Progress", icon: "📈" },
-    { path: "/about", label: "About", icon: "ℹ️" },
-    { path: "/help", label: "Help", icon: "❓" },
-  ];
-
   return (
 
     <>
@@ -108,7 +111,7 @@ function Navbar({ onBackClick }) {
               ← Back
             </button>
           )}
-          <Link to="/" className="navbar-brand" onClick={toggleSidebar}>
+          <Link to={PAGES.HOME} className="navbar-brand" onClick={toggleSidebar}>
             <span className="brand-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -128,7 +131,7 @@ function Navbar({ onBackClick }) {
             </span>
           </Link>
           <div className="navbar-nav">
-            {navLinks.map((link) => (
+            {NAV_LINKS.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}

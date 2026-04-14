@@ -3,13 +3,13 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
+import { getClerkJsUrl, getClerkPublishableKey } from "./config/environment";
 import "./index.css";
 import "./App.css";
 import "./styles/design-system.css";
 
-const PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY || "pk_test_your-key-here";
-const CLERK_JS_URL =
-  process.env.REACT_APP_CLERK_JS_URL || "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+const PUBLISHABLE_KEY = getClerkPublishableKey();
+const CLERK_JS_URL = getClerkJsUrl();
 
 if (!process.env.REACT_APP_CLERK_PUBLISHABLE_KEY) {
   // Helps catch misconfigured local envs early.

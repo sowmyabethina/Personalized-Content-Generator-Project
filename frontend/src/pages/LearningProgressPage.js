@@ -5,6 +5,7 @@ import useAnalyses from "../hooks/useAnalyses";
 import { formatAnalysisDate } from "../utils/analysis/analysisHelpers";
 import { processProgress } from "../services/progress/progressService";
 import { formatCourseName } from "../utils/analysis/progressDashboard";
+import { EXTERNAL_URLS, PAGES } from "../constants/config.constants";
 
 // Local styles for Learning Progress Dashboard
 /* UI_REFRESH_V2 */
@@ -130,6 +131,7 @@ const dashboardStyles = `
 `;
 
 function LearningProgressPage() {
+  const youtubeSearchBaseUrl = EXTERNAL_URLS.YOUTUBE_SEARCH_BASE_URL;
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -189,7 +191,7 @@ function LearningProgressPage() {
     const analysisId = analysis.analysisId || analysis.id;
     localStorage.setItem("currentAnalysisId", analysisId);
     
-    navigate("/learning-material", {
+    navigate(PAGES.LEARNING_MATERIAL, {
       state: { reset: true }
     });
   };
@@ -263,7 +265,7 @@ function LearningProgressPage() {
             {analyses.length === 0 ? (
               <div className="lp-content-card" style={{ textAlign: 'center', padding: '48px', background: 'white' }}>
                 <h2>No assessments yet</h2>
-                <button onClick={() => navigate("/")} className="lp-enterprise-btn">Get Started</button>
+                <button onClick={() => navigate(PAGES.HOME)} className="lp-enterprise-btn">Get Started</button>
               </div>
             ) : (
               <>
@@ -389,7 +391,7 @@ function LearningProgressPage() {
                            <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Focus on basics. Complete these curated courses to build your expertise.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <a href={`${youtubeSearchBaseUrl}?search_query=${a.topic || a.name}+full+course`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
                               <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -411,7 +413,7 @@ function LearningProgressPage() {
                            <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Making progress! Deepen your knowledge with advanced implementation scenarios.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+tutorial+advanced`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
+                              <a href={`${youtubeSearchBaseUrl}?search_query=${a.topic || a.name}+tutorial+advanced`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Watch Course</a>
                               <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Retake</button>
                            </div>
                         </div>
@@ -433,7 +435,7 @@ function LearningProgressPage() {
                            <h4 style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>{formatCourseName(a.name)}</h4>
                            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px 0', lineHeight: '1.5' }}>Excellent work! Stay sharp by practicing complex real-world problems.</p>
                            <div style={{ display: 'flex', gap: '12px' }}>
-                              <a href={`https://www.youtube.com/results?search_query=${a.topic || a.name}+practice+problems`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
+                              <a href={`${youtubeSearchBaseUrl}?search_query=${a.topic || a.name}+practice+problems`} target="_blank" rel="noreferrer" className="lp-enterprise-btn" style={{ background: '#3b82f6', flex: 1, textDecoration: 'none', fontSize: '14px', padding: '12px 16px' }}>📺 Practice</a>
                               <button onClick={() => startLearning(a)} className="lp-enterprise-btn" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flex: 1, fontSize: '14px', padding: '12px 16px' }}>🔄 Review</button>
                            </div>
                         </div>
