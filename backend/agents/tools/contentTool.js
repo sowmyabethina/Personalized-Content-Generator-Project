@@ -4,8 +4,9 @@
  */
 
 import axios from 'axios';
+import { getBackendPublicUrl } from '../../config/app.config.js';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const backendBaseUrl = getBackendPublicUrl();
 
 /**
  * Generate learning content based on topic and preferences
@@ -18,7 +19,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
  */
 export async function contentTool({ topic, technicalLevel = 'intermediate', learningStyle = 'reading', userId }) {
   try {
-    const response = await axios.post(`${BACKEND_URL}/learning/generate-learning-material`, {
+    const response = await axios.post(`${backendBaseUrl}/learning/generate-learning-material`, {
       topic: topic || 'General Technology',
       technicalLevel,
       learningStyle,
@@ -59,7 +60,7 @@ export async function contentTool({ topic, technicalLevel = 'intermediate', lear
  */
 export async function personalizedContentTool({ topic, technicalLevel, learningStyle, technicalScore, learningScore, userId }) {
   try {
-    const response = await axios.post(`${BACKEND_URL}/learning/generate-combined-content`, {
+    const response = await axios.post(`${backendBaseUrl}/learning/generate-combined-content`, {
       topic: topic || 'General Technology',
       technicalLevel: technicalLevel || 'intermediate',
       learningStyle: learningStyle || 'reading',
@@ -99,7 +100,7 @@ export async function personalizedContentTool({ topic, technicalLevel, learningS
  */
 export async function quizFromTextTool({ docText, topic }) {
   try {
-    const response = await axios.post(`${BACKEND_URL}/quiz/generate`, {
+    const response = await axios.post(`${backendBaseUrl}/quiz/generate`, {
       docText: docText.substring(0, 12000)
     }, {
       timeout: 90000,

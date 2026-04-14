@@ -12,8 +12,13 @@ import {
   generateQuizId,
   normalizeQuizAnswer,
   scoreQuizAnswers,
+  scoreClientQuizAnswers,
   cacheQuiz,
 } from "../services/quizService.js";
+import {
+  analyzePsychometricProfile,
+  getTechnicalLevel,
+} from "../utils/psychometricQuiz.js";
 import { generateQuestionsFromTopic, generateQuizFromMaterial } from "../services/aiService.js";
 import { handleError } from "../utils/errorHandler.js";
 import { log } from "../utils/logger.js";
@@ -175,5 +180,84 @@ async function handleGenerateQuizFromMaterial(req, res) {
   }
 }
 
-export { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial };
-export default { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial };
+/**
+ * POST /api/quiz/score — combined technical + learning scoring (matches frontend submitQuiz success shape).
+ * Body: { quizId?, answers?, questions?, learningAnswers?, learningQuestions?, topic? }
+ */
+async function processQuizScore(req, res) {
+  try {
+    const {
+      quizId,
+      answers = [],
+      questions = [],
+      learningAnswers = [],
+      learningQuestions = [],
+    } = req.body || {};
+
+    const answerList = Array.isArray(answers) ? answers : [];
+    const questionList = Array.isArray(questions) ? questions : [];
+
+    let correct = 0;
+    let score = 0;
+    let total = 0;
+
+    const stored = quizId ? await getQuiz(quizId) : null;
+
+    if (stored?.quizData?.length) {
+      const scoreResult = scoreQuizAnswers(stored.quizData, answerList);
+      correct = scoreResult.correct;
+      score = scoreResult.score;
+      total = scoreResult.total;
+      try {
+        await storeQuizResult(
+          quizId,
+          answerList,
+          scoreResult.score,
+          scoreResult.correct,
+          stored.totalQuestions
+        );
+      } catch (storeErr) {
+        log("processQuizScore: storeQuizResult skipped", { details: storeErr.message });
+      }
+    } else if (questionList.length > 0) {
+      const scoreResult = scoreClientQuizAnswers(answerList, questionList);
+      correct = scoreResult.correct;
+      score = scoreResult.score;
+      total = scoreResult.total;
+    }
+
+    const learningScore = learningQuestions.length
+      ? Math.round(
+          (learningAnswers.reduce((sum, v) => sum + Number(v || 0), 0) /
+            (learningQuestions.length * 2)) *
+            100
+        )
+      : 0;
+
+    const psychometricProfile = learningAnswers.length
+      ? analyzePsychometricProfile(learningAnswers)
+      : null;
+    const technicalLevel = getTechnicalLevel(score);
+    const combinedAnalysis = psychometricProfile
+      ? `Technical: ${technicalLevel} level based on quiz score. Learning preference determined through assessment.`
+      : null;
+
+    return res.json({
+      correct,
+      score,
+      total,
+      learningScore,
+      technicalLevel,
+      psychometricProfile,
+      combinedAnalysis,
+    });
+  } catch (err) {
+    const errorResponse = handleError(err, "/api/quiz/score");
+    return res
+      .status(errorResponse.status || 500)
+      .json({ error: "Quiz processing failed", details: err.message });
+  }
+}
+
+export { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial, processQuizScore };
+export default { generateQuiz, scoreQuiz, handleGenerateQuizFromMaterial, processQuizScore };

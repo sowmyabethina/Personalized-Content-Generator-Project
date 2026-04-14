@@ -85,13 +85,25 @@ async function getQuiz(quizId) {
 
     if (result.rows.length === 0) return null;
 
-    const quizData = result.rows.map(row => ({
-      originalIndex: row.question_index,
-      question: row.question,
-      options: row.options,
-      correctAnswer: row.correct_answer,
-      explanation: row.explanation
-    }));
+    const quizData = result.rows.map((row) => {
+      let options = row.options;
+      if (typeof options === "string") {
+        try {
+          options = JSON.parse(options);
+        } catch {
+          options = [];
+        }
+      }
+      if (!Array.isArray(options)) options = [];
+
+      return {
+        originalIndex: row.question_index,
+        question: row.question,
+        options,
+        correctAnswer: row.correct_answer,
+        explanation: row.explanation,
+      };
+    });
 
     return {
       quizData,
@@ -141,22 +153,21 @@ function generateQuizId() {
  * @returns {Object} - Normalized question
  */
 function normalizeQuizAnswer(question) {
-  const { ans, opts, originalIndex, ...rest } = question;
+  const { ans, originalIndex } = question;
+  const rawOpts = question.options ?? question.opts;
+  const options = Array.isArray(rawOpts) ? rawOpts : [];
   const answer = ans;
-  const options = Array.isArray(opts) ? opts : [];
   let normalizedAns = answer;
 
-  // Convert letter to full text
-  if (typeof answer === 'string' && /^[A-D]$/i.test(answer) && options.length > 0) {
+  if (typeof answer === "string" && /^[A-D]$/i.test(answer) && options.length > 0) {
     const ansIdx = answer.toUpperCase().charCodeAt(0) - 65;
     normalizedAns = options[ansIdx] || options[0];
   }
-  // Convert index to full text
-  if (typeof answer === 'number' && options.length > 0) {
+  if (typeof answer === "number" && options.length > 0) {
     normalizedAns = options[answer] || options[0];
   }
-  if (!answer) {
-    normalizedAns = '';
+  if (answer === undefined || answer === null || answer === "") {
+    normalizedAns = "";
   }
 
   return {
@@ -164,9 +175,50 @@ function normalizeQuizAnswer(question) {
     question: question.question,
     options,
     correctAnswer: normalizedAns,
-    explanation: question.explanation || '',
-    category: question.category || '',
-    ...rest
+    explanation: question.explanation || "",
+    category: question.category || "",
+  };
+}
+
+/**
+ * Same semantics as frontend compareAnswer (trim + case-insensitive).
+ */
+function answersMatch(userAnswer, correctAnswer) {
+  if (userAnswer == null || correctAnswer == null) return false;
+  const u = String(userAnswer).trim().toLowerCase();
+  const c = String(correctAnswer).trim().toLowerCase();
+  return u.length > 0 && c.length > 0 && u === c;
+}
+
+/**
+ * Score agent/client-held quizzes (questions use `answer` or `correctAnswer`).
+ */
+function scoreClientQuizAnswers(answers, questions) {
+  const total = Array.isArray(questions) ? questions.length : 0;
+  if (total === 0) {
+    return { score: 0, correct: 0, total: 0, results: [] };
+  }
+  let correct = 0;
+  const results = [];
+  for (let idx = 0; idx < total; idx++) {
+    const q = questions[idx];
+    const expected = q?.answer ?? q?.correctAnswer ?? "";
+    const userAnswer = answers[idx] != null ? answers[idx] : "";
+    const isCorrect = answersMatch(userAnswer, expected);
+    if (isCorrect) correct++;
+    results.push({
+      questionIndex: idx,
+      question: q?.question,
+      userAnswer,
+      correctAnswer: expected,
+      isCorrect,
+    });
+  }
+  return {
+    score: Math.round((correct / total) * 100),
+    correct,
+    total,
+    results,
   };
 }
 
@@ -177,29 +229,38 @@ function normalizeQuizAnswer(question) {
  * @returns {Object} - Score result with details
  */
 function scoreQuizAnswers(storedQuiz, userAnswers) {
+  const totalQuestions = Array.isArray(storedQuiz) ? storedQuiz.length : 0;
+  if (totalQuestions === 0) {
+    return { score: 0, correct: 0, total: 0, results: [] };
+  }
+
   let correct = 0;
-  const results = userAnswers.map((userAnswer, idx) => {
+  const results = [];
+  const answers = Array.isArray(userAnswers) ? userAnswers : [];
+
+  for (let idx = 0; idx < totalQuestions; idx++) {
     const questionData = storedQuiz[idx];
-    const isCorrect = userAnswer === questionData.correctAnswer;
+    const userAnswer = answers[idx] != null ? answers[idx] : "";
+    const expected = questionData?.correctAnswer;
+    const isCorrect = answersMatch(userAnswer, expected);
     if (isCorrect) correct++;
-    
-    return {
+
+    results.push({
       questionIndex: idx,
-      question: questionData.question,
+      question: questionData?.question,
       userAnswer,
-      correctAnswer: questionData.correctAnswer,
-      isCorrect
-    };
-  });
-  
-  const totalQuestions = storedQuiz.length;
+      correctAnswer: expected,
+      isCorrect,
+    });
+  }
+
   const score = Math.round((correct / totalQuestions) * 100);
-  
+
   return {
     score,
     correct,
     total: totalQuestions,
-    results
+    results,
   };
 }
 
@@ -210,6 +271,7 @@ export {
   generateQuizId,
   normalizeQuizAnswer,
   scoreQuizAnswers,
+  scoreClientQuizAnswers,
   cacheQuiz,
 };
 export default {
@@ -219,5 +281,6 @@ export default {
   generateQuizId,
   normalizeQuizAnswer,
   scoreQuizAnswers,
+  scoreClientQuizAnswers,
   cacheQuiz,
 };

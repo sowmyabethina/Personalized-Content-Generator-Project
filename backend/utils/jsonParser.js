@@ -28,6 +28,15 @@ function parseJson(rawText) {
     jsonStr = jsonStr.slice(0, -3);
   }
 
+  jsonStr = jsonStr.trim();
+
+  // If model added preamble/postamble, isolate outermost JSON object
+  const firstBrace = jsonStr.indexOf('{');
+  const lastBrace = jsonStr.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+  }
+
   return JSON.parse(jsonStr.trim());
 }
 

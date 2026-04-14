@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import Groq from "groq-sdk";
 import { ingestPdf } from "./rag/ingestPdf.js";
+
 import { getEmbedding } from "./rag/embeddings.js";
 import { logAgentEvent } from "./agentMonitor.js";
 import { 
@@ -1105,3 +1106,4 @@ async function startServer() {
 }
 
 startServer();
+ 

@@ -1,4 +1,5 @@
 import CopyButton from "./CopyButton";
+import { coerceDisplayString, coerceExampleRecord } from "../../../utils/learning/coerceDisplayString";
 
 /**
  * Safely render any value as string
@@ -24,12 +25,15 @@ const isValidExampleObject = (example) => {
   if (!example) return false;
   if (typeof example === 'string') return example.trim().length > 0;
   if (typeof example === 'object') {
-    const hasContent = example.code || example.description || example.explanation;
+    const rec = coerceExampleRecord(example);
+    const codeStr = rec.code;
+    const descStr = rec.description;
+    const outStr = rec.output;
+    const hasContent = codeStr.trim().length > 0 || descStr.trim().length > 0 || outStr.trim().length > 0;
     if (!hasContent) return false;
-    const code = example.code;
-    if (code && typeof code === 'string') {
-      const lowerCode = code.toLowerCase();
-      if (lowerCode.includes('example') && lowerCode.length < 50) return false;
+    if (codeStr && typeof codeStr === 'string') {
+      const lowerCode = codeStr.toLowerCase();
+      if (lowerCode.includes('example code here') && lowerCode.length < 80) return false;
     }
     return true;
   }
@@ -54,9 +58,18 @@ const ExamplesSection = ({ examples }) => {
       </div>
       {validExamples.map((example, idx) => {
         const isString = typeof example === 'string';
-        const exampleTitle = !isString ? (example.title || `Example ${idx + 1}`) : `Example ${idx + 1}`;
-        const exampleCode = !isString ? (example.code || example.codeExample || '') : example;
-        const exampleDescription = !isString ? (example.description || example.explanation || '') : '';
+        const rec = isString
+          ? {
+              title: `Example ${idx + 1}`,
+              code: coerceDisplayString(example),
+              output: '',
+              description: '',
+            }
+          : coerceExampleRecord(example);
+        const exampleTitle = rec.title || `Example ${idx + 1}`;
+        const exampleCode = rec.code;
+        const exampleDescription = rec.description;
+        const exampleOutput = rec.output;
         
         return (
           <div key={idx} style={styles.exampleCard}>
@@ -71,6 +84,12 @@ const ExamplesSection = ({ examples }) => {
               <pre style={styles.codeBlock}>
                 <code>{exampleCode}</code>
               </pre>
+            )}
+            {exampleOutput && (
+              <div style={styles.outputContainer}>
+                <span style={styles.outputLabel}>Output</span>
+                <pre style={styles.outputText}>{exampleOutput}</pre>
+              </div>
             )}
           </div>
         );
