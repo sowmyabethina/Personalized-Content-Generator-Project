@@ -1,4 +1,3 @@
-// greptile review trigger
 /**
  * GitHub Service
  * Extracts user-specific skills from commits (with debug logs)

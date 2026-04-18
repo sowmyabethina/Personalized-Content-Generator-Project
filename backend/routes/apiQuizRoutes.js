@@ -1,4 +1,3 @@
-// greptile review trigger
 /**
  * API-prefixed quiz routes (frontend expects /api/quiz/score for submitQuiz).
  */

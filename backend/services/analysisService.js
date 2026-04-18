@@ -1,4 +1,3 @@
-// greptile review trigger
 /**
  * Analysis Service
  * Handles analysis database operations
