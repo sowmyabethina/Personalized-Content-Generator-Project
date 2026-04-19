@@ -328,7 +328,7 @@ export async function getChunkCount(pdfId = null) {
   }
 }
 
-// Get all text chunks with metadata (for mind map generation)
+// Get all text chunks with metadata (ordered export / inspection)
 export async function getAllChunkTexts(pdfId = null) {
   try {
     let query = 'SELECT chunk_text, section_title, section_level FROM document_chunks';

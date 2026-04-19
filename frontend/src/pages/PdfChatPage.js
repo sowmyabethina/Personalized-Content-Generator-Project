@@ -1,63 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  ReactFlowProvider,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import usePdfStatus from "../hooks/pdfChat/usePdfStatus";
 import {
-  generateMindMap as generateMindMapRequest,
   resetPdfChat,
   sendPdfChatMessage,
   uploadPdf as uploadPdfRequest,
 } from "../services/pdfChat/pdfChatService";
-import { convertMindMapToFlowElements } from "../utils/pdfChat/mindMapLayout";
-
-// Inner Flow component that uses ReactFlow hooks
-const MindMapFlow = ({ mindMapData }) => {
-  const { fitView } = useReactFlow();
-  
-  // Convert mind map data to flow elements (radial layout)
-  const flowData = convertMindMapToFlowElements(mindMapData);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(flowData.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(flowData.edges);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    setNodes(flowData.nodes);
-    setEdges(flowData.edges);
-    setTimeout(() => fitView({ padding: 0.3, duration: 500 }), 100);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mindMapData]);
-
-  return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      fitView
-      minZoom={0.4}
-      maxZoom={1.6}
-      panOnScroll
-      selectionOnDrag={false}
-      defaultEdgeOptions={{
-        style: { stroke: "#94a3b8", strokeWidth: 2 },
-        type: "smoothstep",
-      }}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <Background color="#E5E7EB" gap={20} />
-      <Controls />
-    </ReactFlow>
-  );
-};
 
 function PdfChatPage() {
   const [messages, setMessages] = useState([]);
@@ -65,9 +12,6 @@ function PdfChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [showChatbot, setShowChatbot] = useState(false);
-  const [mindMapData, setMindMapData] = useState(null);
-  const [mindMapLoading, setMindMapLoading] = useState(false);
-  const [showMindMap, setShowMindMap] = useState(false);
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const { pdfStatus, setPdfStatus } = usePdfStatus();
@@ -193,29 +137,6 @@ function PdfChatPage() {
     }
   };
 
-  const generateMindMap = async () => {
-    if (!pdfStatus?.pdfLoaded || mindMapLoading) return;
-    
-    setMindMapLoading(true);
-    setShowMindMap(true);
-    
-    try {
-      console.log("🧠 Calling mind map generation API...");
-      
-      // Call mindmap endpoint directly - it fetches text from database
-      const data = await generateMindMapRequest();
-      setMindMapData(data);
-    } catch (error) {
-      console.error("Mind map error:", error);
-      setMindMapData({ 
-        title: 'Error', 
-        children: [{ title: error.message, children: [] }] 
-      });
-    }
-    
-    setMindMapLoading(false);
-  };
-
   const resetChat = async () => {
     try {
       await resetPdfChat(sessionId);
@@ -233,96 +154,6 @@ function PdfChatPage() {
       console.error("Failed to reset chat:", error);
     }
   };
-
-  // Early return for Mind Map Modal
-  if (showMindMap) {
-    return (
-      <div className="pdf-chat-page-container" style={{ 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        bottom: 0, 
-        background: 'rgba(0,0,0,0.8)', 
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div className="content-wrapper" style={{ 
-          maxWidth: '95%', 
-          width: '1400px', 
-          height: '85vh',
-          background: 'var(--color-white)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginBottom: '16px',
-            flexShrink: 0
-          }}>
-            <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>🧠 Mind Map</h2>
-            <button
-              onClick={() => {
-                setShowMindMap(false);
-                setMindMapData(null);
-              }}
-              className="btn btn-outline btn-sm"
-            >
-              ✕ Close
-            </button>
-          </div>
-          
-          {mindMapLoading ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '60px 20px',
-              color: 'var(--text-secondary)'
-            }}>
-              <div className="loading-spinner" style={{ margin: '0 auto 20px' }}></div>
-              <p>Generating mind map from your document...</p>
-            </div>
-          ) : mindMapData ? (
-            <div style={{ 
-              flex: 1,
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-md)',
-              overflow: 'hidden'
-            }}>
-              <ReactFlowProvider>
-                <MindMapFlow mindMapData={mindMapData} />
-              </ReactFlowProvider>
-            </div>
-          ) : (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '60px 20px',
-              color: 'var(--text-secondary)'
-            }}>
-              <p>No mind map data available. Click "Generate Mind Map" to create one.</p>
-            </div>
-          )}
-          
-          <div style={{ 
-            marginTop: '16px', 
-            padding: '12px', 
-            background: 'var(--color-gray-100)', 
-            borderRadius: 'var(--radius-md)',
-            fontSize: 'var(--text-sm)',
-            color: 'var(--text-secondary)',
-            flexShrink: 0
-          }}>
-            💡 Tip: Use controls to zoom/pan. Drag nodes to reposition. Scroll to zoom.
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // If no PDF uploaded yet
   if (!pdfStatus?.pdfLoaded && !showChatbot) {
@@ -394,13 +225,6 @@ function PdfChatPage() {
                 className="btn btn-outline btn-sm"
               >
                 🔄 New Chat
-              </button>
-              <button
-                onClick={generateMindMap}
-                disabled={mindMapLoading}
-                className="btn btn-outline btn-sm"
-              >
-                {mindMapLoading ? '⏳ Generating...' : '🧠 Mind Map'}
               </button>
             </div>
           </div>

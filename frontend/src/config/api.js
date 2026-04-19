@@ -68,7 +68,6 @@ const ENDPOINTS = {
   PDF_CHAT: {
     HEALTH: `${RAG_SERVICE_BASE}/health`,
     UPLOAD: `${RAG_SERVICE_BASE}/upload-pdf`,
-    MINDMAP: `${RAG_SERVICE_BASE}/mindmap`,
     RESET: `${RAG_SERVICE_BASE}/reset`
   },
   

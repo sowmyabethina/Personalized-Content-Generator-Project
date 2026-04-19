@@ -30,20 +30,6 @@ export const sendPdfChatMessage = async ({ message, sessionId, signal }) =>
     "Failed to get response."
   );
 
-export const generateMindMap = async () =>
-  requestJson(
-    ENDPOINTS.PDF_CHAT.MINDMAP,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-      },
-      body: JSON.stringify({}),
-    },
-    "Failed to generate mind map."
-  );
-
 export const resetPdfChat = async (sessionId) =>
   requestJson(
     ENDPOINTS.PDF_CHAT.RESET,

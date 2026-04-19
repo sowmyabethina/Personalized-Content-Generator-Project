@@ -77,7 +77,6 @@ export const FEATURES = {
   USE_GROQ: process.env.FEATURE_USE_GROQ !== 'false',
   USE_OPENAI: process.env.FEATURE_USE_OPENAI !== 'false',
   ENABLE_RAG_CACHE: process.env.FEATURE_RAG_CACHE !== 'false',
-  ENABLE_PDF_MINDMAP: process.env.FEATURE_PDF_MINDMAP !== 'false',
 };
 
 // ============================================

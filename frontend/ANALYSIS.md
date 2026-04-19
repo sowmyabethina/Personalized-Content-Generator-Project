@@ -23,7 +23,6 @@
 - Generates personalized quizzes and learning materials
 - Tracks learning progress with analytics
 - Provides AI-powered PDF chat functionality
-- Offers mind map visualization for documents
 
 **Total Files:** 30+ source files
 **Total Lines of Code:** ~50,000+ lines
@@ -55,7 +54,7 @@ frontend/
 │   │   ├── ResultPage.js    # Results and personalized content
 │   │   ├── LearningMaterialPage.js  # Learning content display
 │   │   ├── LearningProgressPage.js  # Progress dashboard
-│   │   ├── PdfChatPage.js   # PDF chat with mind maps
+│   │   ├── PdfChatPage.js   # PDF chat (RAG-backed Q&A)
 │   │   ├── SuccessResultPage.js  # Success celebration page
 │   │   ├── About.jsx        # About page
 │   │   └── Help.jsx         # Help documentation
@@ -90,12 +89,10 @@ frontend/
 | React DOM | ^19.2.4 | DOM rendering |
 | React Router DOM | ^7.13.0 | Client-side routing |
 | @clerk/clerk-react | ^5.60.0 | Authentication |
-| @xyflow/react | ^12.10.0 | Mind map visualization |
 | recharts | ^3.7.0 | Charts and graphs |
 | jspdf | ^4.2.1 | PDF generation |
 | lucide-react | ^0.575.0 | Icons |
 | canvas-confetti | ^1.9.4 | Celebration effects |
-| dagre | ^0.8.5 | Graph layout algorithms |
 
 ### Development Tools
 - **react-scripts**: ^5.0.1 (Create React App)
@@ -132,7 +129,6 @@ frontend/
 ### 5. **PDF Chat**
 - **Document Upload**: PDF processing and indexing
 - **AI Chat**: Interactive Q&A with documents
-- **Mind Map Generation**: Visual document structure
 - **Source Citation**: Reference tracking
 
 ---
@@ -237,21 +233,13 @@ frontend/
 - Latest technical score
 - Learning style status
 
-### **PdfChatPage.js** (737 lines)
-**Purpose**: PDF chat with mind map visualization
+### **PdfChatPage.js**
+**Purpose**: PDF chat against uploaded documents (RAG service + agent)
 
 **Key Features**:
 - PDF upload and processing
 - Chat interface with AI
-- Mind map generation
-- React Flow integration
 - Session management
-
-**Mind Map**:
-- Radial layout algorithm
-- Interactive node manipulation
-- Zoom and pan controls
-- Visual hierarchy
 
 ### **Navbar.js** (182 lines)
 **Purpose**: Navigation component
@@ -357,7 +345,6 @@ frontend/
 #### PDF Chat Endpoints (RAG Service - Port 5001)
 - `GET /health` - RAG service health
 - `POST /upload-pdf` - Upload PDF for chat
-- `POST /mindmap` - Generate mind map
 - `POST /reset` - Reset chat session
 
 ### **Service Layer** (`services/learningService.js`)
@@ -498,7 +485,6 @@ frontend/
 - Multiple input methods (GitHub/Resume)
 - AI-powered content generation
 - Progress tracking and analytics
-- Interactive mind maps
 
 ### **3. Personalization**
 - Learning style adaptation

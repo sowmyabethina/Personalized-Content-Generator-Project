@@ -205,7 +205,7 @@ export function splitIntoChunks(text) {
 }
 
 /**
- * Extract headings from chunks for mind map
+ * Extract headings from chunks (document outline)
  */
 export function extractHeadings(chunks) {
   const headings = [];
