@@ -80,14 +80,27 @@ router.post('/chat', async (req, res) => {
       context: context || {}
     });
 
-    console.log(`✅ Agent response (${response.tool}):`, response.success ? 'Success' : 'Failed');
+    let success = response.success !== false;
+    let outMessage = response.response;
+    const outData = response.rawData;
 
-    // Return response (response.message was incorrect for routeMessage output)
+    if (response.tool === 'quiz' && outData) {
+      const qList = Array.isArray(outData) ? outData : outData?.questions;
+      if (Array.isArray(qList) && qList.length === 0) {
+        success = false;
+        outMessage =
+          outMessage ||
+          'Quiz generation produced no questions. Restart the server if you recently updated code, then try again.';
+      }
+    }
+
+    console.log(`✅ Agent response (${response.tool}):`, success ? 'Success' : 'Failed');
+
     return res.json({
-      success: response.success,
+      success,
       tool: response.tool,
-      message: response.response,
-      data: response.rawData,
+      message: outMessage,
+      data: outData,
       timestamp: new Date().toISOString()
     });
 

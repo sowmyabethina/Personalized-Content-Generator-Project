@@ -164,7 +164,7 @@ function HomePage() {
           }
         });
       } else {
-        setError("Could not parse questions. Please try again.");
+        setError("Quiz generation returned no questions. Please try again.");
       }
     } catch (err) {
       console.error("Error:", err);

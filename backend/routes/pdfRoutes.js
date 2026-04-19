@@ -7,6 +7,7 @@ import express from "express";
 import multer from "multer";
 import { readPdf, readResumePdf, generateFromPdfHandler } from "../controllers/pdfController.js";
 import { appConfig } from "../config/index.js";
+import { clerkAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -21,23 +22,6 @@ const upload = multer({
     }
   }
 });
-
-// Auth middleware
-const clerkAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader) {
-    req.userId = req.headers['x-user-id'] || 'anonymous';
-    return next();
-  }
-  
-  if (authHeader.startsWith('Bearer ')) {
-    req.userId = req.headers['x-user-id'] || 'authenticated_user';
-    return next();
-  }
-  
-  return res.status(401).json({ error: 'Unauthorized' });
-};
 
 // POST /pdf/read-pdf - Read PDF from GitHub URL
 router.post('/read-pdf', clerkAuth, readPdf);

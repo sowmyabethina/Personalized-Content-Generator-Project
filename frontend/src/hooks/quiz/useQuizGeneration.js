@@ -13,7 +13,7 @@ export const useQuizGeneration = () => {
       const result = await generateQuizFromContent(params);
 
       if (!result.questions.length) {
-        throw new Error("Could not parse questions from generated content.");
+        throw new Error("No quiz questions were returned. Please try again.");
       }
 
       return result;

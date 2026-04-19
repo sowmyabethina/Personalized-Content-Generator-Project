@@ -1,10 +1,11 @@
 /**
  * Quiz Service
- * Handles quiz database operations
+ * Handles quiz database operations and business logic
  */
 
 import { db } from "../config/database.js";
 import { logError, logSuccess, log } from "../utils/logger.js";
+import { generateQuestionsFromTopic, generateQuizFromMaterial } from "./aiService.js";
 
 // Simple in-memory cache for recently generated quizzes
 // Format: { [topicKey]: { quizId, timestamp, quizData } }
@@ -264,6 +265,107 @@ function scoreQuizAnswers(storedQuiz, userAnswers) {
   };
 }
 
+/**
+ * Generate new quiz from text or topic (full business logic)
+ * @param {Object} params - Parameters
+ * @param {string} params.docText - Document text (optional)
+ * @param {string} params.topic - Topic name (optional)
+ * @param {string} params.difficulty - Difficulty level
+ * @param {string} params.technicalLevel - Technical level
+ * @returns {Promise<Object>} - Quiz data with quizId
+ */
+async function generateNewQuiz({ docText, topic, difficulty, technicalLevel }) {
+  let text = '';
+  let quizTopic = topic;
+
+  // Build prompt based on input
+  if (docText && docText.trim().length > 100) {
+    text = docText;
+    quizTopic = quizTopic || 'Document Quiz';
+  } else if (topic && topic.trim()) {
+    const level = technicalLevel || difficulty || 'intermediate';
+    text = `Generate comprehensive skill-testing quiz questions on topic: ${topic}. 
+
+Target difficulty level: ${level}.
+
+The questions should test practical understanding and application of concepts related to ${topic}. 
+Include scenario-based questions, concept understanding, and problem-solving. 
+Do not ask about specific names or details mentioned in documents - focus on testing skills and knowledge.
+
+Generate questions that a ${level} level learner should know about ${topic}.`;
+  } else {
+    throw new Error('docText or topic required');
+  }
+
+  // Call AI service to generate questions
+  const questions = await generateQuestionsFromTopic(text);
+  
+  if (!Array.isArray(questions)) {
+    throw new Error('Invalid AI response');
+  }
+
+  // Create quiz ID and normalize data
+  const quizId = generateQuizId();
+  const quizData = questions.map((q, idx) => normalizeQuizAnswer({
+    originalIndex: idx,
+    question: q.question,
+    options: Array.isArray(q.options) ? q.options : [],
+    ans: q.answer,
+    explanation: q.explanation || '',
+    category: q.category || ''
+  }));
+
+  // Store in database
+  await storeQuiz(quizId, quizData, quizTopic);
+
+  // Cache for future requests
+  cacheQuiz(quizTopic, quizData);
+
+  log(`Quiz generated: ${quizId}`);
+
+  return {
+    quizId,
+    questions: quizData
+  };
+}
+
+/**
+ * Generate quiz from learning material (full business logic)
+ * @param {Object} params - Parameters
+ * @param {string} params.topic - Quiz topic
+ * @param {string} params.material - Learning material
+ * @param {string} params.technicalLevel - Technical level (optional)
+ * @param {string} params.learningStyle - Learning style (optional)
+ * @returns {Promise<Object>} - Quiz data with quizId
+ */
+async function generateNewQuizFromMaterial({ topic, material, technicalLevel, learningStyle }) {
+  if (!topic || !material) {
+    throw new Error('topic and material required');
+  }
+
+  // Call AI service
+  const questions = await generateQuizFromMaterial(topic, material, technicalLevel, learningStyle);
+
+  const quizId = generateQuizId();
+  
+  const quizData = questions.map((q, idx) => ({
+    originalIndex: idx,
+    question: q.question,
+    options: q.options || [],
+    correctAnswer: q.answer || q.options[0],
+    explanation: q.explanation || ''
+  }));
+
+  await storeQuiz(quizId, quizData, topic);
+
+  log(`Quiz generated from material: ${quizId}`);
+
+  return {
+    quizId,
+    questions: quizData
+  };
+}
+
 export {
   storeQuiz,
   getQuiz,
@@ -273,6 +375,8 @@ export {
   scoreQuizAnswers,
   scoreClientQuizAnswers,
   cacheQuiz,
+  generateNewQuiz,
+  generateNewQuizFromMaterial,
 };
 export default {
   storeQuiz,
@@ -283,4 +387,6 @@ export default {
   scoreQuizAnswers,
   scoreClientQuizAnswers,
   cacheQuiz,
+  generateNewQuiz,
+  generateNewQuizFromMaterial,
 };

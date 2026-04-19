@@ -5,7 +5,52 @@
 
 import { groq, getModel, generateCompletion, DEFAULT_MODEL, FALLBACK_MODEL } from "../config/ai.js";
 import { parseJson } from "../utils/jsonParser.js";
-import { logError } from "../utils/logger.js";
+import { log, logError } from "../utils/logger.js";
+
+/**
+ * Coerce AI quiz payload to a validated array for downstream storage/UI.
+ * Accepts letter correctAnswer (A–D) or full option text; maps to answer text.
+ */
+function normalizeQuizQuestionsFromAi(parsed) {
+  const list = Array.isArray(parsed) ? parsed : parsed?.questions;
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  return list
+    .map((q) => {
+      if (!q || typeof q !== "object") return null;
+      let options = Array.isArray(q.options)
+        ? q.options.map((o) => String(o ?? "").trim())
+        : [];
+      options = options.filter((o) => o.length > 0);
+      while (options.length > 0 && options.length < 4) {
+        options.push("None of the above");
+      }
+
+      let answer = q.answer ?? q.correctAnswer ?? "";
+      answer = typeof answer === "string" ? answer.trim() : answer;
+
+      if (typeof answer === "string" && /^[A-D]$/i.test(answer) && options.length >= 2) {
+        const idx = answer.toUpperCase().charCodeAt(0) - 65;
+        if (idx >= 0 && idx < options.length) {
+          answer = options[idx] ?? "";
+        }
+      }
+
+      const question = String(q.question ?? "").trim();
+      if (!question || options.length < 3) return null;
+
+      return {
+        question,
+        options: options.slice(0, 4),
+        answer: typeof answer === "string" ? answer : String(answer),
+        explanation: String(q.explanation ?? "").trim(),
+        category: String(q.category ?? "").trim(),
+      };
+    })
+    .filter(Boolean);
+}
 
 /**
  * Generate quiz questions from text or topic
@@ -20,20 +65,33 @@ async function generateQuizQuestions(text, options = {}) {
 
   const prompt = buildQuizPrompt(text, options);
 
+  const runModel = async (model) => {
+    const rawText = await generateCompletion(prompt, { model });
+    if (!rawText || !String(rawText).trim()) {
+      throw new Error(`Empty Groq output (${model})`);
+    }
+    log(`[generateQuizQuestions] Raw AI response length=${rawText.length}`);
+    let parsed;
+    try {
+      parsed = parseJson(rawText);
+    } catch (e) {
+      logError('[generateQuizQuestions] JSON parse failed', e);
+      console.error('[generateQuizQuestions] Raw snippet:', String(rawText).slice(0, 1200));
+      throw e;
+    }
+    const normalized = normalizeQuizQuestionsFromAi(parsed);
+    log(`[generateQuizQuestions] Parsed question count=${normalized.length}`);
+    if (normalized.length === 0) {
+      throw new Error('AI returned no valid quiz questions (schema mismatch or empty array)');
+    }
+    return normalized;
+  };
+
   try {
-    const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
-    if (!rawText) {
-      throw new Error('Empty Groq output');
-    }
-    return parseJson(rawText);
+    return await runModel(DEFAULT_MODEL);
   } catch (error) {
-    // Try fallback model
-    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
-    const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
-    if (!fallbackText) {
-      throw new Error('Empty Groq fallback output');
-    }
-    return parseJson(fallbackText);
+    logError('Primary quiz model failed, trying fallback', error);
+    return runModel(FALLBACK_MODEL);
   }
 }
 
@@ -60,7 +118,15 @@ Do not ask about specific names or details mentioned in documents - focus on tes
 
 Generate questions that a ${technicalLevel || difficulty} level learner should know about ${text}.
 
-Return ONLY valid JSON as an array of questions.`;
+Return ONLY a JSON array (no markdown, no commentary). Each item MUST be:
+{
+  "question": "string",
+  "options": ["A text", "B text", "C text", "D text"],
+  "correctAnswer": "A",
+  "explanation": "optional string",
+  "category": "optional string"
+}
+Use exactly 4 options. "correctAnswer" is the single letter A, B, C, or D matching the correct option order.`;
   }
   
   // Text is actual content - generate from it
@@ -68,9 +134,17 @@ Return ONLY valid JSON as an array of questions.`;
 
 ${text}
 
-Generate 10 questions that test understanding and application, not just recall.
+Generate exactly 10 questions that test understanding and application, not just recall.
 
-Return ONLY valid JSON as an array of questions.`;
+Return ONLY a JSON array (no markdown, no commentary). Each item MUST be:
+{
+  "question": "string",
+  "options": ["A text", "B text", "C text", "D text"],
+  "correctAnswer": "A",
+  "explanation": "optional string",
+  "category": "optional string"
+}
+Use exactly 4 options. "correctAnswer" is the single letter A, B, C, or D matching the correct option order.`;
 }
 
 const DEFAULT_LESSON_COUNT = 5;
@@ -627,37 +701,43 @@ EXPLANATION RULES:
 3. ALWAYS explain WHY the correct option works (the technical reasoning)
 4. Keep to exactly 2 sentences
 
-Return ONLY valid JSON in this format:
-[
-  {
-    "question": "Question text?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "answer": "Option A",
-    "explanation": "[Explain the concept]. [Explain why this works]."
-  }
-]`;
+Return ONLY a JSON array (no markdown, no commentary). Each item MUST be:
+{
+  "question": "Question text?",
+  "options": ["A text", "B text", "C text", "D text"],
+  "correctAnswer": "A",
+  "explanation": "[Explain the concept]. [Explain why this works]."
+}
+Use exactly 4 options. "correctAnswer" is the single letter A, B, C, or D.`;
+
+  const parseMaterialQuiz = (rawText, label) => {
+    if (!rawText || !String(rawText).trim()) {
+      throw new Error(`Empty Groq output for quiz (${label})`);
+    }
+    log(`[generateQuizFromMaterial] Raw AI response (${label}) length=${rawText.length}`);
+    let parsed;
+    try {
+      parsed = parseJson(rawText);
+    } catch (e) {
+      logError(`[generateQuizFromMaterial] JSON parse failed (${label})`, e);
+      console.error('[generateQuizFromMaterial] Raw snippet:', String(rawText).slice(0, 1200));
+      throw new Error(`Could not parse quiz JSON from model (${label}): ${e.message}`);
+    }
+    const normalized = normalizeQuizQuestionsFromAi(parsed);
+    log(`[generateQuizFromMaterial] Parsed question count (${label})=${normalized.length}`);
+    if (normalized.length === 0) {
+      throw new Error(`Model returned no valid quiz questions (${label})`);
+    }
+    return normalized;
+  };
 
   try {
     const rawText = await generateCompletion(prompt, { model: DEFAULT_MODEL });
-    if (!rawText) {
-      throw new Error('Empty Groq output for quiz');
-    }
-    try {
-      return parseJson(rawText);
-    } catch {
-      return rawText;
-    }
+    return parseMaterialQuiz(rawText, 'primary');
   } catch (error) {
-    console.log("Primary model failed, trying fallback:", FALLBACK_MODEL);
+    logError('generateQuizFromMaterial primary failed', error);
     const fallbackText = await generateCompletion(prompt, { model: FALLBACK_MODEL });
-    if (!fallbackText) {
-      throw new Error('Empty Groq fallback output for quiz');
-    }
-    try {
-      return parseJson(fallbackText);
-    } catch {
-      return fallbackText;
-    }
+    return parseMaterialQuiz(fallbackText, 'fallback');
   }
 }
 
@@ -866,7 +946,12 @@ async function generateQuestionsFromTopic(text) {
   }
   
   const { generateQuestions: gen } = await getQuestionGenerator();
-  return gen(text);
+  const raw = await gen(text);
+  const normalized = normalizeQuizQuestionsFromAi(raw);
+  if (normalized.length === 0) {
+    throw new Error('Document quiz generation returned no valid questions');
+  }
+  return normalized;
 }
 
 export {
@@ -878,6 +963,7 @@ export {
   generateFromPdf,
   buildQuizPrompt,
   generateQuestionsFromTopic,
+  normalizeQuizQuestionsFromAi,
 };
 export default {
   generateQuizQuestions,
@@ -888,7 +974,7 @@ export default {
   generateFromPdf,
   buildQuizPrompt,
   generateQuestionsFromTopic,
+  normalizeQuizQuestionsFromAi,
 };
 
 
-// review trigger

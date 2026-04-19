@@ -1,0 +1,653 @@
+/**
+ * Agent Orchestrator - Main routing logic for learning platform
+ * 
+ * Analyzes user messages and routes to appropriate tool:
+ * - quizTool: For quiz generation requests
+ * - ragTool: For PDF/document chat requests  
+ * - analyticsTool: For progress/performance queries
+ * - contentTool: For learning material generation
+ * - And others...
+ * 
+ * This module handles the main orchestration and tool selection logic.
+ */
+
+import Groq from "groq-sdk";
+import { quizTool, quizToolSchema } from '../tools/quizTool.js';
+import { ragTool, ragToolSchema, checkPdfStatus } from '../tools/ragTool.js';
+import { analyticsTool, analyticsToolSchema } from '../tools/analyticsTool.js';
+import { 
+  contentTool, 
+  personalizedContentTool, 
+  quizFromTextTool,
+  contentToolSchema, 
+  personalizedContentToolSchema,
+  quizFromTextToolSchema 
+} from '../tools/contentTool.js';
+import {
+  evaluateLearningStyleTool,
+  evaluateAnswerTool,
+  validateContentTool,
+  evaluateLearningStyleToolSchema,
+  evaluateAnswerToolSchema,
+  validateContentToolSchema
+} from '../tools/validationTool.js';
+import {
+  GROQ_MODEL_PRIMARY as DEFAULT_MODEL,
+  GROQ_MODEL_FALLBACK as FALLBACK_MODEL,
+} from "../../config/ai.models.js";
+
+// Initialize Groq
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
+
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000;
+
+console.log("Agent Orchestrator module loaded, Groq:", !!groq);
+
+/**
+ * Main entry point - route the message to appropriate tool
+ * @param {Object} params
+ * @param {string} params.message - User's message
+ * @param {string} params.userId - User ID
+ * @param {string} params.sessionId - Session ID for RAG
+ * @param {string} params.model - AI model to use (deprecated, routed by current provider config)
+ * @param {Object} params.context - Additional context (profile, quiz answers, quizType, etc.)
+ * @param {Object} params.helpers - Helper functions (isPdfChat, isQuizFromDocument, etc.) imported from LearningAgent
+ * @returns {Promise<Object>} Agent response
+ */
+export async function routeMessage({ message, userId, sessionId, model = 'groq', context = {}, helpers = {} }) {
+  const {
+    isPdfChat = () => false,
+    isQuizFromDocument = () => false,
+    generateQuizFromPdfWithGroq = null,
+    getPdfQuizFallbackResponse = () => ({
+      success: false,
+      tool: 'quiz',
+      originalMessage: '',
+      response: 'PDF quiz generation failed',
+      rawData: null,
+    })
+  } = helpers;
+
+  console.log("Orchestrator received message:", message);
+  console.log("Context received:", JSON.stringify(context));
+  
+  try {
+    // ============================================================
+    // SPECIAL HANDLING: Topic-based quiz generation (uses Groq via quizTool)
+    // ============================================================
+    if (context?.quizType === "topic" && context?.topic) {
+      console.log("📝 Topic-based quiz request - using Groq via quizTool");
+      
+      try {
+        const result = await quizTool({
+          topic: context.topic,
+          difficulty: context.difficulty || 'medium',
+          questionCount: context.questionCount || 10,
+          userId
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+      } catch (groqError) {
+        console.error("❌ Groq topic quiz error, retrying:", groqError.message);
+        try {
+          const retryResult = await quizTool({
+            topic: context.topic,
+            difficulty: context.difficulty || 'medium',
+            questionCount: context.questionCount || 10,
+            userId
+          });
+          if (retryResult.success) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: retryResult.message,
+              rawData: retryResult.data
+            };
+          }
+        } catch (retryError) {
+          console.error("❌ Retry failed:", retryError.message);
+        }
+      }
+    }
+
+    // ============================================================
+    // SPECIAL HANDLING: Quiz generation from PDF/Document (resume upload flow)
+    // ============================================================
+    const isPdfQuizRequest =
+      context?.quizType === 'document' ||
+      isQuizFromDocument(message);
+    let topic = context?.topic || 'Document Quiz';
+    
+    if (isPdfQuizRequest && generateQuizFromPdfWithGroq) {
+      console.log("📄 Document quiz request - using Groq via generateQuizFromPdfWithGroq");
+      topic = context?.topic || 'Document Quiz';
+      
+      // Check if Groq is available
+      if (!groq) {
+        console.log("⚠️ Groq not available, using fallback");
+        return getPdfQuizFallbackResponse(context?.pdfText || '', topic);
+      }
+      
+      // Check if PDF text is available in context
+      const pdfText = context?.pdfText || '';
+      
+      if (!pdfText || pdfText.length < 200) {
+        return {
+          success: true,
+          tool: 'quiz',
+          originalMessage: message,
+          response: 'To generate a quiz from a PDF, please upload a document first or provide the document content.',
+          rawData: { needsPdf: true }
+        };
+      }
+      
+      try {
+        const result = await generateQuizFromPdfWithGroq({
+          pdfText,
+          topic
+        });
+        
+        if (result.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: result.message,
+            rawData: result.data
+          };
+        }
+
+        console.log("⚠️ Document quiz generation failed:", result.message);
+        let retryResult = null;
+        try {
+          retryResult = await generateQuizFromPdfWithGroq({ pdfText, topic });
+        } catch (retryErr) {
+          console.error("❌ Document quiz retry error:", retryErr.message);
+        }
+        if (retryResult?.success) {
+          return {
+            success: true,
+            tool: 'quiz',
+            originalMessage: message,
+            response: retryResult.message,
+            rawData: retryResult.data
+          };
+        }
+
+        console.log('📄 Document quiz: trying quizFromTextTool (/quiz/generate) fallback');
+        let toolFallback = null;
+        try {
+          toolFallback = await quizFromTextTool({
+            docText: pdfText.substring(0, 12000),
+            topic: topic || 'Document Quiz',
+          });
+        } catch (ftErr) {
+          console.error('❌ quizFromTextTool fallback error:', ftErr.message);
+        }
+
+        if (toolFallback?.success && toolFallback.data) {
+          const payload = toolFallback.data;
+          const arr = Array.isArray(payload) ? payload : payload?.questions;
+          if (Array.isArray(arr) && arr.length > 0) {
+            return {
+              success: true,
+              tool: 'quiz',
+              originalMessage: message,
+              response: toolFallback.message || 'Generated quiz from document',
+              rawData: Array.isArray(payload)
+                ? { questions: payload, topic }
+                : { ...payload, questions: arr, topic: payload?.topic || topic },
+            };
+          }
+        }
+
+        return {
+          success: false,
+          tool: 'quiz',
+          originalMessage: message,
+          response:
+            retryResult?.message ||
+            result.message ||
+            'Could not generate quiz from this document.',
+          rawData: { questions: [], topic, error: 'document_quiz_failed' },
+        };
+      } catch (groqError) {
+        console.error("❌ Groq PDF quiz error:", groqError.message);
+        return {
+          success: false,
+          tool: 'quiz',
+          originalMessage: message,
+          response: groqError.message || 'Quiz generation failed',
+          rawData: { questions: [], topic, error: 'document_quiz_exception' },
+        };
+      }
+    }
+    
+    // ============================================================
+    // END SPECIAL HANDLING FOR PDF QUIZ
+    // ============================================================
+
+    // ============================================================
+    // Explicit personalized learning path (Result page / clients with intent)
+    // Bypasses Groq tool-selection so "Generate personalized..." cannot be misrouted to quiz.
+    // ============================================================
+    if (
+      context?.intent === "personalizedLearningPath" ||
+      /\bgenerate\s+personalized\s+learning\b/i.test(message || "")
+    ) {
+      const profile = context?.userProfile || {};
+      const fromCtx = typeof context?.topic === "string" ? context.topic.trim() : "";
+      const topicMatch =
+        typeof message === "string" &&
+        (message.match(/topic:\s*(.+)$/i) || message.match(/on\s+topic:\s*(.+)$/i));
+      const topicForTool =
+        fromCtx ||
+        (topicMatch && topicMatch[1] ? topicMatch[1].trim() : "") ||
+        "General Technology";
+
+      const result = await personalizedContentTool({
+        topic: topicForTool,
+        technicalLevel: profile.technicalLevel || "intermediate",
+        learningStyle: profile.learningStyle || "reading",
+        technicalScore:
+          typeof profile.technicalScore === "number"
+            ? profile.technicalScore
+            : Number(profile.technicalScore) || 50,
+        learningScore:
+          typeof profile.learningScore === "number"
+            ? profile.learningScore
+            : Number(profile.learningScore) || 50,
+        userId,
+      });
+
+      return {
+        success: result.success,
+        tool: "personalizedContent",
+        originalMessage: message,
+        response: formatResponse("personalizedContent", result),
+        rawData: result.data || null,
+      };
+    }
+    
+    // If it's a direct PDF chat request, use RAG tool directly and skip model rerouting
+    const isPdfChatRequest = isPdfChat(message);
+    if (isPdfChatRequest) {
+      console.log("📄 Direct PDF chat request detected, using ragTool directly");
+      const ragResult = await ragTool({ message, sessionId, userId });
+      return {
+        success: ragResult.success,
+        tool: 'rag',
+        originalMessage: message,
+        response: formatResponse('rag', ragResult),
+        rawData: ragResult.data || null
+      };
+    }
+
+    // Check PDF status first for RAG context
+    const pdfStatus = await checkPdfStatus();
+    console.log("PDF status:", pdfStatus);
+
+    // Build user profile context
+    const profileContext = context?.userProfile ? `
+User Profile:
+- Technical Level: ${context.userProfile.technicalLevel || 'unknown'}
+- Learning Style: ${context.userProfile.learningStyle || 'unknown'}
+- Technical Score: ${context.userProfile.technicalScore || 'N/A'}
+- Learning Score: ${context.userProfile.learningScore || 'N/A'}
+` : '';
+    
+    // Build quiz context if available
+    const quizContext = context?.quizAnswers ? `
+Current Quiz:
+- Questions answered: ${context.quizAnswers.length}
+- Current score: ${context.quizAnswers.filter(a => a.correct).length}/${context.quizAnswers.length}
+` : '';
+    
+    // Build PDF context if available
+    const pdfContext = context?.pdfText ? `
+PDF Context (${(context.pdfText.length / 1000).toFixed(1)}KB):
+${context.pdfText.substring(0, 1000)}...
+` : '';
+    
+    // Build context about available tools
+    const toolContext = `
+Available tools:
+1. quizTool - Generate quizzes on any topic. Available: YES
+2. ragTool - Chat with uploaded PDFs. Available: ${pdfStatus.success ? (pdfStatus.pdfLoaded ? 'YES (PDF loaded)' : 'NO (no PDF uploaded)') : 'NO (service unavailable)'}
+3. analyticsTool - View learning progress and analytics. Available: YES
+4. contentTool - Generate educational learning material, tutorials, explanations on any topic. Available: YES
+5. personalizedContentTool - Generate personalized content based on user's technical level and learning style. Available: YES
+6. quizFromTextTool - Generate quiz questions from extracted document/PDF text. Available: YES
+7. evaluateLearningStyleTool - Evaluate user's learning style from assessment answers. Available: YES
+8. evaluateAnswerTool - Evaluate quality and accuracy of a student's answer. Available: YES
+9. validateContentTool - Validate quality of generated educational content. Available: YES
+
+User context:
+- User ID: ${userId || 'anonymous'}
+- Session ID: ${sessionId || 'new'}
+${profileContext}${quizContext}${pdfContext}
+
+Choose the MOST appropriate tool based on the user's message. 
+- If user wants a quiz, test, or practice → use quizTool
+- If user asks about their progress, scores, performance, history → use analyticsTool  
+- If user asks about a document, PDF, or wants to discuss uploaded content → use ragTool (if available)
+- If user wants to learn about a topic, get explanations, tutorials → use contentTool
+- If user wants personalized content based on their level/style → use personalizedContentTool
+- If user has document text and wants quiz → use quizFromTextTool
+- If user submits answers for evaluation → use evaluateAnswerTool
+- If unclear, default to contentTool for learning requests
+
+User message: "${message}"
+`;
+
+    console.log("Agent deciding tool...");
+    
+    // ============================================================
+    // API ROUTING RULES:
+    // - Direct PDF chat handled above via ragTool
+    // - Always use Groq
+    // ============================================================
+    // Force Groq for all requests
+    let effectiveModel = 'groq';
+    
+    console.log(`API Routing: isPdfChat=${isPdfChatRequest}, using=${effectiveModel}`);
+    
+    let toolCall = null;
+
+    // Use Groq for all requests
+    if (effectiveModel === 'groq' && groq) {
+      console.log("Using Groq for tool selection");
+      toolCall = await routeWithGroq(toolContext, message, context);
+    }
+    // Fallback to simple keyword matching
+    else {
+      console.log("Using keyword matching for tool selection (no AI API key)");
+      toolCall = routeWithKeywords(message, context);
+    }
+
+    console.log("Selected tool:", toolCall.tool, "with params:", toolCall.params);
+
+    // Execute the selected tool
+    console.log(`Executing tool: ${toolCall.tool}`);
+
+    let result;
+    switch (toolCall.tool) {
+      case 'quiz':
+        result = await quizTool({
+          ...toolCall.params,
+          userId,
+          docText: context?.pdfText || null
+        });
+        break;
+      case 'rag':
+        result = await ragTool({
+          ...toolCall.params,
+          sessionId,
+          userId
+        });
+        break;
+      case 'analytics':
+        result = await analyticsTool({
+          ...toolCall.params,
+          userId
+        });
+        break;
+      case 'content':
+        result = await contentTool({
+          ...toolCall.params,
+          userId
+        });
+        break;
+      case 'personalizedContent':
+        result = await personalizedContentTool({
+          ...toolCall.params,
+          userId
+        });
+        break;
+      case 'quizFromText':
+        result = await quizFromTextTool({
+          ...toolCall.params
+        });
+        break;
+      case 'evaluateLearningStyle':
+        result = await evaluateLearningStyleTool({
+          ...toolCall.params
+        });
+        break;
+      case 'evaluateAnswer':
+        result = await evaluateAnswerTool({
+          ...toolCall.params
+        });
+        break;
+      case 'validateContent':
+        result = await validateContentTool({
+          ...toolCall.params
+        });
+        break;
+      default:
+        result = {
+          success: false,
+          message: 'Unable to determine which tool to use. Please try again.'
+        };
+    }
+
+    console.log("Tool execution result:", result.success ? "Success" : "Failed");
+
+    // Format final response
+    const response = {
+      success: result.success,
+      tool: toolCall.tool,
+      originalMessage: message,
+      response: formatResponse(toolCall.tool, result),
+      rawData: result.data || null
+    };
+
+    console.log("Agent response ready");
+    return response;
+
+  } catch (error) {
+    console.error('❌ Orchestrator error:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'An error occurred while processing your request. Please try again.'
+    };
+  }
+}
+
+/**
+ * Route using Groq function calling
+ */
+async function routeWithGroq(systemContext, userMessage, routingContext = {}) {
+  console.log("routeWithGroq called");
+  
+  if (!groq) {
+    throw new Error("GROQ_API_KEY is not configured");
+  }
+  
+  const prompt = `${systemContext}\n\nUser message: "${userMessage}"`;
+  
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: DEFAULT_MODEL,
+      temperature: 0.7
+    });
+    
+    const responseText = chatCompletion.choices[0]?.message?.content;
+    
+    if (!responseText) {
+      return routeWithKeywords(userMessage, routingContext);
+    }
+    
+    // Try to parse as JSON if it contains tool call info
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed.tool && parsed.params) {
+        return {
+          tool: parsed.tool,
+          params: parsed.params || {}
+        };
+      }
+    } catch (parseError) {
+      // Not JSON, try to extract tool from text
+    }
+    
+    // Fallback to keyword routing if Groq didn't return structured response
+    return routeWithKeywords(userMessage, routingContext);
+  } catch (error) {
+    console.error("Groq routing error:", error.message);
+    return routeWithKeywords(userMessage, routingContext);
+  }
+}
+
+/**
+ * Fallback keyword-based routing (kept for compatibility)
+ */
+function routeWithKeywords(message, routingContext = {}) {
+  console.log("routeWithKeywords called with:", message);
+  
+  const lowerMessage = message.toLowerCase();
+  
+  // Quiz keywords (avoid bare "generate" — it matches UI copy like "Generate personalized learning...")
+  const quizKeywords = ['quiz', 'test', 'question', 'practice', 'exam', 'assess', 'generate quiz', 'generate a quiz', 'create quiz', 'take a quiz'];
+  if (quizKeywords.some(kw => lowerMessage.includes(kw))) {
+    let topic = lowerMessage
+      .replace(/quiz|test|question|practice|exam|assess|generate|create|take a/i, '')
+      .trim() || 'General Knowledge';
+    topic = topic.charAt(0).toUpperCase() + topic.slice(1);
+    
+    return {
+      tool: 'quiz',
+      params: { topic }
+    };
+  }
+  
+  // Content/Learning material keywords
+  const contentKeywords = ['explain', 'learn', 'teach me', 'tutorial', 'study', 'material', 'lesson', 'concept', 'understand'];
+  if (contentKeywords.some(kw => lowerMessage.includes(kw))) {
+    let topic = lowerMessage
+      .replace(/explain|learn|teach me|tutorial|study|material|lesson|concept|understand/i, '')
+      .trim() || 'General Knowledge';
+    topic = topic.charAt(0).toUpperCase() + topic.slice(1);
+    
+    // Check if personalized content is requested
+    if (lowerMessage.includes('personalized') || lowerMessage.includes('learning path')) {
+      const profile = routingContext.userProfile || {};
+      return {
+        tool: 'personalizedContent',
+        params: {
+          topic,
+          technicalLevel: profile.technicalLevel || 'intermediate',
+          learningStyle: profile.learningStyle || 'reading',
+          technicalScore: profile.technicalScore ?? 50,
+          learningScore: profile.learningScore ?? 50
+        }
+      };
+    }
+    
+    return {
+      tool: 'content',
+      params: { topic, technicalLevel: 'intermediate', learningStyle: 'reading' }
+    };
+  }
+  
+  // Analytics keywords
+  const analyticsKeywords = ['progress', 'score', 'performance', 'analytics', 'history', 'statistics', 'how am i', 'my performance', 'my progress', 'learning', 'weaknesses', 'strengths', 'analysis'];
+  if (analyticsKeywords.some(kw => lowerMessage.includes(kw))) {
+    return {
+      tool: 'analytics',
+      params: {}
+    };
+  }
+  
+  // RAG/PDF keywords
+  const ragKeywords = ['pdf', 'document', 'file', 'what is', 'how does', 'tell me about', 'read', 'chapter', 'page'];
+  if (ragKeywords.some(kw => lowerMessage.includes(kw))) {
+    return {
+      tool: 'rag',
+      params: { message }
+    };
+  }
+  
+  // Validation keywords
+  const validationKeywords = ['validate', 'check my answer', 'evaluate', 'review my'];
+  if (validationKeywords.some(kw => lowerMessage.includes(kw))) {
+    return {
+      tool: 'evaluateAnswer',
+      params: { question: message, answer: '' }
+    };
+  }
+  
+  // Default to RAG if message is a question
+  if (lowerMessage.includes('?') || lowerMessage.includes('what') || lowerMessage.includes('how') || lowerMessage.includes('why')) {
+    return {
+      tool: 'rag',
+      params: { message }
+    };
+  }
+  
+  // Default fallback - use content tool for general learning
+  return {
+    tool: 'content',
+    params: { topic: 'General Knowledge', technicalLevel: 'intermediate', learningStyle: 'reading' }
+  };
+}
+
+/**
+ * Format the response based on tool and result
+ */
+function formatResponse(tool, result) {
+  if (!result.success) {
+    return result.message || 'Something went wrong. Please try again.';
+  }
+
+  switch (tool) {
+    case 'quiz':
+      return result.message || 'Quiz generated successfully!';
+    case 'rag':
+      return result.data?.answer || result.data?.response || result.message || 'Got response from PDF';
+    case 'analytics':
+      const summary = result.data?.summary;
+      if (summary) {
+        return `Here's your learning summary:\n- Total Analyses: ${summary.totalAnalyses}\n- Quizzes Taken: ${summary.totalQuizzes}\n- Average Score: ${summary.averageScore}%\n\nWould you like more details?`;
+      }
+      return result.message || 'Retrieved your analytics';
+    case 'content':
+    case 'personalizedContent':
+      if (result.data?.sections) {
+        return `Here's your learning material on ${result.data.topic || 'the topic'}:\n\n${result.data.sections?.slice(0, 3).map(s => `**${s.title || s.heading || 'Section'}**\n${(s.content || s.explanation || '').substring(0, 200)}`).join('\n\n')}`;
+      }
+      return result.message || 'Generated learning material successfully!';
+    case 'quizFromText':
+      return result.message || 'Generated quiz from your document!';
+    case 'evaluateLearningStyle':
+      return result.message || 'Learning style evaluation complete!';
+    case 'evaluateAnswer':
+      if (result.data?.feedback) {
+        return `Answer Evaluation:\nScore: ${result.data.score}/100\nFeedback: ${result.data.feedback}`;
+      }
+      return result.message || 'Answer evaluated!';
+    case 'validateContent':
+      if (result.data?.quality) {
+        return `Content Validation:\nQuality Score: ${result.data.quality}/100\nValid: ${result.data.isValid ? 'Yes' : 'No'}`;
+      }
+      return result.message || 'Content validated!';
+    default:
+      return result.message || 'Request processed successfully';
+  }
+}
+
+export default { routeMessage };

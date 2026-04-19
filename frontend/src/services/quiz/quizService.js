@@ -32,9 +32,26 @@ export const generateQuizFromContent = async ({ extractedText, topic, userId, so
     "Failed to generate quiz questions."
   );
 
+  if (payload?.success === false) {
+    const detail =
+      (typeof payload.message === "string" && payload.message.trim()) ||
+      (typeof payload.error === "string" && payload.error.trim()) ||
+      "Quiz generation failed.";
+    throw new Error(detail);
+  }
+
+  const questions = extractQuestionsFromAgentPayload(payload);
+
+  if (!questions.length) {
+    const detail =
+      (typeof payload.message === "string" && payload.message.trim()) ||
+      "The server returned no quiz questions. Try again with a longer document or check API configuration.";
+    throw new Error(detail);
+  }
+
   return {
     payload,
-    questions: extractQuestionsFromAgentPayload(payload),
+    questions,
   };
 };
 

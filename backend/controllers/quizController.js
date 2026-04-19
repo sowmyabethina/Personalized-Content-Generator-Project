@@ -1,85 +1,35 @@
 /**
  * Quiz Controller
- * Handles quiz route logic (req/res handling)
- * 
- * MUST be thin - ONLY receives req/res, calls services, returns response
+ * Thin HTTP request/response layer ONLY
+ * All business logic delegated to quizService.core
  */
 
 import {
-  storeQuiz,
-  getQuiz,
-  storeQuizResult,
-  generateQuizId,
-  normalizeQuizAnswer,
-  scoreQuizAnswers,
-  scoreClientQuizAnswers,
-  cacheQuiz,
-} from "../services/quizService.js";
-import {
-  analyzePsychometricProfile,
-  getTechnicalLevel,
-} from "../utils/psychometricQuiz.js";
-import { generateQuestionsFromTopic, generateQuizFromMaterial } from "../services/aiService.js";
+  generateQuizCore,
+  generateQuizFromMaterialCore,
+  scoreQuizCombinedCore,
+  getQuizCore,
+  storeQuizResultCore,
+  scoreQuizAnswers
+} from "../services/quiz/quizService.core.js";
 import { handleError } from "../utils/errorHandler.js";
 import { log } from "../utils/logger.js";
 
 /**
- * Generate quiz - handles /quiz/generate
- * Expects: { docText?, topic?, difficulty?, technicalLevel? }
+ * Generate quiz - thin wrapper for /quiz/generate
  */
 async function generateQuiz(req, res) {
   try {
     const { docText, topic, difficulty, technicalLevel } = req.body;
-    let text = '';
-    let quizTopic = topic;
 
-    // Input validation - build text or use docText
-    if (docText && docText.trim().length > 100) {
-      text = docText;
-      quizTopic = quizTopic || 'Document Quiz';
-    } else if (topic && topic.trim()) {
-      const level = technicalLevel || difficulty || 'intermediate';
-      text = `Generate comprehensive skill-testing quiz questions on topic: ${topic}. 
-
-Target difficulty level: ${level}.
-
-The questions should test practical understanding and application of concepts related to ${topic}. 
-Include scenario-based questions, concept understanding, and problem-solving. 
-Do not ask about specific names or details mentioned in documents - focus on testing skills and knowledge.
-
-Generate questions that a ${level} level learner should know about ${topic}.`;
-    } else {
+    if (!docText?.trim() && !topic?.trim()) {
       return res.status(400).json({ error: 'docText or topic required' });
     }
 
-    // Call service to generate questions
-    const questions = await generateQuestionsFromTopic(text);
+    const result = await generateQuizCore({ docText, topic, difficulty, technicalLevel });
     
-    if (!Array.isArray(questions)) {
-      throw new Error('Invalid AI response');
-    }
-
-    // Create quiz ID and normalize data
-    const quizId = generateQuizId();
-    const quizData = questions.map((q, idx) => normalizeQuizAnswer({
-      originalIndex: idx,
-      question: q.question,
-      options: Array.isArray(q.options) ? q.options : [],
-      ans: q.answer,
-      explanation: q.explanation || '',
-      category: q.category || ''
-    }));
-
-    // Store in database
-    await storeQuiz(quizId, quizData, quizTopic);
-
-    // Cache for future requests (optional optimization)
-    cacheQuiz(quizTopic, quizData);
-
-    log(`Quiz generated: ${quizId}`);
-
-    res.setHeader('X-Quiz-Id', quizId);
-    return res.json(quizData);
+    res.setHeader('X-Quiz-Id', result.quizId);
+    return res.json(result.questions);
 
   } catch (err) {
     const errorResponse = handleError(err, '/quiz/generate');
@@ -88,8 +38,7 @@ Generate questions that a ${level} level learner should know about ${topic}.`;
 }
 
 /**
- * Score quiz - handles /quiz/score-quiz
- * Expects: { quizId, answers: [] }
+ * Score quiz - thin wrapper for /quiz/score-quiz
  */
 async function scoreQuiz(req, res) {
   try {
@@ -99,26 +48,20 @@ async function scoreQuiz(req, res) {
       return res.status(400).json({ error: 'quizId and answers array required' });
     }
 
-    // Get quiz from database
-    const quizData = await getQuiz(quizId);
+    const quizData = await getQuizCore(quizId);
 
     if (!quizData) {
       return res.status(404).json({ error: 'Quiz not found' });
     }
 
     const { quizData: storedQuiz, totalQuestions } = quizData;
-
-    // Score using service function
     const scoreResult = scoreQuizAnswers(storedQuiz, answers);
 
-    // Store result in database
-    await storeQuizResult(quizId, answers, scoreResult.score, scoreResult.correct, totalQuestions);
+    await storeQuizResultCore(quizId, answers, scoreResult.score, scoreResult.correct, totalQuestions);
 
-    // Evaluate skill level by combining quiz result with profile signals
     let skillEvaluation = null;
     try {
       const { evaluateSkillLevel } = await import('../agents/skillEvaluationAgent.js');
-
       skillEvaluation = await evaluateSkillLevel({
         quizScore: scoreResult.score,
         totalQuestions: scoreResult.total,
@@ -127,7 +70,6 @@ async function scoreQuiz(req, res) {
         resumeSkills: Array.isArray(resumeSkills) ? resumeSkills : []
       });
     } catch (evalErr) {
-      // do not fail scoring completely if evaluation fails
       skillEvaluation = { error: 'Skill evaluation failed', details: evalErr.message };
     }
 
@@ -143,8 +85,7 @@ async function scoreQuiz(req, res) {
 }
 
 /**
- * Generate quiz from material - handles /quiz/generate-quiz-from-material
- * Expects: { topic, material, technicalLevel?, learningStyle? }
+ * Generate quiz from material - thin wrapper for /quiz/generate-quiz-from-material
  */
 async function handleGenerateQuizFromMaterial(req, res) {
   try {
@@ -154,25 +95,15 @@ async function handleGenerateQuizFromMaterial(req, res) {
       return res.status(400).json({ error: 'topic and material required' });
     }
 
-    // Call AI service directly (this handles the material-based generation)
-    const questions = await generateQuizFromMaterial(topic, material, technicalLevel, learningStyle);
+    const result = await generateQuizFromMaterialCore({
+      topic,
+      material,
+      technicalLevel,
+      learningStyle
+    });
 
-    const quizId = generateQuizId();
-    
-    const quizData = questions.map((q, idx) => ({
-      originalIndex: idx,
-      question: q.question,
-      options: q.options || [],
-      correctAnswer: q.answer || q.options[0],
-      explanation: q.explanation || ''
-    }));
-
-    await storeQuiz(quizId, quizData, topic);
-
-    log(`Quiz generated from material: ${quizId}`);
-
-    res.setHeader('X-Quiz-Id', quizId);
-    return res.json(quizData);
+    res.setHeader('X-Quiz-Id', result.quizId);
+    return res.json(result.questions);
 
   } catch (err) {
     const errorResponse = handleError(err, '/quiz/generate-quiz-from-material');
@@ -181,8 +112,7 @@ async function handleGenerateQuizFromMaterial(req, res) {
 }
 
 /**
- * POST /api/quiz/score — combined technical + learning scoring (matches frontend submitQuiz success shape).
- * Body: { quizId?, answers?, questions?, learningAnswers?, learningQuestions?, topic? }
+ * Process quiz score - thin wrapper for /api/quiz/score
  */
 async function processQuizScore(req, res) {
   try {
@@ -194,63 +124,34 @@ async function processQuizScore(req, res) {
       learningQuestions = [],
     } = req.body || {};
 
-    const answerList = Array.isArray(answers) ? answers : [];
-    const questionList = Array.isArray(questions) ? questions : [];
+    const quizData = quizId ? await getQuizCore(quizId) : null;
+    const storedQuizData = quizData?.quizData || null;
 
-    let correct = 0;
-    let score = 0;
-    let total = 0;
+    const result = scoreQuizCombinedCore({
+      quizData: storedQuizData,
+      storedAnswers: Array.isArray(answers) ? answers : [],
+      clientQuestions: Array.isArray(questions) ? questions : [],
+      clientAnswers: Array.isArray(answers) ? answers : [],
+      learningQuestions: Array.isArray(learningQuestions) ? learningQuestions : [],
+      learningAnswers: Array.isArray(learningAnswers) ? learningAnswers : []
+    });
 
-    const stored = quizId ? await getQuiz(quizId) : null;
-
-    if (stored?.quizData?.length) {
-      const scoreResult = scoreQuizAnswers(stored.quizData, answerList);
-      correct = scoreResult.correct;
-      score = scoreResult.score;
-      total = scoreResult.total;
+    if (quizId && storedQuizData) {
       try {
-        await storeQuizResult(
+        await storeQuizResultCore(
           quizId,
-          answerList,
-          scoreResult.score,
-          scoreResult.correct,
-          stored.totalQuestions
+          answers,
+          result.score,
+          result.correct,
+          storedQuizData.length
         );
       } catch (storeErr) {
-        log("processQuizScore: storeQuizResult skipped", { details: storeErr.message });
+        log("processQuizScore: storeQuizResultCore skipped", { details: storeErr.message });
       }
-    } else if (questionList.length > 0) {
-      const scoreResult = scoreClientQuizAnswers(answerList, questionList);
-      correct = scoreResult.correct;
-      score = scoreResult.score;
-      total = scoreResult.total;
     }
 
-    const learningScore = learningQuestions.length
-      ? Math.round(
-          (learningAnswers.reduce((sum, v) => sum + Number(v || 0), 0) /
-            (learningQuestions.length * 2)) *
-            100
-        )
-      : 0;
+    return res.json(result);
 
-    const psychometricProfile = learningAnswers.length
-      ? analyzePsychometricProfile(learningAnswers)
-      : null;
-    const technicalLevel = getTechnicalLevel(score);
-    const combinedAnalysis = psychometricProfile
-      ? `Technical: ${technicalLevel} level based on quiz score. Learning preference determined through assessment.`
-      : null;
-
-    return res.json({
-      correct,
-      score,
-      total,
-      learningScore,
-      technicalLevel,
-      psychometricProfile,
-      combinedAnalysis,
-    });
   } catch (err) {
     const errorResponse = handleError(err, "/api/quiz/score");
     return res
